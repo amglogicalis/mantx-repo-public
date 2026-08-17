@@ -609,11 +609,24 @@ body {
   background: rgba(6, 17, 11, 0.95);
 }
 
+.forge-mode-btn {
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.2s ease;
+}
+
+.forge-mode-btn:hover {
+  border-color: var(--emerald-light);
+  color: #fff;
+}
+
 .forge-mode-btn.active {
   background: var(--emerald-main) !important;
   color: #010402 !important;
-  font-weight: 700;
+  font-weight: 700 !important;
   border-color: var(--emerald-main) !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
 }
 
 @media (max-width: 900px) {
