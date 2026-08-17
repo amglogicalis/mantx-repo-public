@@ -11,355 +11,367 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Top Navigation Header -->
-  <header class="top-nav">
-    <div class="nav-left">
-      <img src="assets/logo_mantx.jpg" alt="MANTX Logo" class="brand-logo">
-      <div class="brand-info">
-        <div class="brand-title">MANTX <span class="badge badge-emerald">v1.0.0</span></div>
-        <div class="brand-sub">The Autonomous MLOps & LLMOps Engine • Terra Ecosystem</div>
-      </div>
-    </div>
-    <div class="nav-center">
-      <button class="nav-tab active" data-tab="dashboard">📊 Dashboard</button>
-      <button class="nav-tab" data-tab="marketplace">🗂️ Marketplace</button>
-      <button class="nav-tab" data-tab="akg">🔑 AKG Gateway</button>
-      <button class="nav-tab" data-tab="battles">⚔️ Deimatic Battles</button>
-      <button class="nav-tab" data-tab="nimphys">🧬 Nimphys & Forge</button>
-      <button class="nav-tab" data-tab="code">🤖 Mantx Code</button>
-      <button class="nav-tab" data-tab="intelligence">📈 Intelligence</button>
-    </div>
-    <div class="nav-right">
-      <button id="btn-auth" class="btn btn-outline btn-sm" onclick="openAuthModal()">🔒 Conectar GitHub (PAT)</button>
-    </div>
-  </header>
 
-  <!-- Main Container -->
-  <main class="app-main">
-    
-    <!-- TAB 1: DASHBOARD -->
-    <section id="tab-dashboard" class="tab-content active">
-      <div class="hero-card">
-        <div class="hero-content">
-          <span class="badge badge-mint hero-pill">CI/CD & Serverless AI Engine</span>
-          <h1 class="hero-heading">Inteligencia Artificial Autónoma a Coste <span class="text-gradient">$0</span></h1>
-          <p class="hero-desc">
-            Entrena modelos con LoRA/QLoRA en las 6h de GitHub Actions, sintetiza datasets con Constitutional AI, ejecuta batallas comparativas multi-modelo y despliega agentes de código autónomos.
-          </p>
-          <div class="hero-actions">
-            <button class="btn btn-primary" onclick="switchTab('marketplace')">Explorar Modelos Marketplace</button>
-            <button class="btn btn-secondary" onclick="switchTab('battles')">Iniciar Deimatic Battle</button>
-          </div>
-        </div>
-        <div class="hero-stats-grid">
-          <div class="stat-card">
-            <div class="stat-num" id="stat-models">7</div>
-            <div class="stat-label">Modelos Curados (Sub-4B)</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-num" id="stat-akg">0</div>
-            <div class="stat-label">AKG Pools Activos</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-num" id="stat-battles">0</div>
-            <div class="stat-label">Battles Realizadas</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-num" id="stat-nimphys">0</div>
-            <div class="stat-label">Nimphys Entrenados</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Actions Grid -->
-      <div class="section-title">⚡ Módulos Transversales de MANTX</div>
-      <div class="grid-3">
-        <div class="feature-card" onclick="switchTab('marketplace')">
-          <div class="feature-icon">🗂️</div>
-          <div class="feature-title">Marketplace & Runtime Router</div>
-          <div class="feature-desc">Modelos GGUF Q4 (Llama 3.2, Qwen 2.5 Coder, Phi 3.5) y Cloud APIs listos para CPU en Actions.</div>
-        </div>
-        <div class="feature-card" onclick="switchTab('akg')">
-          <div class="feature-icon">🔑</div>
-          <div class="feature-title">Mantx AKG (API Key Gateway)</div>
-          <div class="feature-desc">Mitigación automática de errores 429, pool multi-proveedor (Groq, Gemini, DeepSeek, OpenAI) y balanceo por prioridad.</div>
-        </div>
-        <div class="feature-card" onclick="switchTab('battles')">
-          <div class="feature-icon">⚔️</div>
-          <div class="feature-title">Deimatic Battles & Wars</div>
-          <div class="feature-desc">Arena de comparación simultánea con métricas de latencia, tok/s, calidad semántica y árbitro con IA.</div>
-        </div>
-        <div class="feature-card" onclick="switchTab('nimphys')">
-          <div class="feature-icon">🧬</div>
-          <div class="feature-title">Nimphys & Synthetic Data Forge</div>
-          <div class="feature-desc">Generación sintética con Evol-Instruct y fine-tuning con versionado automático (v1, v2, v3) en GitHub Releases.</div>
-        </div>
-        <div class="feature-card" onclick="switchTab('code')">
-          <div class="feature-icon">🤖</div>
-          <div class="feature-title">Mantx Code & Round Tables</div>
-          <div class="feature-desc">Agente autónomo CLI con deliberación entre Arquitecto, Programador, Revisor y Tester.</div>
-        </div>
-        <div class="feature-card" onclick="switchTab('intelligence')">
-          <div class="feature-icon">📈</div>
-          <div class="feature-title">Production Intelligence (Closed-Loop)</div>
-          <div class="feature-desc">Detección de drift semántico y auto-disparo de reentrenamiento incremental para modelos en producción.</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 2: MARKETPLACE -->
-    <section id="tab-marketplace" class="tab-content">
-      <div class="tab-header">
-        <div>
-          <h2>🗂️ Catálogo de Modelos Marketplace</h2>
-          <p class="text-dim">Modelos optimizados para ejecución en CPU en GitHub Actions (6h compute) y proveedores Cloud BYOK.</p>
-        </div>
-        <div class="filter-group">
-          <input type="text" id="market-search" class="input-text" placeholder="Buscar modelo o especialización...">
-          <select id="market-filter-spec" class="input-select">
-            <option value="">Todas las Especialidades</option>
-            <option value="code">Código & Scripts</option>
-            <option value="reasoning">Razonamiento Lógico</option>
-            <option value="chat">Conversacional / Chat</option>
-            <option value="math">Matemáticas</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid-3" id="marketplace-grid">
-        <!-- Injected via JavaScript -->
-      </div>
-    </section>
-
-    <!-- TAB 3: AKG GATEWAY -->
-    <section id="tab-akg" class="tab-content">
-      <div class="tab-header">
-        <div>
-          <h2>🔑 Mantx AKG (API Key Gateway)</h2>
-          <p class="text-dim">Centralizador de claves BYOK, auto-rotación en fallos y mitigación inteligente contra límites de tasa 429.</p>
-        </div>
-        <button class="btn btn-primary" onclick="openAkgModal()">+ Crear Pool de Claves</button>
-      </div>
-
-      <div class="grid-2">
-        <div class="panel-card">
-          <div class="panel-title">Pools de Claves Registrados</div>
-          <div id="akg-pools-list">
-            <!-- Injected via JavaScript -->
-          </div>
-        </div>
-
-        <div class="panel-card">
-          <div class="panel-title">🧪 Playground de Inferencia AKG</div>
-          <div class="form-group">
-            <label>Pool de Inferencia:</label>
-            <select id="akg-test-pool" class="input-select"></select>
-          </div>
-          <div class="form-group">
-            <label>Prompt:</label>
-            <textarea id="akg-test-prompt" class="input-textarea" rows="3" placeholder="Introduce tu consulta..."></textarea>
-          </div>
-          <button class="btn btn-primary btn-block" id="btn-akg-test" onclick="executeAkgTest()">Ejecutar Consulta vía AKG</button>
-          <div id="akg-test-result" class="output-box hidden"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 4: DEIMATIC BATTLES -->
-    <section id="tab-battles" class="tab-content">
-      <div class="tab-header">
-        <div>
-          <h2>⚔️ Deimatic Battles & Wars Arena</h2>
-          <p class="text-dim">Enfrenta modelos en tiempo real. Evalúa velocidad, tokens/segundo, precisión y calidad semántica.</p>
-        </div>
-        <button class="btn btn-primary" onclick="runArenaBattle()">⚔️ Lanzar Batalla</button>
-      </div>
-
-      <div class="panel-card mb-4">
-        <div class="grid-3">
-          <div class="form-group">
-            <label>Candidatos (separados por coma):</label>
-            <input type="text" id="battle-candidates" class="input-text" value="qwen-2.5-coder-3b,llama-3.2-3b-instruct">
-          </div>
-          <div class="form-group">
-            <label>Modo RAG:</label>
-            <select id="battle-rag" class="input-select">
-              <option value="none">Sin RAG</option>
-              <option value="classic">RAG Clásico (Documento)</option>
-              <option value="graph">Arzor Graph RAG (Ecdysis Memory)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Nombre del Enfrentamiento:</label>
-            <input type="text" id="battle-name" class="input-text" value="Showdown: Programación Concurrente">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Prompt del Enfrentamiento:</label>
-          <textarea id="battle-prompt" class="input-textarea" rows="2">Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels.</textarea>
-        </div>
-      </div>
-
-      <div id="battle-live-results" class="grid-2">
-        <!-- Live Battle Results Injected Here -->
-      </div>
-    </section>
-
-    <!-- TAB 5: NIMPHYS & FORGE -->
-    <section id="tab-nimphys" class="tab-content">
-      <div class="tab-header">
-        <div>
-          <h2>🧬 Nimphys Models & Synthetic Data Forge</h2>
-          <p class="text-dim">Genera datasets con Constitutional AI y entrena modelos LoRA/QLoRA/RAFT a coste $0.</p>
-        </div>
-      </div>
-
-      <div class="grid-2">
-        <!-- Synthetic Data Forge -->
-        <div class="panel-card">
-          <div class="panel-title">🧬 Synthetic Data Forge</div>
-          <div class="form-group">
-            <label>Nombre del Dataset:</label>
-            <input type="text" id="forge-name" class="input-text" value="PostgreSQL Performance QA">
-          </div>
-          <div class="form-group">
-            <label>Objetivo de Entrenamiento:</label>
-            <textarea id="forge-obj" class="input-textarea" rows="2">Optimización de índices B-Tree, particionamiento y consultas EXPLAIN ANALYZE en PostgreSQL.</textarea>
-          </div>
-          <div class="grid-2">
-            <div class="form-group">
-              <label>Estrategia:</label>
-              <select id="forge-strat" class="input-select">
-                <option value="constitutional_critique">Constitutional AI (Generador + Crítico)</option>
-                <option value="evol_instruct">Evol-Instruct</option>
-                <option value="raft_docs">RAFT (Docs + QA)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Formato de Salida:</label>
-              <select id="forge-fmt" class="input-select">
-                <option value="alpaca">Alpaca / ChatML (LoRA)</option>
-                <option value="sharegpt">ShareGPT</option>
-                <option value="raft">RAFT Dataset</option>
-              </select>
-            </div>
-          </div>
-          <button class="btn btn-primary btn-block" onclick="runDataForge()">Generar Dataset Sintético</button>
-          <div id="forge-result" class="output-box hidden"></div>
-        </div>
-
-        <!-- Trained Nimphys Catalog -->
-        <div class="panel-card">
-          <div class="panel-title">🏋️ Nimphys Entrenados & Servidor Efímero</div>
-          <div id="nimphys-catalog-list">
-            <!-- Injected via JavaScript -->
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 6: MANTX CODE -->
-    <section id="tab-code" class="tab-content">
-      <div class="tab-header">
-        <div>
-          <h2>🤖 Mantx Code & Round Tables</h2>
-          <p class="text-dim">Agente autónomo CLI con deliberación multi-agente entre Arquitecto, Coder, Revisor y Tester.</p>
-        </div>
-      </div>
-
-      <div class="grid-2">
-        <div class="panel-card">
-          <div class="panel-title">🤖 Ejecución de Tarea Autónoma</div>
-          <div class="form-group">
-            <label>Instrucción de Código:</label>
-            <textarea id="code-prompt" class="input-textarea" rows="3" placeholder="Ej: Implementar un pool de conexiones HTTP con reconexión automática en TypeScript..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Modo de Ejecución:</label>
-            <select id="code-mode" class="input-select">
-              <option value="autonomous">Modo Autónomo (Plan + Código + QA)</option>
-              <option value="safe">Modo Seguro (Solo propuesta)</option>
-            </select>
-          </div>
-          <button class="btn btn-primary btn-block" onclick="runCodeAgent()">Lanzar Agente Mantx Code</button>
-          <div id="code-agent-result" class="output-box hidden"></div>
-        </div>
-
-        <div class="panel-card">
-          <div class="panel-title">🏛️ Mesa Redonda de Modelos (Round Table)</div>
-          <div class="form-group">
-            <label>Tema de Discusión Arquitectónica:</label>
-            <textarea id="roundtable-topic" class="input-textarea" rows="3" placeholder="Ej: Diseñar un sistema de cache distribuido con TTL y persistencia..."></textarea>
-          </div>
-          <button class="btn btn-secondary btn-block" onclick="runRoundTable()">Iniciar Deliberación de Mesa Redonda</button>
-          <div id="roundtable-result" class="output-box hidden"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 7: PRODUCTION INTELLIGENCE -->
-    <section id="tab-intelligence" class="tab-content">
-      <div class="tab-header">
-        <div>
-          <h2>📈 Production Intelligence & Closed-Loop Engine</h2>
-          <p class="text-dim">Monitorización continua de calidad, auditoría de drift semántico y auto-reentrenamiento en bucle cerrado.</p>
-        </div>
-        <button class="btn btn-primary" onclick="auditDriftHealth()">🔍 Auditar Calidad de Producción</button>
-      </div>
-
-      <div class="grid-3 mb-4">
-        <div class="stat-card">
-          <div class="stat-num" id="stat-semantic-score">--</div>
-          <div class="stat-label">Similitud Semántica vs Baseline</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="stat-avg-latency">--</div>
-          <div class="stat-label">Latencia Media en Inferencia</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num text-emerald" id="stat-drift-status">--</div>
-          <div class="stat-label">Estado de Drift en Producción</div>
-        </div>
-      </div>
-
-      <div class="panel-card">
-        <div class="panel-title">📜 Historial de Snapshots y Auditorías</div>
-        <div id="intelligence-history-list">
-          <!-- Injected via JS -->
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- AUTH MODAL -->
-  <div id="auth-modal" class="modal-backdrop hidden">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>🔒 Conectar GitHub Personal Access Token (PAT)</h3>
-        <button class="btn-close" onclick="closeAuthModal()">✕</button>
-      </div>
-      <p class="text-dim text-sm mb-3">
-        MANTX utiliza tu GitHub PAT para sincronizar de forma privada tu almacén <code>.mantx-storage</code> (modelos, adaptadores LoRA, datasets y memoria) a coste $0.
+  <!-- LOGIN GATE: Bloqueo total si no hay PAT verificado -->
+  <section id="login-gate" class="login-gate">
+    <div class="login-card">
+      <img src="assets/logo_mantx.jpg" alt="MANTX Logo" class="login-logo">
+      <h2>MANTX <span class="badge badge-emerald">Engine Gate</span></h2>
+      <p class="login-desc">
+        Introduce tu GitHub Personal Access Token (PAT) para desbloquear la consola y sincronizar tu almacén <code>.mantx-storage</code> a coste $0.
       </p>
-      <div class="form-group">
-        <label>GitHub PAT (Clásico con permisos de <code>repo</code> o Fine-grained):</label>
-        <input type="password" id="input-pat" class="input-text" placeholder="ghp_... o github_pat_...">
+      
+      <div class="form-group" style="text-align: left; margin-bottom: 1.2rem;">
+        <label>GitHub Personal Access Token:</label>
+        <input type="password" id="token-input" class="input-text" placeholder="ghp_... o github_pat_..." autofocus>
       </div>
-      <div class="form-group">
-        <label>Repositorio de Storage:</label>
-        <input type="text" id="input-repo" class="input-text" value=".mantx-storage">
+
+      <div class="form-group" style="text-align: left; margin-bottom: 1.2rem;">
+        <label>Repositorio de Storage Privado:</label>
+        <input type="text" id="repo-input" class="input-text" value=".mantx-storage">
       </div>
-      <div id="auth-feedback" class="text-sm mb-3"></div>
-      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
-        <button class="btn btn-secondary" onclick="disconnectPat()">Desconectar</button>
-        <button class="btn btn-primary" onclick="savePatConnection()">Guardar y Conectar</button>
+
+      <div id="login-feedback" class="text-sm mb-3"></div>
+
+      <button id="btn-connect" class="btn btn-primary btn-block btn-lg" onclick="handleLogin()">
+        🚀 Conectar y Acceder a MANTX
+      </button>
+
+      <div class="login-footnote">
+        Requiere permisos de <code>repo</code> para versionar datasets y pesos LoRA (hasta 2GB) en GitHub Releases.
       </div>
     </div>
-  </div>
+  </section>
 
-  <footer class="app-footer">
-    <div>MANTX — Terra Ecosystem • Licencia MIT • Autonomous AI Architecture at $0 Cost</div>
-  </footer>
+  <!-- MAIN CONSOLE: Solo visible tras autenticación -->
+  <div id="main-console" class="hidden">
+    <!-- Top Navigation Header -->
+    <header class="top-nav">
+      <div class="nav-left">
+        <img src="assets/logo_mantx.jpg" alt="MANTX Logo" class="brand-logo">
+        <div class="brand-info">
+          <div class="brand-title">MANTX <span class="badge badge-emerald">v1.0.0</span></div>
+          <div class="brand-sub">The Autonomous MLOps & LLMOps Engine • Terra Ecosystem</div>
+        </div>
+      </div>
+      <div class="nav-center">
+        <button class="nav-tab active" data-tab="dashboard">📊 Dashboard</button>
+        <button class="nav-tab" data-tab="marketplace">🗂️ Marketplace</button>
+        <button class="nav-tab" data-tab="akg">🔑 AKG Gateway</button>
+        <button class="nav-tab" data-tab="battles">⚔️ Deimatic Battles</button>
+        <button class="nav-tab" data-tab="nimphys">🧬 Nimphys & Forge</button>
+        <button class="nav-tab" data-tab="code">🤖 Mantx Code</button>
+        <button class="nav-tab" data-tab="intelligence">📈 Intelligence</button>
+      </div>
+      <div class="nav-right">
+        <div class="user-badge-container">
+          <span class="user-badge" id="user-display">👤 @cargando...</span>
+          <button id="btn-disconnect" class="btn btn-outline btn-sm" onclick="disconnectPat()">Desconectar</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="app-main">
+      
+      <!-- TAB 1: DASHBOARD -->
+      <section id="tab-dashboard" class="tab-content active">
+        <div class="hero-card">
+          <div class="hero-content">
+            <span class="badge badge-mint hero-pill">CI/CD & Serverless AI Engine</span>
+            <h1 class="hero-heading">Inteligencia Artificial Autónoma a Coste <span class="text-gradient">$0</span></h1>
+            <p class="hero-desc">
+              Entrena modelos con LoRA/QLoRA en las 6h de GitHub Actions, sintetiza datasets con Constitutional AI, ejecuta batallas comparativas multi-modelo y despliega agentes de código autónomos.
+            </p>
+            <div class="hero-actions">
+              <button class="btn btn-primary" onclick="switchTab('marketplace')">Explorar Modelos Marketplace</button>
+              <button class="btn btn-secondary" onclick="switchTab('battles')">Iniciar Deimatic Battle</button>
+            </div>
+          </div>
+          <div class="hero-stats-grid">
+            <div class="stat-card">
+              <div class="stat-num" id="stat-models">7</div>
+              <div class="stat-label">Modelos Curados (Sub-4B)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" id="stat-akg">0</div>
+              <div class="stat-label">AKG Pools Activos</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" id="stat-battles">0</div>
+              <div class="stat-label">Battles Realizadas</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" id="stat-nimphys">0</div>
+              <div class="stat-label">Nimphys Entrenados</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions Grid -->
+        <div class="section-title">⚡ Módulos Transversales de MANTX</div>
+        <div class="grid-3">
+          <div class="feature-card" onclick="switchTab('marketplace')">
+            <div class="feature-icon">🗂️</div>
+            <div class="feature-title">Marketplace & Runtime Router</div>
+            <div class="feature-desc">Modelos GGUF Q4 (Llama 3.2, Qwen 2.5 Coder, Phi 3.5) y Cloud APIs listos para CPU en Actions.</div>
+          </div>
+          <div class="feature-card" onclick="switchTab('akg')">
+            <div class="feature-icon">🔑</div>
+            <div class="feature-title">Mantx AKG (API Key Gateway)</div>
+            <div class="feature-desc">Mitigación automática de errores 429, pool multi-proveedor (Groq, Gemini, DeepSeek, OpenAI) y balanceo por prioridad.</div>
+          </div>
+          <div class="feature-card" onclick="switchTab('battles')">
+            <div class="feature-icon">⚔️</div>
+            <div class="feature-title">Deimatic Battles & Wars</div>
+            <div class="feature-desc">Arena de comparación simultánea con métricas de latencia, tok/s, calidad semántica y árbitro con IA.</div>
+          </div>
+          <div class="feature-card" onclick="switchTab('nimphys')">
+            <div class="feature-icon">🧬</div>
+            <div class="feature-title">Nimphys & Synthetic Data Forge</div>
+            <div class="feature-desc">Generación sintética con Evol-Instruct y fine-tuning con versionado automático (v1, v2, v3) en GitHub Releases.</div>
+          </div>
+          <div class="feature-card" onclick="switchTab('code')">
+            <div class="feature-icon">🤖</div>
+            <div class="feature-title">Mantx Code & Round Tables</div>
+            <div class="feature-desc">Agente autónomo CLI con deliberación entre Arquitecto, Programador, Revisor y Tester.</div>
+          </div>
+          <div class="feature-card" onclick="switchTab('intelligence')">
+            <div class="feature-icon">📈</div>
+            <div class="feature-title">Production Intelligence (Closed-Loop)</div>
+            <div class="feature-desc">Detección de drift semántico y auto-disparo de reentrenamiento incremental para modelos en producción.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: MARKETPLACE -->
+      <section id="tab-marketplace" class="tab-content">
+        <div class="tab-header">
+          <div>
+            <h2>🗂️ Catálogo de Modelos Marketplace</h2>
+            <p class="text-dim">Modelos optimizados para ejecución en CPU en GitHub Actions (6h compute) y proveedores Cloud BYOK.</p>
+          </div>
+          <div class="filter-group">
+            <input type="text" id="market-search" class="input-text" placeholder="Buscar modelo o especialización...">
+            <select id="market-filter-spec" class="input-select">
+              <option value="">Todas las Especialidades</option>
+              <option value="code">Código & Scripts</option>
+              <option value="reasoning">Razonamiento Lógico</option>
+              <option value="chat">Conversacional / Chat</option>
+              <option value="math">Matemáticas</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-3" id="marketplace-grid">
+          <!-- Injected via JavaScript -->
+        </div>
+      </section>
+
+      <!-- TAB 3: AKG GATEWAY -->
+      <section id="tab-akg" class="tab-content">
+        <div class="tab-header">
+          <div>
+            <h2>🔑 Mantx AKG (API Key Gateway)</h2>
+            <p class="text-dim">Centralizador de claves BYOK, auto-rotación en fallos y mitigación inteligente contra límites de tasa 429.</p>
+          </div>
+          <button class="btn btn-primary" onclick="openAkgModal()">+ Crear Pool de Claves</button>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel-card">
+            <div class="panel-title">Pools de Claves Registrados</div>
+            <div id="akg-pools-list">
+              <!-- Injected via JavaScript -->
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-title">🧪 Playground de Inferencia AKG</div>
+            <div class="form-group">
+              <label>Pool de Inferencia:</label>
+              <select id="akg-test-pool" class="input-select"></select>
+            </div>
+            <div class="form-group">
+              <label>Prompt:</label>
+              <textarea id="akg-test-prompt" class="input-textarea" rows="3" placeholder="Introduce tu consulta..."></textarea>
+            </div>
+            <button class="btn btn-primary btn-block" id="btn-akg-test" onclick="executeAkgTest()">Ejecutar Consulta vía AKG</button>
+            <div id="akg-test-result" class="output-box hidden"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: DEIMATIC BATTLES -->
+      <section id="tab-battles" class="tab-content">
+        <div class="tab-header">
+          <div>
+            <h2>⚔️ Deimatic Battles & Wars Arena</h2>
+            <p class="text-dim">Enfrenta modelos en tiempo real. Evalúa velocidad, tokens/segundo, precisión y calidad semántica.</p>
+          </div>
+          <button class="btn btn-primary" onclick="runArenaBattle()">⚔️ Lanzar Batalla</button>
+        </div>
+
+        <div class="panel-card mb-4">
+          <div class="grid-3">
+            <div class="form-group">
+              <label>Candidatos (separados por coma):</label>
+              <input type="text" id="battle-candidates" class="input-text" value="qwen-2.5-coder-3b,llama-3.2-3b-instruct">
+            </div>
+            <div class="form-group">
+              <label>Modo RAG:</label>
+              <select id="battle-rag" class="input-select">
+                <option value="none">Sin RAG</option>
+                <option value="classic">RAG Clásico (Documento)</option>
+                <option value="graph">Arzor Graph RAG (Ecdysis Memory)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nombre del Enfrentamiento:</label>
+              <input type="text" id="battle-name" class="input-text" value="Showdown: Programación Concurrente">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Prompt del Enfrentamiento:</label>
+            <textarea id="battle-prompt" class="input-textarea" rows="2">Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels.</textarea>
+          </div>
+        </div>
+
+        <div id="battle-live-results" class="grid-2">
+          <!-- Live Battle Results Injected Here -->
+        </div>
+      </section>
+
+      <!-- TAB 5: NIMPHYS & FORGE -->
+      <section id="tab-nimphys" class="tab-content">
+        <div class="tab-header">
+          <div>
+            <h2>🧬 Nimphys Models & Synthetic Data Forge</h2>
+            <p class="text-dim">Genera datasets con Constitutional AI y entrena modelos LoRA/QLoRA/RAFT a coste $0.</p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- Synthetic Data Forge -->
+          <div class="panel-card">
+            <div class="panel-title">🧬 Synthetic Data Forge</div>
+            <div class="form-group">
+              <label>Nombre del Dataset:</label>
+              <input type="text" id="forge-name" class="input-text" value="PostgreSQL Performance QA">
+            </div>
+            <div class="form-group">
+              <label>Objetivo de Entrenamiento:</label>
+              <textarea id="forge-obj" class="input-textarea" rows="2">Optimización de índices B-Tree, particionamiento y consultas EXPLAIN ANALYZE en PostgreSQL.</textarea>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label>Estrategia:</label>
+                <select id="forge-strat" class="input-select">
+                  <option value="constitutional_critique">Constitutional AI (Generador + Crítico)</option>
+                  <option value="evol_instruct">Evol-Instruct</option>
+                  <option value="raft_docs">RAFT (Docs + QA)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Formato de Salida:</label>
+                <select id="forge-fmt" class="input-select">
+                  <option value="alpaca">Alpaca / ChatML (LoRA)</option>
+                  <option value="sharegpt">ShareGPT</option>
+                  <option value="raft">RAFT Dataset</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="runDataForge()">Generar Dataset Sintético</button>
+            <div id="forge-result" class="output-box hidden"></div>
+          </div>
+
+          <!-- Trained Nimphys Catalog -->
+          <div class="panel-card">
+            <div class="panel-title">🏋️ Nimphys Entrenados & Servidor Efímero</div>
+            <div id="nimphys-catalog-list">
+              <!-- Injected via JavaScript -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: MANTX CODE -->
+      <section id="tab-code" class="tab-content">
+        <div class="tab-header">
+          <div>
+            <h2>🤖 Mantx Code & Round Tables</h2>
+            <p class="text-dim">Agente autónomo CLI con deliberación multi-agente entre Arquitecto, Coder, Revisor y Tester.</p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel-card">
+            <div class="panel-title">🤖 Ejecución de Tarea Autónoma</div>
+            <div class="form-group">
+              <label>Instrucción de Código:</label>
+              <textarea id="code-prompt" class="input-textarea" rows="3" placeholder="Ej: Implementar un pool de conexiones HTTP con reconexión automática en TypeScript..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Modo de Ejecución:</label>
+              <select id="code-mode" class="input-select">
+                <option value="autonomous">Modo Autónomo (Plan + Código + QA)</option>
+                <option value="safe">Modo Seguro (Solo propuesta)</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="runCodeAgent()">Lanzar Agente Mantx Code</button>
+            <div id="code-agent-result" class="output-box hidden"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-title">🏛️ Mesa Redonda de Modelos (Round Table)</div>
+            <div class="form-group">
+              <label>Tema de Discusión Arquitectónica:</label>
+              <textarea id="roundtable-topic" class="input-textarea" rows="3" placeholder="Ej: Diseñar un sistema de cache distribuido con TTL y persistencia..."></textarea>
+            </div>
+            <button class="btn btn-secondary btn-block" onclick="runRoundTable()">Iniciar Deliberación de Mesa Redonda</button>
+            <div id="roundtable-result" class="output-box hidden"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 7: PRODUCTION INTELLIGENCE -->
+      <section id="tab-intelligence" class="tab-content">
+        <div class="tab-header">
+          <div>
+            <h2>📈 Production Intelligence & Closed-Loop Engine</h2>
+            <p class="text-dim">Monitorización continua de calidad, auditoría de drift semántico y auto-reentrenamiento en bucle cerrado.</p>
+          </div>
+          <button class="btn btn-primary" onclick="auditDriftHealth()">🔍 Auditar Calidad de Producción</button>
+        </div>
+
+        <div class="grid-3 mb-4">
+          <div class="stat-card">
+            <div class="stat-num" id="stat-semantic-score">--</div>
+            <div class="stat-label">Similitud Semántica vs Baseline</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="stat-avg-latency">--</div>
+            <div class="stat-label">Latencia Media en Inferencia</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num text-emerald" id="stat-drift-status">--</div>
+            <div class="stat-label">Estado de Drift en Producción</div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">📜 Historial de Snapshots y Auditorías</div>
+          <div id="intelligence-history-list">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="app-footer">
+      <div>MANTX — Terra Ecosystem • Licencia MIT • Autonomous AI Architecture at $0 Cost</div>
+    </footer>
+  </div>
 
   <script src="app.js"></script>
 </body>

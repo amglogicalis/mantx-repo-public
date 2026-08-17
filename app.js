@@ -1,5 +1,5 @@
 // MANTX Web Console — Client Application Logic
-// SPA Dashboard for Model Marketplace, AKG Gateway, Deimatic Battles, Nimphys & Mantx Code
+// Complete Auth Gate & SPA Dashboard for Model Marketplace, AKG Gateway, Deimatic Battles, Nimphys & Mantx Code
 
 const DEFAULT_MODELS = [
   { id: 'llama-3.2-1b-instruct', name: 'Llama 3.2 1B Instruct (GGUF Q4)', family: 'llama', params: '1.1B', context: '8K', speed: '26 tok/s', size: '740 MB', spec: ['chat', 'general'], desc: 'Ultraligero y de alta velocidad en GitHub Actions CPU.' },
@@ -14,51 +14,36 @@ const DEFAULT_MODELS = [
 let currentUser = null;
 let akgPools = [];
 let nimphysList = [];
-let userDatasets = [];
 let battleHistory = [];
 
-// ─── AUTHENTICATION & VAULT SYNC ──────────────────────────────
+// ─── LOGIN GATE & AUTHENTICATION ───────────────────────────────
 function getStoredToken() {
-  return sessionStorage.getItem('mantx_github_token') || localStorage.getItem('mantx_github_token') || '';
+  return sessionStorage.getItem('mantx_github_token') || '';
 }
 
 function getStoredRepo() {
-  return sessionStorage.getItem('mantx_storage_repo') || localStorage.getItem('mantx_storage_repo') || '.mantx-storage';
+  return sessionStorage.getItem('mantx_storage_repo') || '.mantx-storage';
 }
 
-function openAuthModal() {
-  const modal = document.getElementById('auth-modal');
-  const inputPat = document.getElementById('input-pat');
-  const inputRepo = document.getElementById('input-repo');
-  if (modal) modal.classList.remove('hidden');
-  if (inputPat) inputPat.value = getStoredToken();
-  if (inputRepo) inputRepo.value = getStoredRepo();
-  const feedback = document.getElementById('auth-feedback');
-  if (feedback) feedback.textContent = '';
-}
-
-function closeAuthModal() {
-  const modal = document.getElementById('auth-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-async function savePatConnection() {
-  const token = document.getElementById('input-pat')?.value?.trim();
-  const repo = document.getElementById('input-repo')?.value?.trim() || '.mantx-storage';
-  const feedback = document.getElementById('auth-feedback');
+async function handleLogin() {
+  const token = document.getElementById('token-input')?.value?.trim();
+  const repo = document.getElementById('repo-input')?.value?.trim() || '.mantx-storage';
+  const feedback = document.getElementById('login-feedback');
+  const btnConnect = document.getElementById('btn-connect');
 
   if (!token) {
     if (feedback) {
       feedback.style.color = '#f87171';
-      feedback.textContent = 'Introduce un token de GitHub válido.';
+      feedback.textContent = 'Por favor, introduce tu GitHub Personal Access Token.';
     }
     return;
   }
 
   if (feedback) {
     feedback.style.color = '#34d399';
-    feedback.textContent = '⏳ Verificando token con la API de GitHub...';
+    feedback.textContent = '⏳ Verificando token con GitHub API...';
   }
+  if (btnConnect) btnConnect.disabled = true;
 
   try {
     const res = await fetch('https://api.github.com/user', {
@@ -68,7 +53,7 @@ async function savePatConnection() {
       }
     });
 
-    if (!res.ok) throw new Error('Token inválido o expirado');
+    if (!res.ok) throw new Error('Token inválido o permisos insuficientes (401)');
     const user = await res.json();
 
     sessionStorage.setItem('mantx_github_token', token);
@@ -77,59 +62,61 @@ async function savePatConnection() {
 
     if (feedback) {
       feedback.style.color = '#34d399';
-      feedback.textContent = `✔ Conectado como @${user.login}. Sincronizando storage...`;
+      feedback.textContent = `✔ Conectado como @${user.login}. Accediendo a MANTX...`;
     }
 
     setTimeout(() => {
-      closeAuthModal();
-      updateAuthUI();
-      loadVaultData();
-    }, 600);
+      unlockConsole();
+    }, 500);
   } catch (err) {
     if (feedback) {
       feedback.style.color = '#f87171';
-      feedback.textContent = `✘ Error al autenticar: ${err.message}`;
+      feedback.textContent = `✘ Error de autenticación: ${err.message}`;
     }
+    if (btnConnect) btnConnect.disabled = false;
   }
+}
+
+function unlockConsole() {
+  const gate = document.getElementById('login-gate');
+  const consoleEl = document.getElementById('main-console');
+  const userDisplay = document.getElementById('user-display');
+
+  if (gate) gate.classList.add('hidden');
+  if (consoleEl) consoleEl.classList.remove('hidden');
+  if (userDisplay && currentUser) {
+    userDisplay.textContent = `👤 @${currentUser.login}`;
+  }
+
+  renderMarketplace();
+  loadVaultData();
 }
 
 function disconnectPat() {
   sessionStorage.removeItem('mantx_github_token');
   sessionStorage.removeItem('mantx_storage_repo');
-  localStorage.removeItem('mantx_github_token');
-  localStorage.removeItem('mantx_storage_repo');
   currentUser = null;
   akgPools = [];
   nimphysList = [];
-  userDatasets = [];
   battleHistory = [];
 
-  closeAuthModal();
-  updateAuthUI();
-  renderDashboardStats();
-  renderAkgPools();
-  renderNimphysCatalog();
-  renderIntelligenceHistory();
+  const gate = document.getElementById('login-gate');
+  const consoleEl = document.getElementById('main-console');
+  const tokenInput = document.getElementById('token-input');
+  const feedback = document.getElementById('login-feedback');
+  const btnConnect = document.getElementById('btn-connect');
+
+  if (gate) gate.classList.remove('hidden');
+  if (consoleEl) consoleEl.classList.add('hidden');
+  if (tokenInput) tokenInput.value = '';
+  if (feedback) feedback.textContent = '';
+  if (btnConnect) btnConnect.disabled = false;
 }
 
-function updateAuthUI() {
-  const btnAuth = document.getElementById('btn-auth');
-  if (!btnAuth) return;
-
-  if (currentUser) {
-    btnAuth.className = 'btn btn-primary btn-sm';
-    btnAuth.textContent = `✔ @${currentUser.login}`;
-  } else {
-    btnAuth.className = 'btn btn-outline btn-sm';
-    btnAuth.textContent = '🔒 Conectar GitHub (PAT)';
-  }
-}
-
-async function checkExistingAuth() {
+async function checkAuthOnStartup() {
   const token = getStoredToken();
   if (!token) {
-    updateAuthUI();
-    renderDashboardStats();
+    disconnectPat();
     return;
   }
 
@@ -142,13 +129,12 @@ async function checkExistingAuth() {
     });
     if (res.ok) {
       currentUser = await res.json();
-      updateAuthUI();
-      await loadVaultData();
+      unlockConsole();
     } else {
       disconnectPat();
     }
   } catch {
-    updateAuthUI();
+    disconnectPat();
   }
 }
 
@@ -158,7 +144,7 @@ async function loadVaultData() {
   const repo = getStoredRepo();
 
   try {
-    // Attempt loading akg-pools.json from .mantx-storage via GitHub API
+    // Read akg-pools.json from .mantx-storage
     const poolsRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/akg-pools.json`, {
       headers: { 'Authorization': `token ${token}` }
     });
@@ -170,7 +156,7 @@ async function loadVaultData() {
   } catch {}
 
   try {
-    // Attempt loading nimphys.json
+    // Read nimphys.json from .mantx-storage
     const nimRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/nimphys.json`, {
       headers: { 'Authorization': `token ${token}` }
     });
@@ -213,9 +199,9 @@ function renderDashboardStats() {
   const statNimphys = document.getElementById('stat-nimphys');
 
   if (statModels) statModels.textContent = DEFAULT_MODELS.length;
-  if (statAkg) statAkg.textContent = currentUser ? akgPools.length : 0;
-  if (statBattles) statBattles.textContent = currentUser ? battleHistory.length : 0;
-  if (statNimphys) statNimphys.textContent = currentUser ? nimphysList.length : 0;
+  if (statAkg) statAkg.textContent = akgPools.length;
+  if (statBattles) statBattles.textContent = battleHistory.length;
+  if (statNimphys) statNimphys.textContent = nimphysList.length;
 }
 
 // ─── MARKETPLACE RENDERING ────────────────────────────────────
@@ -272,23 +258,11 @@ function renderAkgPools() {
   const select = document.getElementById('akg-test-pool');
   if (!container) return;
 
-  if (!currentUser) {
-    container.innerHTML = `
-      <div class="empty-state">
-        🔒 <strong>Conecta tu GitHub PAT</strong> para gestionar y sincronizar tus pools de claves de forma cifrada en <code>.mantx-storage</code>.
-        <br><br>
-        <button class="btn btn-primary btn-sm" onclick="openAuthModal()">Conectar Ahora</button>
-      </div>
-    `;
-    if (select) select.innerHTML = `<option value="">(Conecta tu PAT)</option>`;
-    return;
-  }
-
   if (akgPools.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
         No tienes pools de claves creados todavía.<br>
-        Haz clic en <strong>"+ Crear Pool de Claves"</strong> para añadir tus API keys (Groq, Gemini, DeepSeek, OpenAI).
+        Haz clic en <strong>"+ Crear Pool de Claves"</strong> para añadir tus API keys de proveedores BYOK (Groq, Gemini, DeepSeek, OpenAI).
       </div>
     `;
     if (select) select.innerHTML = `<option value="">(Crea un pool primero)</option>`;
@@ -319,10 +293,6 @@ function renderAkgPools() {
 }
 
 function openAkgModal() {
-  if (!currentUser) {
-    openAuthModal();
-    return;
-  }
   const name = prompt('Nombre del nuevo AKG Key Pool:', 'Production Multi-Key Pool');
   if (!name) return;
 
@@ -340,8 +310,10 @@ function openAkgModal() {
 }
 
 async function executeAkgTest() {
-  const prompt = document.getElementById('akg-test-prompt').value || 'Explica la teoría de grafos en 1 frase';
+  const prompt = document.getElementById('akg-test-prompt')?.value || 'Explica la teoría de grafos en 1 frase';
   const out = document.getElementById('akg-test-result');
+  if (!out) return;
+
   out.classList.remove('hidden');
   out.textContent = '⏳ Ejecutando inferencia vía AKG Gateway...';
 
@@ -357,9 +329,10 @@ La teoría de grafos estudia las relaciones entre objetos modelados como nodos c
 
 // ─── DEIMATIC BATTLES ARENA ───────────────────────────────────
 async function runArenaBattle() {
-  const candidates = document.getElementById('battle-candidates').value.split(',').map(s => s.trim()).filter(Boolean);
-  const prompt = document.getElementById('battle-prompt').value;
+  const candidates = document.getElementById('battle-candidates')?.value.split(',').map(s => s.trim()).filter(Boolean) || [];
+  const prompt = document.getElementById('battle-prompt')?.value || '';
   const resultsBox = document.getElementById('battle-live-results');
+  if (!resultsBox) return;
 
   if (candidates.length < 2) {
     alert('Introduce al menos 2 modelos candidatos para la batalla.');
@@ -398,9 +371,10 @@ Respuesta técnica analizada para: "${prompt.slice(0, 45)}...".
 
 // ─── SYNTHETIC DATA FORGE ────────────────────────────────────
 async function runDataForge() {
-  const name = document.getElementById('forge-name').value;
-  const obj = document.getElementById('forge-obj').value;
+  const name = document.getElementById('forge-name')?.value || 'Synthetic Dataset';
+  const obj = document.getElementById('forge-obj')?.value || '';
   const out = document.getElementById('forge-result');
+  if (!out) return;
 
   out.classList.remove('hidden');
   out.textContent = `⏳ Sintetizando dataset con Evol-Instruct y Crítico Constitucional para: "${obj}"...`;
@@ -426,8 +400,9 @@ async function runDataForge() {
 
 // ─── MANTX CODE AGENT ─────────────────────────────────────────
 async function runCodeAgent() {
-  const prompt = document.getElementById('code-prompt').value || 'Crear función JWT validator';
+  const prompt = document.getElementById('code-prompt')?.value || 'Crear función JWT validator';
   const out = document.getElementById('code-agent-result');
+  if (!out) return;
 
   out.classList.remove('hidden');
   out.textContent = `⏳ Ejecutando ciclo de planificación, generación de código y revisión...`;
@@ -441,8 +416,9 @@ async function runCodeAgent() {
 }
 
 async function runRoundTable() {
-  const topic = document.getElementById('roundtable-topic').value || 'Cache distribuido';
+  const topic = document.getElementById('roundtable-topic')?.value || 'Cache distribuido';
   const out = document.getElementById('roundtable-result');
+  if (!out) return;
 
   out.classList.remove('hidden');
   out.textContent = `⏳ Deliberando entre Arquitecto, Programador, Revisor y Tester...`;
@@ -460,17 +436,6 @@ async function runRoundTable() {
 function renderNimphysCatalog() {
   const container = document.getElementById('nimphys-catalog-list');
   if (!container) return;
-
-  if (!currentUser) {
-    container.innerHTML = `
-      <div class="empty-state">
-        🔒 <strong>Conecta tu GitHub PAT</strong> para cargar y desplegar tus modelos Nimphys entrenados desde <code>.mantx-storage</code>.
-        <br><br>
-        <button class="btn btn-primary btn-sm" onclick="openAuthModal()">Conectar Ahora</button>
-      </div>
-    `;
-    return;
-  }
 
   if (nimphysList.length === 0) {
     container.innerHTML = `
@@ -500,15 +465,6 @@ function renderIntelligenceHistory() {
   const list = document.getElementById('intelligence-history-list');
   if (!list) return;
 
-  if (!currentUser) {
-    list.innerHTML = `
-      <div class="empty-state">
-        🔒 Conecta tu GitHub PAT para ver las auditorías de calidad y drift de tus modelos.
-      </div>
-    `;
-    return;
-  }
-
   list.innerHTML = `
     <div class="empty-state">
       No hay auditorías registradas en este momento. Haz clic en "Auditar Calidad de Producción".
@@ -536,8 +492,7 @@ function auditDriftHealth() {
   ` + list.innerHTML.replace('No hay auditorías registradas en este momento. Haz clic en "Auditar Calidad de Producción".', '');
 }
 
-// ─── INITIALIZATION ───────────────────────────────────────────
+// ─── STARTUP ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  renderMarketplace();
-  checkExistingAuth();
+  checkAuthOnStartup();
 });
