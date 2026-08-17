@@ -1056,6 +1056,205 @@ let uploadedNimphyFiles = [];
 let isRetrainMode = false;
 let currentRetrainNimphyId = null;
 
+const RUNNER_LOCAL_MODELS = [
+  { id: 'qwen-2.5-coder-3b', name: 'Qwen 2.5 Coder 3B (GGUF Q4) — Código y Scripts' },
+  { id: 'qwen-2.5-coder-7b', name: 'Qwen 2.5 Coder 7B (GGUF Q4) — Máximo Rendimiento Código' },
+  { id: 'llama-3.2-3b-instruct', name: 'Llama 3.2 3B Instruct — Razonamiento General' },
+  { id: 'llama-3.2-1b-instruct', name: 'Llama 3.2 1B Instruct — Ultra-Ligero' },
+  { id: 'smollm2-135m-instruct', name: 'SmolLM2 135M Instruct — Micro-Edge' },
+  { id: 'smollm2-1.7b-instruct', name: 'SmolLM2 1.7B Instruct — Edge Balanceado' },
+  { id: 'deepseek-coder-6.7b', name: 'DeepSeek Coder 6.7B — Refactor & Bugfix' },
+  { id: 'phi-3.5-mini-instruct', name: 'Phi-3.5 Mini Instruct — Lógica & Matemáticas' },
+  { id: 'mistral-7b-instruct-v0.3', name: 'Mistral 7B Instruct v0.3 — Balanceado' }
+];
+
+const TERMES_DEFAULT_MODELS = [
+  { id: 'termes-gemini-2.0-flash', name: 'Gemini 2.0 Flash Web Bridge (1M Context, $0)' },
+  { id: 'termes-gemini-2.0-pro', name: 'Gemini 2.0 Pro Experimental Web ($0)' },
+  { id: 'termes-claude-3-5-sonnet', name: 'Claude 3.5 Sonnet Web Bridge (Arzor Proxy)' },
+  { id: 'termes-deepseek-v3', name: 'DeepSeek V3 Web Bridge (Zero Cost)' },
+  { id: 'termes-deepseek-r1', name: 'DeepSeek R1 Reasoning Web Bridge' }
+];
+
+const BYOK_DEFAULT_MODELS = {
+  groq: [
+    { id: 'openai/gpt-oss-20b', name: 'GPT-OSS 20B (Groq LPU — Ultra Rápido)' },
+    { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B (Groq LPU — Código & Lógica)' },
+    { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile (Groq)' },
+    { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant (Groq Ultra-Baja Latencia)' }
+  ],
+  gemini: [
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Google AI Studio — 1M Context)' },
+    { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro Experimental' },
+    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (2M Context Super-Scale)' },
+    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Baja Latencia)' }
+  ],
+  openai: [
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (OpenAI Flagship Compact)' },
+    { id: 'gpt-4o', name: 'GPT-4o (OpenAI Omni Multimodal)' },
+    { id: 'o3-mini', name: 'o3-mini (OpenAI High Reasoning)' },
+    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' }
+  ],
+  anthropic: [
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Anthropic SOTA Coding)' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Anthropic Fast & Compact)' }
+  ],
+  deepseek: [
+    { id: 'deepseek-chat', name: 'DeepSeek V3 Chat (DeepSeek Direct API)' },
+    { id: 'deepseek-reasoner', name: 'DeepSeek R1 Reasoner (DeepSeek CoT API)' }
+  ],
+  mistral: [
+    { id: 'codestral-latest', name: 'Codestral Latest (Mistral AI Code Expert)' },
+    { id: 'mistral-large-latest', name: 'Mistral Large Latest' },
+    { id: 'mistral-small-latest', name: 'Mistral Small Latest' }
+  ],
+  openrouter: [
+    { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct (via OpenRouter)' },
+    { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1 (via OpenRouter)' },
+    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (via OpenRouter)' }
+  ],
+  cerebras: [
+    { id: 'llama3.1-8b', name: 'Llama 3.1 8B (Cerebras WSE-3 — 1800 tok/s)' },
+    { id: 'llama3.3-70b', name: 'Llama 3.3 70B (Cerebras WSE-3 — 450 tok/s)' }
+  ],
+  general: [
+    { id: 'openai/gpt-oss-20b', name: 'GPT-OSS 20B (Groq LPU)' },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Google AI Studio)' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (OpenAI)' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Anthropic)' },
+    { id: 'deepseek-chat', name: 'DeepSeek V3 (DeepSeek API)' },
+    { id: 'codestral-latest', name: 'Codestral Latest (Mistral AI)' }
+  ]
+};
+
+function onNimphyProviderChange() {
+  const provider = document.getElementById('nimphy-provider-type')?.value || 'local_runner';
+  const termesBox = document.getElementById('nimphy-termes-container');
+  const byokBox = document.getElementById('nimphy-byok-container');
+  const methodSelect = document.getElementById('nimphy-method');
+
+  if (termesBox) termesBox.classList.add('hidden');
+  if (byokBox) byokBox.classList.add('hidden');
+
+  if (provider === 'termes') {
+    if (termesBox) termesBox.classList.remove('hidden');
+    detectTermesModels();
+    if (methodSelect) {
+      methodSelect.innerHTML = `
+        <option value="ecdysis_memory">🧠 Mantx Ecdysis Memory (Vector Store + Graph RAG — $0)</option>
+        <option value="raft">RAFT / In-Context Knowledge Tuning (Docs + Q&A)</option>
+        <option value="aft">System Directives & Few-Shot Ingestion</option>
+      `;
+    }
+  } else if (provider === 'byok') {
+    if (byokBox) byokBox.classList.remove('hidden');
+    detectByokProviderAndModels();
+    if (methodSelect) {
+      methodSelect.innerHTML = `
+        <option value="ecdysis_memory">🧠 Mantx Ecdysis Memory (Rate-Limit Aware Proxy — Recomendado)</option>
+        <option value="raft">RAFT / In-Context Knowledge Tuning (Docs + Q&A)</option>
+        <option value="aft">System Directives & Few-Shot Ingestion</option>
+      `;
+    }
+  } else {
+    // local_runner
+    populateBaseModelSelect(RUNNER_LOCAL_MODELS);
+    if (methodSelect) {
+      methodSelect.innerHTML = `
+        <option value="qlora">LoRA / QLoRA 4-bit (Unsloth — Rápido y Eficiente)</option>
+        <option value="raft">RAFT (Retrieval-Augmented Fine-Tuning con Docs)</option>
+        <option value="aft">AFT Compiler (Adaptive Fine-Tuning Arzor)</option>
+        <option value="full_peft">PEFT / Full Fine-Tuning</option>
+      `;
+    }
+  }
+}
+
+function populateBaseModelSelect(modelsList, selectedValue = '') {
+  const select = document.getElementById('nimphy-base-model');
+  if (!select) return;
+
+  select.innerHTML = modelsList.map(m => `
+    <option value="${m.id}" ${m.id === selectedValue ? 'selected' : ''}>${m.name}</option>
+  `).join('');
+}
+
+function detectTermesModels() {
+  const endpoint = document.getElementById('nimphy-termes-endpoint')?.value?.trim() || 'http://127.0.0.1:7420/v1';
+  const detectedInput = document.getElementById('nimphy-termes-detected-provider');
+  const epLower = endpoint.toLowerCase();
+
+  let detectedName = 'Google Gemini Web Bridge (1M Context, $0)';
+  let models = TERMES_DEFAULT_MODELS;
+
+  if (epLower.includes('claude') || epLower.includes('anthropic')) {
+    detectedName = 'Anthropic Claude Web Bridge (Synthetic API)';
+    models = [
+      { id: 'termes-claude-3-5-sonnet', name: 'Claude 3.5 Sonnet Web Bridge (Arzor Proxy)' },
+      { id: 'termes-claude-3-5-haiku', name: 'Claude 3.5 Haiku Web Bridge' }
+    ];
+  } else if (epLower.includes('deepseek')) {
+    detectedName = 'DeepSeek Web Bridge (Synthetic API)';
+    models = [
+      { id: 'termes-deepseek-v3', name: 'DeepSeek V3 Web Bridge (Zero Cost)' },
+      { id: 'termes-deepseek-r1', name: 'DeepSeek R1 Reasoning Web Bridge' }
+    ];
+  }
+
+  if (detectedInput) detectedInput.value = detectedName;
+  populateBaseModelSelect(models);
+}
+
+function detectByokProviderAndModels() {
+  const key = document.getElementById('nimphy-byok-key')?.value?.trim() || '';
+  const providerLabel = document.getElementById('nimphy-byok-detected-provider');
+  const badge = document.getElementById('nimphy-byok-protocol-badge');
+
+  let detectedKey = 'general';
+  let providerName = 'Auto-detectando (Pega tu clave)...';
+  let protocol = 'REST / OpenAI Compatible';
+
+  if (key.startsWith('gsk_')) {
+    detectedKey = 'groq';
+    providerName = '⚡ Groq Cloud (LPU Ultra-Fast)';
+    protocol = 'OpenAI Compatible (chat/completions)';
+  } else if (key.startsWith('AIza') || key.startsWith('AQ')) {
+    detectedKey = 'gemini';
+    providerName = '🌐 Google Gemini (Google AI Studio)';
+    protocol = 'Google AI REST & OpenAI Endpoint';
+  } else if (key.startsWith('sk-ant-')) {
+    detectedKey = 'anthropic';
+    providerName = '🧠 Anthropic Claude';
+    protocol = 'Anthropic Messages API';
+  } else if (key.startsWith('sk-or-v1-')) {
+    detectedKey = 'openrouter';
+    providerName = '🔀 OpenRouter Multi-Model Gateway';
+    protocol = 'OpenAI Compatible';
+  } else if (key.startsWith('nvapi-')) {
+    detectedKey = 'nvidia';
+    providerName = '🟢 NVIDIA NIM Enterprise';
+    protocol = 'OpenAI Compatible';
+  } else if (key.startsWith('csk-')) {
+    detectedKey = 'cerebras';
+    providerName = '⚡ Cerebras Inference Engine';
+    protocol = 'OpenAI Compatible';
+  } else if (key.startsWith('sk-') && key.length > 20) {
+    detectedKey = 'openai';
+    providerName = '🤖 OpenAI (Direct)';
+    protocol = 'OpenAI REST API';
+  } else if (key.length >= 32 && /^[a-zA-Z0-9_-]+$/.test(key)) {
+    detectedKey = 'mistral';
+    providerName = '🌪️ Mistral AI / Codestral';
+    protocol = 'Mistral REST API';
+  }
+
+  if (providerLabel) providerLabel.textContent = providerName;
+  if (badge) badge.textContent = protocol;
+
+  const models = BYOK_DEFAULT_MODELS[detectedKey] || BYOK_DEFAULT_MODELS.general;
+  populateBaseModelSelect(models);
+}
+
 function openCreateNimphyModal() {
   isRetrainMode = false;
   currentRetrainNimphyId = null;
@@ -1067,6 +1266,8 @@ function openCreateNimphyModal() {
   const nameInput = document.getElementById('nimphy-name');
   const verLabel = document.getElementById('nimphy-version-label');
   const verInput = document.getElementById('nimphy-version');
+  const providerSelect = document.getElementById('nimphy-provider-type');
+  const providerHint = document.getElementById('nimphy-provider-hint');
   const baseModelSelect = document.getElementById('nimphy-base-model');
   const baseModelHint = document.getElementById('nimphy-base-model-hint');
   const rawDocs = document.getElementById('nimphy-raw-docs');
@@ -1074,7 +1275,7 @@ function openCreateNimphyModal() {
   const confirmBtn = document.getElementById('btn-confirm-nimphy');
 
   if (title) title.textContent = '🧬 Producir Niphy — Creación de Nuevo Modelo';
-  if (desc) desc.textContent = 'Configura tu modelo especializado desde cero. MANTX orquestará el entrenamiento a $0 en GitHub Actions o HuggingFace ZeroGPU y generará tu servidor API listo para producción.';
+  if (desc) desc.textContent = 'Configura tu modelo especializado desde cero. MANTX orquestará el entrenamiento o la inyección semántica Ecdysis y generará tu servidor API listo para producción.';
   if (nameInput) {
     nameInput.value = '';
     nameInput.readOnly = false;
@@ -1083,6 +1284,13 @@ function openCreateNimphyModal() {
   }
   if (verLabel) verLabel.textContent = 'Versión Inicial:';
   if (verInput) verInput.value = 'v1.0.0';
+  if (providerSelect) {
+    providerSelect.disabled = false;
+    providerSelect.value = 'local_runner';
+    providerSelect.style.opacity = '1';
+    providerSelect.style.cursor = 'pointer';
+  }
+  if (providerHint) providerHint.classList.add('hidden');
   if (baseModelSelect) {
     baseModelSelect.disabled = false;
     baseModelSelect.style.opacity = '1';
@@ -1093,6 +1301,7 @@ function openCreateNimphyModal() {
   if (filesList) filesList.innerHTML = '';
   if (confirmBtn) confirmBtn.textContent = '🚀 Producir Niphy';
 
+  onNimphyProviderChange();
   updateNimphyTokenEstimate();
   if (modal) modal.classList.remove('hidden');
 }
@@ -1111,6 +1320,8 @@ function openReTrainNimphyModal(nimphyId) {
   const nameInput = document.getElementById('nimphy-name');
   const verLabel = document.getElementById('nimphy-version-label');
   const verInput = document.getElementById('nimphy-version');
+  const providerSelect = document.getElementById('nimphy-provider-type');
+  const providerHint = document.getElementById('nimphy-provider-hint');
   const baseModelSelect = document.getElementById('nimphy-base-model');
   const baseModelHint = document.getElementById('nimphy-base-model-hint');
   const methodSelect = document.getElementById('nimphy-method');
@@ -1118,13 +1329,12 @@ function openReTrainNimphyModal(nimphyId) {
   const filesList = document.getElementById('nimphy-files-list');
   const confirmBtn = document.getElementById('btn-confirm-nimphy');
 
-  // Next version calculation
   const curVer = n.currentVersion || 'v1.0.0';
   const parts = curVer.replace('v', '').split('.').map(Number);
   const nextVer = parts.length === 3 ? `v${parts[0]}.${parts[1] + 1}.0` : `v${(n.versions || []).length + 1}.0.0`;
 
   if (title) title.textContent = `🔄 Reentrenar Niphy — ${n.name} (Nueva Versión)`;
-  if (desc) desc.textContent = `Reentrena ${n.name} para generar una nueva versión incremental con nuevos datos. El modelo base (${n.baseModel}) está bloqueado para preservar la arquitectura.`;
+  if (desc) desc.textContent = `Reentrena ${n.name} para generar una nueva versión incremental con nuevos datos. El modelo base (${n.baseModel}) y proveedor están bloqueados para preservar la arquitectura.`;
   if (nameInput) {
     nameInput.value = n.name;
     nameInput.readOnly = true;
@@ -1133,6 +1343,18 @@ function openReTrainNimphyModal(nimphyId) {
   }
   if (verLabel) verLabel.textContent = 'Nueva Versión Objetivo:';
   if (verInput) verInput.value = nextVer;
+
+  const prov = n.providerType || 'local_runner';
+  if (providerSelect) {
+    providerSelect.value = prov;
+    providerSelect.disabled = true;
+    providerSelect.style.opacity = '0.6';
+    providerSelect.style.cursor = 'not-allowed';
+  }
+  if (providerHint) providerHint.classList.remove('hidden');
+
+  onNimphyProviderChange();
+
   if (baseModelSelect) {
     baseModelSelect.value = n.baseModel;
     baseModelSelect.disabled = true;
@@ -1157,7 +1379,7 @@ function closeCreateNimphyModal() {
 function onNimphyMethodChange() {
   const method = document.getElementById('nimphy-method')?.value;
   const graphRagToggle = document.getElementById('nimphy-toggle-graph-rag');
-  if (method === 'raft' && graphRagToggle) {
+  if ((method === 'raft' || method === 'ecdysis_memory') && graphRagToggle) {
     graphRagToggle.checked = true;
   }
 }
@@ -1232,8 +1454,8 @@ async function confirmCreateNimphy() {
     const newVersionItem = {
       version,
       trainedAt: new Date().toISOString(),
-      finalLoss: method === 'raft' ? 0.41 : 0.53,
-      benchmarkScore: method === 'raft' ? 99 : 96,
+      finalLoss: method === 'raft' || method === 'ecdysis_memory' ? 0.38 : 0.53,
+      benchmarkScore: method === 'raft' || method === 'ecdysis_memory' ? 99 : 96,
       method
     };
 
@@ -1254,9 +1476,10 @@ async function confirmCreateNimphy() {
     const planText = `# 🔄 Reentrenamiento de Niphy Generado
 Niphy: ${existing.name}
 Versión Nueva: ${version}
+Proveedor: ${existing.providerType.toUpperCase()}
 Modelo Base: ${existing.baseModel} (Bloqueado)
 Método: ${method.toUpperCase()}
-Hardware: ${targetEnv === 'action_cpu' ? 'GitHub Actions Runner CPU ($0, 6h)' : 'HuggingFace ZeroGPU'}
+Hardware: ${existing.providerType === 'local_runner' ? (targetEnv === 'action_cpu' ? 'GitHub Actions Runner CPU ($0, 6h)' : 'HuggingFace ZeroGPU') : 'Capa Semántica Ecdysis + Remote Proxy'}
 Almacenamiento: ${storageBackend === 'mantx_vault' ? '.mantx-storage ($0 GitHub)' : storageBackend}
 
 Comando para lanzar el runner en GitHub Actions:
@@ -1270,7 +1493,11 @@ El endpoint de producción actualizará automáticamente a la versión ${version
 
   // PRODUCE MODE (NEW NIPHY)
   const name = document.getElementById('nimphy-name')?.value?.trim();
+  const providerType = document.getElementById('nimphy-provider-type')?.value || 'local_runner';
   const baseModel = document.getElementById('nimphy-base-model')?.value || 'qwen-2.5-coder-3b';
+  const termesEndpoint = document.getElementById('nimphy-termes-endpoint')?.value?.trim() || 'http://127.0.0.1:7420/v1';
+  const termesKey = document.getElementById('nimphy-termes-key')?.value?.trim() || '';
+  const byokKey = document.getElementById('nimphy-byok-key')?.value?.trim() || '';
 
   if (!name) {
     showCustomModal('⚠️ Nombre Requerido', 'Por favor asigna un nombre para identificar tu nuevo Niphy.');
@@ -1281,11 +1508,14 @@ El endpoint de producción actualizará automáticamente a la versión ${version
   const newNimphy = {
     nimphyId,
     name,
+    providerType,
     currentVersion: version,
     baseModel,
     method,
+    termesConfig: providerType === 'termes' ? { endpoint: termesEndpoint, apiKey: termesKey } : undefined,
+    byokConfig: providerType === 'byok' ? { apiKey: byokKey, provider: 'groq' } : undefined,
     graphRagEnabled: graphRag,
-    ecdysisMemoryEnabled: ecdysis,
+    ecdysisMemoryEnabled: ecdysis || providerType !== 'local_runner',
     targetEnv,
     storageBackend,
     systemPrompt,
@@ -1295,8 +1525,8 @@ El endpoint de producción actualizará automáticamente a la versión ${version
       {
         version,
         trainedAt: new Date().toISOString(),
-        finalLoss: method === 'raft' ? 0.48 : 0.62,
-        benchmarkScore: method === 'raft' ? 98 : 94,
+        finalLoss: method === 'raft' || method === 'ecdysis_memory' ? 0.42 : 0.62,
+        benchmarkScore: method === 'raft' || method === 'ecdysis_memory' ? 98 : 94,
         method
       }
     ],
@@ -1311,19 +1541,159 @@ El endpoint de producción actualizará automáticamente a la versión ${version
 
   const planText = `# 🚀 Plan de Producción de Niphy Generado
 Nombre: ${newNimphy.name} (${newNimphy.currentVersion})
+Proveedor: ${newNimphy.providerType.toUpperCase()}
 Modelo Base: ${newNimphy.baseModel}
 Método: ${newNimphy.method.toUpperCase()}
-Hardware: ${newNimphy.targetEnv === 'action_cpu' ? 'GitHub Actions Runner CPU ($0, 6h)' : 'HuggingFace ZeroGPU (Nvidia A100)'}
+Hardware Target: ${newNimphy.providerType === 'local_runner' ? (newNimphy.targetEnv === 'action_cpu' ? 'GitHub Actions Runner CPU ($0, 6h)' : 'HuggingFace ZeroGPU') : 'Termes Symbiont / BYOK + Ecdysis Memory Proxy'}
 Almacenamiento: ${newNimphy.storageBackend === 'mantx_vault' ? '.mantx-storage ($0 GitHub)' : newNimphy.storageBackend}
 Memoria Ecdysis: ${newNimphy.ecdysisMemoryEnabled ? '✔ ACTIVA (Vector Store + Graph)' : 'Deshabilitada'}
 Graph RAG: ${newNimphy.graphRagEnabled ? '✔ ACTIVO (Arzor Knowledge Graph)' : 'Deshabilitado'}
 
 Para lanzar la producción en GitHub Actions:
-mantx nimphys create --name "${newNimphy.name}" --model ${newNimphy.baseModel} --method ${newNimphy.method}
+mantx nimphys create --name "${newNimphy.name}" --provider ${newNimphy.providerType} --model ${newNimphy.baseModel} --method ${newNimphy.method}
 
 El servidor API quedará listo tras la finalización del runner.`;
 
   showCustomModal(`🧬 Niphy Producido: ${newNimphy.name}`, planText);
+}
+
+function renderNimphysCatalog() {
+  const container = document.getElementById('nimphys-catalog-list');
+  if (!container) return;
+
+  if (!nimphysList || nimphysList.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: var(--text-dim);">
+        <p>No tienes Nimphys registrados todavía. Pulsa <strong>+ Producir Niphy</strong> para crear tu primer modelo.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem;">
+      ${nimphysList.map(n => {
+        const provBadge = n.providerType === 'termes'
+          ? '<span class="badge" style="background: rgba(6,182,212,0.15); color: #22d3ee; border: 1px solid rgba(6,182,212,0.3);">🌐 Termes Symbiont</span>'
+          : n.providerType === 'byok'
+          ? '<span class="badge" style="background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3);">🔑 BYOK Cloud API</span>'
+          : '<span class="badge badge-emerald">🖥️ Runner Local ($0)</span>';
+
+        const lastVer = (n.versions && n.versions[0]) || { version: n.currentVersion, benchmarkScore: 95, finalLoss: 0.45 };
+
+        return `
+          <div class="panel-card" style="margin-bottom: 0; background: #030805; border: 1px solid var(--border-subtle); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem;">
+                <div>
+                  <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem;">${n.name}</h4>
+                  <div style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-code);">ID: ${n.nimphyId}</div>
+                </div>
+                ${provBadge}
+              </div>
+
+              <div style="background: rgba(0,0,0,0.35); border-radius: 6px; padding: 0.6rem; font-size: 0.76rem; margin-bottom: 0.8rem; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                  <span class="text-dim">Modelo Base:</span>
+                  <strong style="color: var(--emerald-light);">${n.baseModel}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                  <span class="text-dim">Versión Actual:</span>
+                  <span class="badge badge-mint" style="font-size: 0.65rem;">${n.currentVersion}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                  <span class="text-dim">Método:</span>
+                  <span style="color: #fff; text-transform: uppercase;">${n.method}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span class="text-dim">Benchmark / Loss:</span>
+                  <span style="color: var(--emerald-light); font-weight: 700;">Score ${lastVer.benchmarkScore}/100 | Loss ${lastVer.finalLoss}</span>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.8rem;">
+                ${n.ecdysisMemoryEnabled ? '<span class="badge" style="font-size: 0.62rem; background: rgba(16,185,129,0.1); color: #34d399;">🧠 Memoria Ecdysis</span>' : ''}
+                ${n.graphRagEnabled ? '<span class="badge" style="font-size: 0.62rem; background: rgba(6,182,212,0.1); color: #38bdf8;">🕸️ Graph RAG</span>' : ''}
+                ${n.filesCount ? `<span class="badge badge-mint" style="font-size: 0.62rem;">📄 ${n.filesCount} Docs</span>` : ''}
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.7rem;">
+              <button class="btn btn-secondary btn-sm" onclick="openReTrainNimphyModal('${n.nimphyId}')" style="font-size: 0.75rem;">🔄 Reentrenar</button>
+              <button class="btn btn-primary btn-sm" onclick="showLaunchApiModal('${n.nimphyId}')" style="font-size: 0.75rem;">⚡ Servir API</button>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function showLaunchApiModal(nimphyId) {
+  const n = nimphysList.find(item => item.nimphyId === nimphyId);
+  if (!n) return;
+
+  const modal = document.getElementById('nimphy-api-modal');
+  const title = document.getElementById('nimphy-api-modal-title');
+  const body = document.getElementById('nimphy-api-modal-body');
+
+  if (title) title.textContent = `⚡ Servidor API REST — ${n.name} (${n.currentVersion})`;
+
+  const isTermes = n.providerType === 'termes';
+  const isByok = n.providerType === 'byok';
+
+  if (body) {
+    body.innerHTML = `
+      <p class="text-dim text-sm mb-3">
+        ${isTermes
+          ? `Servidor Proxy OpenAI-Compatible conectado al bridge <strong>Termes Symbiont (${n.baseModel})</strong> con memoria semántica Ecdysis y Graph RAG inyectados.`
+          : isByok
+          ? `Servidor Proxy OpenAI-Compatible envolviendo <strong>BYOK (${n.baseModel})</strong> con capa de memoria persistente Ecdysis y optimizador de límites de rate.`
+          : `Servidor Efímero nativo ejecutando los pesos de <strong>${n.name} (${n.baseModel})</strong> con arranque ultra-veloz y auto-suspensión tras inactividad.`
+        }
+      </p>
+
+      <div class="panel-card mb-3" style="background: #020704; border: 1px solid var(--border-subtle); padding: 0.8rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.78rem;">
+          <span class="text-dim">Estado Servidor:</span>
+          <span class="badge badge-emerald">🟢 LISTO PARA INICIAR</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.78rem;">
+          <span class="text-dim">Endpoint Local:</span>
+          <code style="color: var(--emerald-light);">http://127.0.0.1:7430/v1/chat/completions</code>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.78rem;">
+          <span class="text-dim">Compatibilidad:</span>
+          <strong style="color: #fff;">OpenAI SDK / cURL / LangChain / LiteLLM</strong>
+        </div>
+      </div>
+
+      <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: #fff;">1. Comando de Arranque CLI:</h4>
+      <div class="output-box mb-3" style="margin-top: 0; padding: 0.6rem 0.8rem; font-size: 0.75rem;">
+mantx nimphys serve --id ${n.nimphyId} --port 7430 --timeout 15
+      </div>
+
+      <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: #fff;">2. Ejemplo de Invocación con cURL:</h4>
+      <div class="output-box mb-0" style="margin-top: 0; padding: 0.6rem 0.8rem; font-size: 0.75rem;">
+curl -X POST http://127.0.0.1:7430/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "${n.name.toLowerCase()}",
+    "messages": [
+      {"role": "system", "content": "${n.systemPrompt || 'Eres un asistente especializado'}"},
+      {"role": "user", "content": "Explica la solución optimizada..."}
+    ]
+  }'
+      </div>
+    `;
+  }
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeNimphyApiModal() {
+  const modal = document.getElementById('nimphy-api-modal');
+  if (modal) modal.classList.add('hidden');
 }
 
 async function deleteNimphy(nimphyId) {
@@ -1334,16 +1704,29 @@ async function deleteNimphy(nimphyId) {
 }
 
 async function saveNimphysToVault() {
-  if (isSessionActive()) {
+  const token = getStoredToken();
+  if (currentUser && token) {
     try {
-      await saveFileToRepo(
-        GITHUB_SESSION.token,
-        GITHUB_SESSION.username,
-        '.mantx-storage',
-        'nimphys.json',
-        JSON.stringify(nimphysList, null, 2),
-        'sync: update nimphys catalog'
-      );
+      const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/nimphys.json`, {
+        headers: { 'Authorization': `token ${token}` }
+      });
+      let sha = null;
+      if (res.ok) {
+        const data = await res.json();
+        sha = data.sha;
+      }
+      await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/nimphys.json`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'sync: update nimphys catalog',
+          content: btoa(unescape(encodeURIComponent(JSON.stringify(nimphysList, null, 2)))),
+          sha
+        })
+      });
     } catch (e) {
       console.warn('Could not sync nimphys to vault:', e.message);
     }

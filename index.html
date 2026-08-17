@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.5.0">
+  <link rel="stylesheet" href="style.css?v=2.6.0">
 </head>
 <body>
 
@@ -670,9 +670,52 @@
         </div>
       </div>
 
+      <div class="form-group mb-3">
+        <label>Proveedor / Origen del Modelo:</label>
+        <select id="nimphy-provider-type" class="input-select" onchange="onNimphyProviderChange()">
+          <option value="local_runner">🖥️ Runner Local / GitHub Actions / ZeroGPU ($0 Open-Weights)</option>
+          <option value="termes">🌐 Termes Symbiont (Web-AI Bridge — Gemini, Claude, DeepSeek Web)</option>
+          <option value="byok">🔑 BYOK API Key (Groq, Gemini, DeepSeek, OpenAI, Anthropic, Mistral...)</option>
+        </select>
+        <div id="nimphy-provider-hint" class="text-xs text-dim hidden" style="color: var(--emerald-light); margin-top: 0.2rem;">🔒 Proveedor fijado en la creación de este Niphy</div>
+      </div>
+
+      <!-- TERMES SINGLE-PROVIDER CONFIG CONTAINER -->
+      <div id="nimphy-termes-container" class="form-group mb-3 hidden" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
+        <label style="color: var(--emerald-light); font-weight: 700;">🌐 Endpoint de Termes Symbiont (Single Provider):</label>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <input type="text" id="nimphy-termes-endpoint" class="input-text" placeholder="http://127.0.0.1:7420/v1" value="http://127.0.0.1:7420/v1" oninput="detectTermesModels()">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="detectTermesModels()">🔍 Detectar</button>
+        </div>
+        <div class="grid-2" style="font-size: 0.8rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem;">Auth Token de Termes (Opcional):</label>
+            <input type="password" id="nimphy-termes-key" class="input-text" placeholder="termes-sk-...">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem;">Proveedor Detectado:</label>
+            <input type="text" id="nimphy-termes-detected-provider" class="input-text" value="Google Gemini Web Bridge (1M Context)" readonly style="background: #020704; color: var(--emerald-light);">
+          </div>
+        </div>
+      </div>
+
+      <!-- BYOK API KEY CONTAINER -->
+      <div id="nimphy-byok-container" class="form-group mb-3 hidden" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
+        <label style="color: var(--emerald-light); font-weight: 700;">🔑 BYOK API Key (Auto-Detección de Provider & Modelos):</label>
+        <input type="password" id="nimphy-byok-key" class="input-text mb-2" placeholder="Pega tu API Key aquí (gsk_..., AIza..., sk-..., nvapi-..., csk-..., etc.)" oninput="detectByokProviderAndModels()">
+        <div class="grid-2" style="font-size: 0.78rem; background: #020704; padding: 0.5rem 0.8rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+          <div>
+            <span class="text-dim">Proveedor:</span> <strong id="nimphy-byok-detected-provider" style="color: var(--emerald-light);">Pega una clave para auto-detectar</strong>
+          </div>
+          <div>
+            <span class="text-dim">Compatibilidad:</span> <span id="nimphy-byok-protocol-badge" class="badge badge-emerald">REST / OpenAI Compatible</span>
+          </div>
+        </div>
+      </div>
+
       <div class="grid-2 mb-3">
         <div class="form-group" style="margin-bottom: 0;">
-          <label>Modelo Base:</label>
+          <label>Modelo Base / Target:</label>
           <select id="nimphy-base-model" class="input-select">
             <option value="qwen-2.5-coder-3b">Qwen 2.5 Coder 3B (GGUF Q4) — Código y Scripts</option>
             <option value="qwen-2.5-coder-7b">Qwen 2.5 Coder 7B (GGUF Q4) — Máximo Rendimiento Código</option>
@@ -687,7 +730,7 @@
           <div id="nimphy-base-model-hint" class="text-xs text-dim hidden" style="color: var(--emerald-light); margin-top: 0.2rem;">🔒 Modelo base fijado por la arquitectura de este Niphy</div>
         </div>
         <div class="form-group" style="margin-bottom: 0;">
-          <label>Método de Entrenamiento:</label>
+          <label>Método de Especialización / Entrenamiento:</label>
           <select id="nimphy-method" class="input-select" onchange="onNimphyMethodChange()">
             <option value="qlora">LoRA / QLoRA 4-bit (Unsloth — Rápido y Eficiente)</option>
             <option value="raft">RAFT (Retrieval-Augmented Fine-Tuning con Docs)</option>
@@ -784,6 +827,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.5.0"></script>
+  <script src="app.js?v=2.6.0"></script>
 </body>
 </html>
