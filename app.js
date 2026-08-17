@@ -94,19 +94,12 @@ let labExperiments = [];
 let autoHealMap = {};
 
 // ─── LOGIN GATE & AUTHENTICATION ───────────────────────────────
-function sanitizeToken(str) {
-  if (!str) return '';
-  return str.replace(/[^\x21-\x7E]/g, '').trim();
-}
-
 function getStoredToken() {
-  return sanitizeToken(sessionStorage.getItem('mantx_github_token') || '');
+  return sessionStorage.getItem('mantx_github_token') || '';
 }
 
 async function handleLogin() {
-  const inputEl = document.getElementById('token-input');
-  const raw = inputEl ? inputEl.value : '';
-  const token = sanitizeToken(raw);
+  const token = document.getElementById('token-input')?.value?.trim();
   const feedback = document.getElementById('login-feedback');
   const btnConnect = document.getElementById('btn-connect');
 
@@ -127,118 +120,31 @@ async function handleLogin() {
   try {
     const res = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `token ${token}`
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
       }
     });
 
-    if (res.ok) {
-      const user = await res.json();
-      sessionStorage.setItem('mantx_github_token', token);
-      currentUser = user;
-      if (feedback) {
-        feedback.style.color = '#34d399';
-        feedback.textContent = `✔ Conectado como @${user.login}. Abriendo MANTX...`;
-      }
-      setTimeout(unlockConsole, 300);
-      return;
-    }
+    if (!res.ok) throw new Error('Token inválido o permisos insuficientes (401)');
+    const user = await res.json();
 
-    if (res.status === 401) {
-      // Fallback to Bearer format for fine-grained PAT
-      try {
-        const resBearer = await fetch('https://api.github.com/user', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (resBearer.ok) {
-          const user = await resBearer.json();
-          sessionStorage.setItem('mantx_github_token', token);
-          currentUser = user;
-          if (feedback) {
-            feedback.style.color = '#34d399';
-            feedback.textContent = `✔ Conectado como @${user.login}. Abriendo MANTX...`;
-          }
-          setTimeout(unlockConsole, 300);
-          return;
-        }
-      } catch {}
-      throw new Error('Token de GitHub no válido o expirado (HTTP 401). Verifica los permisos del PAT.');
-    }
-
-    throw new Error(`GitHub API devolvió estado HTTP ${res.status}`);
-  } catch (err) {
-    console.warn('GitHub API fetch verification bypassed (browser shield/network block):', err.message);
-    
-    if (err.message && err.message.includes('401')) {
-      if (feedback) {
-        feedback.style.color = '#f87171';
-        feedback.textContent = '✘ Token no válido o expirado (HTTP 401). Verifica los permisos de tu PAT.';
-      }
-      if (btnConnect) btnConnect.disabled = false;
-      return;
-    }
-
-    // Si el navegador bloquea la llamada por extensiones/escudos o CORS de GitHub,
-    // guardamos el token igualmente y desbloqueamos la consola sin bloquear al usuario
     sessionStorage.setItem('mantx_github_token', token);
-    const hostname = window.location.hostname || '';
-    const inferredUser = (hostname.endsWith('.github.io') && hostname.split('.')[0]) ? hostname.split('.')[0] : 'amglogicalis';
-    currentUser = {
-      login: inferredUser,
-      name: inferredUser
-    };
+    currentUser = user;
 
     if (feedback) {
       feedback.style.color = '#34d399';
-      feedback.textContent = `✔ PAT guardado (@${currentUser.login}). Accediendo a MANTX...`;
+      feedback.textContent = `✔ Conectado como @${user.login}. Accediendo a MANTX...`;
     }
 
-    setTimeout(unlockConsole, 250);
-  }
-}
-
-function enterDemoMode() {
-  currentUser = {
-    login: 'mantx-explorer',
-    name: 'MANTX Explorer',
-    avatar_url: 'assets/logo_mantx.jpg'
-  };
-  unlockConsole();
-}
-
-async function checkAuthOnStartup() {
-  const token = getStoredToken();
-  if (!token) {
-    disconnectPat();
-    return;
-  }
-
-  try {
-    const res = await fetch('https://api.github.com/user', {
-      headers: {
-        'Authorization': `token ${token}`
-      }
-    });
-    if (res.ok) {
-      currentUser = await res.json();
+    setTimeout(() => {
       unlockConsole();
-    } else {
-      // Si el token guardado no pudo verificarse por red, desbloquear con usuario inferido
-      const hostname = window.location.hostname || '';
-      const inferredUser = (hostname.endsWith('.github.io') && hostname.split('.')[0]) ? hostname.split('.')[0] : 'amglogicalis';
-      currentUser = {
-        login: inferredUser,
-        name: inferredUser
-      };
-      unlockConsole();
+    }, 450);
+  } catch (err) {
+    if (feedback) {
+      feedback.style.color = '#f87171';
+      feedback.textContent = `✘ Error de autenticación: ${err.message}`;
     }
-  } catch {
-    const hostname = window.location.hostname || '';
-    const inferredUser = (hostname.endsWith('.github.io') && hostname.split('.')[0]) ? hostname.split('.')[0] : 'amglogicalis';
-    currentUser = {
-      login: inferredUser,
-      name: inferredUser
-    };
-    unlockConsole();
+    if (btnConnect) btnConnect.disabled = false;
   }
 }
 
@@ -261,7 +167,7 @@ function disconnectPat() {
   sessionStorage.removeItem('mantx_github_token');
   currentUser = null;
   akgPools = [];
-  nimphysList = JSON.parse(JSON.stringify(DEFAULT_NIMPHYS));
+  nimphysList = [];
   battleHistory = [];
   labExperiments = [];
 
@@ -278,16 +184,39 @@ function disconnectPat() {
   if (btnConnect) btnConnect.disabled = false;
 }
 
+async function checkAuthOnStartup() {
+  const token = getStoredToken();
+  if (!token) {
+    disconnectPat();
+    return;
+  }
+
+  try {
+    const res = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    if (res.ok) {
+      currentUser = await res.json();
+      unlockConsole();
+    } else {
+      disconnectPat();
+    }
+  } catch {
+    disconnectPat();
+  }
+}
+
 async function loadVaultData() {
   if (!currentUser) return;
   const token = getStoredToken();
-  if (!token) return;
-  const cleanToken = token.replace(/[\r\n\s\t]/g, '');
   const repo = STORAGE_REPO;
 
   try {
     const poolsRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/akg-pools.json`, {
-      headers: { 'Authorization': `Bearer ${cleanToken}`, 'Accept': 'application/vnd.github.v3+json' }
+      headers: { 'Authorization': `token ${token}` }
     });
     if (poolsRes.ok) {
       const data = await poolsRes.json();
@@ -298,7 +227,7 @@ async function loadVaultData() {
 
   try {
     const nimRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/nimphys.json`, {
-      headers: { 'Authorization': `Bearer ${cleanToken}`, 'Accept': 'application/vnd.github.v3+json' }
+      headers: { 'Authorization': `token ${token}` }
     });
     if (nimRes.ok) {
       const data = await nimRes.json();
@@ -309,7 +238,7 @@ async function loadVaultData() {
 
   try {
     const labRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/nimphys-laboratory.json`, {
-      headers: { 'Authorization': `Bearer ${cleanToken}`, 'Accept': 'application/vnd.github.v3+json' }
+      headers: { 'Authorization': `token ${token}` }
     });
     if (labRes.ok) {
       const data = await labRes.json();
@@ -1800,7 +1729,7 @@ async function saveNimphysToVault() {
   if (currentUser && token) {
     try {
       const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/nimphys.json`, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+        headers: { 'Authorization': `token ${token}` }
       });
       let sha = null;
       if (res.ok) {
@@ -1810,8 +1739,7 @@ async function saveNimphysToVault() {
       await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/nimphys.json`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
+          'Authorization': `token ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

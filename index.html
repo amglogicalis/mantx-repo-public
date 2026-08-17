@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3.1.0">
+  <link rel="stylesheet" href="style.css?v=4.0.0">
 </head>
 <body>
 
@@ -28,15 +28,11 @@
 
       <div id="login-feedback" class="text-sm mb-3"></div>
 
-      <button id="btn-connect" class="btn btn-primary btn-block btn-lg mb-2" onclick="handleLogin()">
-        🚀 Conectar con GitHub PAT
+      <button id="btn-connect" class="btn btn-primary btn-block btn-lg" onclick="handleLogin()">
+        🚀 Conectar y Acceder a MANTX
       </button>
 
-      <button type="button" class="btn btn-secondary btn-block btn-sm" onclick="enterDemoMode()" style="font-size: 0.8rem; opacity: 0.9;">
-        ⚡ Explorar Consola (Modo Local / Demo)
-      </button>
-
-      <div class="login-footnote" style="margin-top: 1rem;">
+      <div class="login-footnote">
         Requiere permisos de <code>repo</code> para versionar datasets y pesos LoRA (hasta 2GB) en GitHub Releases.
       </div>
     </div>
@@ -831,6 +827,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=3.1.0"></script>
+  <script src="app.js?v=4.0.0"></script>
 </body>
 </html>
