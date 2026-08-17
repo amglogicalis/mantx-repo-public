@@ -73,24 +73,30 @@ let labExperiments = [];
 let autoHealMap = {};
 
 // ─── LOGIN GATE & AUTHENTICATION ───────────────────────────────
+function sanitizeAsciiToken(str) {
+  if (!str) return '';
+  // Elimina cualquier caracter no-ASCII o unicode invisible (zero-width space, non-breaking space, etc.)
+  return str.replace(/[^\x20-\x7E]/g, '').replace(/[\s\r\n\t]/g, '').trim();
+}
+
 function getStoredToken() {
-  return sessionStorage.getItem('mantx_github_token') || '';
+  const t = sessionStorage.getItem('mantx_github_token') || '';
+  return sanitizeAsciiToken(t);
 }
 
 async function handleLogin() {
-  const rawToken = document.getElementById('token-input')?.value?.trim();
+  const rawInput = document.getElementById('token-input')?.value || '';
+  const token = sanitizeAsciiToken(rawInput);
   const feedback = document.getElementById('login-feedback');
   const btnConnect = document.getElementById('btn-connect');
 
-  if (!rawToken) {
+  if (!token) {
     if (feedback) {
       feedback.style.color = '#f87171';
       feedback.textContent = 'Por favor, introduce tu GitHub Personal Access Token (PAT).';
     }
     return;
   }
-
-  const token = rawToken.replace(/[\r\n\s\t]/g, '');
 
   if (feedback) {
     feedback.style.color = '#34d399';
@@ -148,12 +154,10 @@ async function checkAuthOnStartup() {
     return;
   }
 
-  const cleanToken = token.replace(/[\r\n\s\t]/g, '');
-
   try {
     const res = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `Bearer ${cleanToken}`,
+        'Authorization': `Bearer ${token}`,
         'Accept': 'application/vnd.github.v3+json'
       }
     });
@@ -1726,7 +1730,7 @@ async function saveNimphysToVault() {
   if (currentUser && token) {
     try {
       const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/nimphys.json`, {
-        headers: { 'Authorization': `token ${token}` }
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' }
       });
       let sha = null;
       if (res.ok) {
@@ -1736,7 +1740,8 @@ async function saveNimphysToVault() {
       await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/nimphys.json`, {
         method: 'PUT',
         headers: {
-          'Authorization': `token ${token}`,
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
