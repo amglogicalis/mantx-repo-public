@@ -439,6 +439,68 @@ body {
   margin-bottom: 1.2rem;
 }
 
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: #081910;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 520px;
+  padding: 1.8rem;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.btn-close:hover {
+  color: var(--text-main);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 12px;
+  line-height: 1.5;
+}
+
+.text-sm {
+  font-size: 0.82rem;
+}
+
+.mb-3 {
+  margin-bottom: 1rem;
+}
+
 .app-footer {
   text-align: center;
   padding: 1.5rem;
@@ -453,3 +515,4 @@ body {
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .top-nav { flex-direction: column; gap: 0.8rem; }
 }
+

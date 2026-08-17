@@ -30,11 +30,7 @@
       <button class="nav-tab" data-tab="intelligence">📈 Intelligence</button>
     </div>
     <div class="nav-right">
-      <div class="status-indicator">
-        <span class="pulse-dot"></span>
-        <span class="status-text">TERMES Bridge Online</span>
-      </div>
-      <button id="btn-auth" class="btn btn-outline btn-sm">🔒 Conectar GitHub</button>
+      <button id="btn-auth" class="btn btn-outline btn-sm" onclick="openAuthModal()">🔒 Conectar GitHub (PAT)</button>
     </div>
   </header>
 
@@ -57,19 +53,19 @@
         </div>
         <div class="hero-stats-grid">
           <div class="stat-card">
-            <div class="stat-num" id="stat-models">9</div>
+            <div class="stat-num" id="stat-models">7</div>
             <div class="stat-label">Modelos Curados (Sub-4B)</div>
           </div>
           <div class="stat-card">
-            <div class="stat-num" id="stat-akg">2</div>
+            <div class="stat-num" id="stat-akg">0</div>
             <div class="stat-label">AKG Pools Activos</div>
           </div>
           <div class="stat-card">
-            <div class="stat-num" id="stat-battles">7</div>
+            <div class="stat-num" id="stat-battles">0</div>
             <div class="stat-label">Battles Realizadas</div>
           </div>
           <div class="stat-card">
-            <div class="stat-num" id="stat-nimphys">1</div>
+            <div class="stat-num" id="stat-nimphys">0</div>
             <div class="stat-label">Nimphys Entrenados</div>
           </div>
         </div>
@@ -81,12 +77,12 @@
         <div class="feature-card" onclick="switchTab('marketplace')">
           <div class="feature-icon">🗂️</div>
           <div class="feature-title">Marketplace & Runtime Router</div>
-          <div class="feature-desc">Modelos GGUF Q4 (Llama 3.2, Qwen 2.5 Coder, Phi 3.5) y Web AI (Gemini 3.7 y DeepSeek) listos para CPU en Actions.</div>
+          <div class="feature-desc">Modelos GGUF Q4 (Llama 3.2, Qwen 2.5 Coder, Phi 3.5) y Cloud APIs listos para CPU en Actions.</div>
         </div>
         <div class="feature-card" onclick="switchTab('akg')">
           <div class="feature-icon">🔑</div>
           <div class="feature-title">Mantx AKG (API Key Gateway)</div>
-          <div class="feature-desc">Mitigación automática de errores 429, pool multi-proveedor (Groq, Gemini, DeepSeek) y balanceo por prioridad.</div>
+          <div class="feature-desc">Mitigación automática de errores 429, pool multi-proveedor (Groq, Gemini, DeepSeek, OpenAI) y balanceo por prioridad.</div>
         </div>
         <div class="feature-card" onclick="switchTab('battles')">
           <div class="feature-icon">⚔️</div>
@@ -116,7 +112,7 @@
       <div class="tab-header">
         <div>
           <h2>🗂️ Catálogo de Modelos Marketplace</h2>
-          <p class="text-dim">Modelos optimizados para ejecución en CPU en GitHub Actions (6h compute) y Termes Symbiont.</p>
+          <p class="text-dim">Modelos optimizados para ejecución en CPU en GitHub Actions (6h compute) y proveedores Cloud BYOK.</p>
         </div>
         <div class="filter-group">
           <input type="text" id="market-search" class="input-text" placeholder="Buscar modelo o especialización...">
@@ -182,7 +178,7 @@
         <div class="grid-3">
           <div class="form-group">
             <label>Candidatos (separados por coma):</label>
-            <input type="text" id="battle-candidates" class="input-text" value="termes-gemini-3.7,termes-deepseek-v3">
+            <input type="text" id="battle-candidates" class="input-text" value="qwen-2.5-coder-3b,llama-3.2-3b-instruct">
           </div>
           <div class="form-group">
             <label>Modo RAG:</label>
@@ -312,15 +308,15 @@
 
       <div class="grid-3 mb-4">
         <div class="stat-card">
-          <div class="stat-num" id="stat-semantic-score">90%</div>
+          <div class="stat-num" id="stat-semantic-score">--</div>
           <div class="stat-label">Similitud Semántica vs Baseline</div>
         </div>
         <div class="stat-card">
-          <div class="stat-num" id="stat-avg-latency">420ms</div>
+          <div class="stat-num" id="stat-avg-latency">--</div>
           <div class="stat-label">Latencia Media en Inferencia</div>
         </div>
         <div class="stat-card">
-          <div class="stat-num text-emerald" id="stat-drift-status">ÓPTIMO</div>
+          <div class="stat-num text-emerald" id="stat-drift-status">--</div>
           <div class="stat-label">Estado de Drift en Producción</div>
         </div>
       </div>
@@ -334,6 +330,32 @@
     </section>
 
   </main>
+
+  <!-- AUTH MODAL -->
+  <div id="auth-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🔒 Conectar GitHub Personal Access Token (PAT)</h3>
+        <button class="btn-close" onclick="closeAuthModal()">✕</button>
+      </div>
+      <p class="text-dim text-sm mb-3">
+        MANTX utiliza tu GitHub PAT para sincronizar de forma privada tu almacén <code>.mantx-storage</code> (modelos, adaptadores LoRA, datasets y memoria) a coste $0.
+      </p>
+      <div class="form-group">
+        <label>GitHub PAT (Clásico con permisos de <code>repo</code> o Fine-grained):</label>
+        <input type="password" id="input-pat" class="input-text" placeholder="ghp_... o github_pat_...">
+      </div>
+      <div class="form-group">
+        <label>Repositorio de Storage:</label>
+        <input type="text" id="input-repo" class="input-text" value=".mantx-storage">
+      </div>
+      <div id="auth-feedback" class="text-sm mb-3"></div>
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="disconnectPat()">Desconectar</button>
+        <button class="btn btn-primary" onclick="savePatConnection()">Guardar y Conectar</button>
+      </div>
+    </div>
+  </div>
 
   <footer class="app-footer">
     <div>MANTX — Terra Ecosystem • Licencia MIT • Autonomous AI Architecture at $0 Cost</div>
