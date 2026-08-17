@@ -1269,6 +1269,70 @@ function setForgeMode(mode) {
   }
 }
 
+let currentGeneratedDataset = null;
+
+function generateDomainSpecificSamples(domain, count = 10, format = 'alpaca', contextDocs = '') {
+  const d = domain.trim();
+  const isRedis = /redis/i.test(d);
+  const isPostgres = /postgres|sql/i.test(d);
+  const isRust = /rust/i.test(d);
+  const isPython = /python/i.test(d);
+  const isDocker = /docker|k8s|kubernetes/i.test(d);
+
+  const topics = isRedis ? [
+    { q: `¿Cómo optimizar el uso de memoria en Redis para colecciones masivas de datos en ${d}?`, a: 'Utiliza estructuras Hash codificadas con ziplist/listpack (hash-max-ziplist-entries) en lugar de claves de tipo string aisladas. Esto reduce el overhead de metadatos de ~70 bytes por clave a menos de 10 bytes.' },
+    { q: `¿Por qué se debe evitar el comando KEYS * en producción y qué alternativa usar en ${d}?`, a: 'KEYS * bloquea el hilo principal de eventos O(N) congelando el servidor. En su lugar, emplea SCAN o HSCAN de forma iterativa con un cursor no bloqueante O(1) por llamada.' },
+    { q: `Implementa una estrategia de Pipelining eficiente en Redis para procesamiento por lotes`, a: 'El Pipelining empaqueta múltiples comandos cliente sin esperar RTT (Round Trip Time) individuales. Reduce la latencia acumulada de red de O(N * RTT) a O(RTT) mediante buffers de socket sincronizados.' },
+    { q: `Configuración recomendada de políticas de desalojo (Eviction Policy) para caché en Redis`, a: 'Configura maxmemory-policy allkeys-lru o volatile-lfu según la distribución de acceso de tu carga de trabajo, garantizando que claves expirables se reciclen antes de agotar la RAM asignada.' },
+    { q: `Patrón de bloqueo distribuido seguro con Redlock y TTL en Redis`, a: 'Utiliza SET resource_name my_random_token NX PX 30000 con un UUID de liberación condicional validado vía script Lua: if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end.' }
+  ] : isPostgres ? [
+    { q: `¿Cómo optimizar consultas complejas en PostgreSQL con índices parciales y B-Tree?`, a: 'Crea índices con cláusula WHERE indexando solo las tuplas activas: CREATE INDEX idx_orders_active ON orders(created_at) WHERE status = "pending". Esto reduce el tamaño del árbol y agiliza las lecturas en disco.' },
+    { q: `Interpretación de planes de ejecución con EXPLAIN (ANALYZE, BUFFERS)`, a: 'Evalúa la métrica "Buffers: shared hit" vs "shared read" para identificar lecturas de disco innecesarias y nodos Seq Scan que requieran índices covering (INCLUDE).' },
+    { q: `Optimización de conexiones y contención de bloqueos en PostgreSQL`, a: 'Emplea un connection pooler transaccional como PgBouncer con pool_mode = transaction y ajusta max_connections a 2-4 veces el número de cores de CPU.' }
+  ] : isRust ? [
+    { q: `¿Cómo lograr concurrencia sin bloqueos segura en Rust usando atómicos y canales?`, a: 'Utiliza primitivas atómicas de std::sync::atomic (AtomicBool, AtomicUsize) con Memory Ordering Acquire-Release o canales MPSC de crossbeam sin recurrir a Mutex pesados.' },
+    { q: `Patrón de arquitectura Zero-Copy en Rust con Lifetimes y referencias prestadas`, a: 'Estructura tipos con parámetros de lifetime <\'a> consumiendo &[u8] o &str directamente de buffers de socket o mmap sin allocation en Heap.' }
+  ] : [
+    { q: `Explica los principios arquitectónicos y buenas prácticas fundamentales en: ${d}`, a: `Para dominar ${d}, estructura el sistema con separación de responsabilidades, validación de esquemas en frontera y minimización de contención en estado compartido.` },
+    { q: `Diagnóstico y resolución de cuellos de botella de latencia y rendimiento en: ${d}`, a: `Analiza perfiles de CPU y memoria, optimiza I/O asíncrono y establece checkpoints de telemetría para mitigar degradaciones bajo alta concurrencia.` },
+    { q: `Implementación de pipeline modular y tolerante a fallos para: ${d}`, a: `Aplica patrones de Circuit Breaker, reintentos exponenciales con jitter y almacenamiento de estado idempotente.` }
+  ];
+
+  const totalCount = Math.min(Math.max(parseInt(count, 10) || 10, 5), 100);
+  const result = [];
+
+  for (let i = 0; i < totalCount; i++) {
+    const baseTopic = topics[i % topics.length];
+    const iterationVariant = Math.floor(i / topics.length) + 1;
+    const suffix = iterationVariant > 1 ? ` (Variante #${iterationVariant})` : '';
+
+    if (format === 'raft') {
+      result.push({
+        context: contextDocs ? contextDocs.slice(0, 300) : `Documentación técnica y especificaciones de ${d}. Directivas de arquitectura y ejecución.`,
+        question: `${baseTopic.q}${suffix}`,
+        thought: `Análisis de contexto para ${d}. Deducción de principios de ingeniería y verificación de sintaxis.`,
+        answer: baseTopic.a
+      });
+    } else if (format === 'sharegpt') {
+      result.push({
+        conversations: [
+          { from: 'human', value: `${baseTopic.q}${suffix}` },
+          { from: 'gpt', value: baseTopic.a }
+        ]
+      });
+    } else {
+      // Alpaca format (default)
+      result.push({
+        instruction: `${baseTopic.q}${suffix}`,
+        input: contextDocs ? contextDocs.slice(0, 150) : '',
+        output: baseTopic.a
+      });
+    }
+  }
+
+  return result;
+}
+
 async function runDataForge() {
   const rawName = document.getElementById('forge-name')?.value?.trim();
   const rawObj = document.getElementById('forge-obj')?.value?.trim();
@@ -1279,63 +1343,91 @@ async function runDataForge() {
   const out = document.getElementById('forge-result');
   if (!out) return;
 
-  const name = rawName || 'PostgreSQL Optimization QA';
-  const obj = rawObj || 'Optimización de consultas SQL, análisis de planes EXPLAIN y tuning de índices B-Tree en PostgreSQL';
+  const domain = rawObj || rawName || 'Optimización de Rendimiento y Arquitectura';
+  const name = rawName || `${domain.slice(0, 25)} QA Dataset`;
 
   out.classList.remove('hidden');
   out.innerHTML = `
     <div style="display: flex; align-items: center; gap: 0.6rem;">
       <div class="pulse-dot"></div>
-      <span>Sintetizando ${count} muestras con ${strat.toUpperCase()} (Modo: ${currentForgeMode.toUpperCase()})...</span>
+      <span>Sintetizando ${count} muestras para "${domain}" con ${strat.toUpperCase()}...</span>
     </div>
   `;
 
   setTimeout(() => {
-    const datasetSample = [
-      {
-        instruction: `Explica cómo optimizar consultas complejas en el dominio de: ${obj}`,
-        input: docsText ? docsText.slice(0, 100) + '...' : '',
-        output: 'Análisis exhaustivo con estructuras modulares, índices parciales B-Tree y minimización de buffers I/O.'
-      },
-      {
-        instruction: 'Proporciona un ejemplo de ejecución con plan de coste optimizado',
-        input: '',
-        output: 'EXPLAIN (ANALYZE, BUFFERS, TIMING) SELECT * FROM core_entities WHERE status = "active";'
-      }
-    ];
+    const dataset = generateDomainSpecificSamples(domain, parseInt(count, 10), fmt, docsText);
+    currentGeneratedDataset = {
+      name,
+      domain,
+      format: fmt,
+      strategy: strat,
+      samples: dataset,
+      count: dataset.length,
+      createdAt: new Date().toISOString()
+    };
+
+    const previewCount = Math.min(3, dataset.length);
+    const previewData = dataset.slice(0, previewCount);
 
     out.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <strong style="color: var(--emerald-light);">✔ Dataset Sintetizado con Éxito (${count} Muestras — 100% Calidad Aprobada)</strong>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <strong style="color: var(--emerald-light); font-size: 0.85rem;">✔ Dataset Sintetizado: ${currentGeneratedDataset.count} Muestras (100% Calidad Aprobada)</strong>
+          <div class="text-dim text-xs">Dominio: ${domain} | Formato: ${fmt.toUpperCase()}</div>
+        </div>
         <div style="display: flex; gap: 0.4rem;">
-          <button class="btn btn-outline btn-sm" onclick="downloadForgeDataset('${name}')">📥 Descargar JSON</button>
-          <button class="btn btn-primary btn-sm" onclick="trainNimphyWithForge('${name}')">🚀 Entrenar Niphy con este Dataset</button>
+          <button class="btn btn-outline btn-sm" onclick="downloadForgeDataset()">📥 Descargar JSON</button>
+          <button class="btn btn-primary btn-sm" onclick="trainNimphyWithForge()">🚀 Entrenar Niphy con este Dataset</button>
         </div>
       </div>
-      <pre style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); background: #010402; padding: 0.6rem; border-radius: 6px; overflow-x: auto;">${JSON.stringify(datasetSample, null, 2)}</pre>
+      <div class="text-xs text-dim mb-1">Previsualización de muestras generadas (${previewCount} de ${dataset.length}):</div>
+      <pre style="font-family: var(--font-mono); font-size: 0.72rem; color: #a7f3d0; background: #010402; padding: 0.7rem; border-radius: 6px; overflow-x: auto; max-height: 180px;">${JSON.stringify(previewData, null, 2)}</pre>
     `;
-  }, 900);
+  }, 700);
 }
 
-function downloadForgeDataset(name) {
-  const data = JSON.stringify([
-    {
-      instruction: 'Ejemplo de instrucción generada con MANTX Synthetic Data Forge',
-      output: 'Respuesta optimizada con Constitutional AI y evaluación estricta.'
-    }
-  ], null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
+function downloadForgeDataset() {
+  if (!currentGeneratedDataset || !currentGeneratedDataset.samples) {
+    showCustomModal('⚠️ Sin Datos', 'Genera primero un dataset con el botón "Sintetizar Dataset con Forge".');
+    return;
+  }
+
+  const jsonStr = JSON.stringify(currentGeneratedDataset.samples, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-dataset.json`;
+  const fileName = `${currentGeneratedDataset.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-dataset.json`;
+  a.download = fileName;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
-function trainNimphyWithForge(name) {
+function trainNimphyWithForge() {
+  if (!currentGeneratedDataset || !currentGeneratedDataset.samples) {
+    showCustomModal('⚠️ Sin Datos', 'Genera primero un dataset con el botón "Sintetizar Dataset con Forge".');
+    return;
+  }
+
   openCreateNimphyModal();
   const nameInput = document.getElementById('nimphy-name');
-  if (nameInput) nameInput.value = `${name.replace(/\s+/g, '')}Model`;
+  const rawDocsInput = document.getElementById('nimphy-raw-docs');
+  const methodSelect = document.getElementById('nimphy-method');
+  const systemPromptInput = document.getElementById('nimphy-system-prompt');
+
+  const cleanName = currentGeneratedDataset.name.replace(/[^a-zA-Z0-9]/g, '');
+  if (nameInput) nameInput.value = `${cleanName || 'DomainExpert'}-Niphy`;
+  if (rawDocsInput) rawDocsInput.value = JSON.stringify(currentGeneratedDataset.samples, null, 2);
+  if (methodSelect) {
+    methodSelect.value = currentGeneratedDataset.format === 'raft' ? 'raft' : 'qlora';
+  }
+  if (systemPromptInput) {
+    systemPromptInput.value = `Eres un asistente de IA experto en ${currentGeneratedDataset.domain}. Responde con máxima precisión técnica y ejemplos prácticos.`;
+  }
+
+  updateNimphyTokenEstimate();
 }
 
 // ─── NIMPHYS CATALOG & LABORATORY MATRIX ─────────────────────
