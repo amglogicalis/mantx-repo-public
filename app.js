@@ -278,36 +278,56 @@ async function verifyHfToken() {
   const resultBox = document.getElementById('hf-tier-result');
   if (!resultBox) return;
 
+  resultBox.className = 'tier-status-box mb-3';
   resultBox.classList.remove('hidden');
-  resultBox.textContent = '⏳ Verificando credenciales en HuggingFace API...';
+  resultBox.innerHTML = '<div style="color: var(--emerald-light);">⏳ Verificando credenciales en HuggingFace API...</div>';
 
   try {
     const res = await fetch('https://huggingface.co/api/whoami-v2', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
-    if (!res.ok) throw new Error('Token inválido o expirado');
+    if (!res.ok) throw new Error('Token inválido o permisos insuficientes');
     const data = await res.json();
     const isPro = Boolean(data.isPro || data.plan === 'pro');
+    const username = data.name || data.user || 'usuario';
 
     if (isPro) {
       resultBox.innerHTML = `
-        <strong style="color: var(--emerald-light);">✔ Plan PRO Detectado (@${data.name || data.user})</strong><br>
-        • Acceso ZeroGPU: <strong>HABILITADO</strong> para todos tus Spaces.<br>
-        • MANTX configurará automáticamente tus runners con aceleración de GPU.
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem;">
+          <span class="badge badge-emerald">PRO ACTIVO</span>
+          <strong style="color: #fff; font-size: 0.95rem;">@${username}</strong>
+        </div>
+        <div style="color: var(--text-dim); font-size: 0.82rem; line-height: 1.6;">
+          <div style="margin-bottom: 0.4rem;">• Acceso ZeroGPU: <strong style="color: var(--emerald-light);">HABILITADO</strong> para todos tus Spaces.</div>
+          <div>• MANTX configurará automáticamente tus runners con aceleración de GPU.</div>
+        </div>
       `;
     } else {
       resultBox.innerHTML = `
-        <strong style="color: #fbbf24;">ℹ️ Cuenta Gratuita (@${data.name || data.user})</strong><br>
-        • Acceso actual: <strong>CPU Spaces (Gratuito)</strong>.<br>
-        • Puedes solicitar el <strong>ZeroGPU Grant Gratuito</strong> para proyectos open source en:<br>
-        <a href="https://huggingface.co/zero-gpu-explorers" target="_blank" style="color: var(--emerald-light); text-decoration: underline;">https://huggingface.co/zero-gpu-explorers</a>
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem;">
+          <span class="badge" style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3);">CUENTA GRATUITA</span>
+          <strong style="color: #fff; font-size: 0.95rem;">@${username}</strong>
+        </div>
+        <div style="color: var(--text-dim); font-size: 0.82rem; line-height: 1.6;">
+          <div style="margin-bottom: 0.4rem;">• Acceso actual: <strong style="color: #fff;">CPU Spaces (Gratuito)</strong>.</div>
+          <div style="margin-bottom: 0.6rem;">• Puedes solicitar el <strong>ZeroGPU Grant Gratuito</strong> para proyectos open source en:</div>
+          <div style="background: rgba(0,0,0,0.35); padding: 0.6rem 0.8rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
+            <a href="https://huggingface.co/zero-gpu-explorers" target="_blank" style="color: var(--emerald-light); text-decoration: underline; font-family: var(--font-mono); font-size: 0.78rem;">https://huggingface.co/zero-gpu-explorers</a>
+          </div>
+        </div>
       `;
     }
   } catch (e) {
     resultBox.innerHTML = `
-      <strong style="color: #f87171;">✘ Error de verificación:</strong> ${e.message}.<br>
-      Puedes solicitar el ZeroGPU Grant en: <a href="https://huggingface.co/zero-gpu-explorers" target="_blank" style="color: var(--emerald-light);">zero-gpu-explorers</a>
+      <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem;">
+        <span class="badge" style="background: rgba(248, 113, 113, 0.2); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3);">ERROR</span>
+        <strong style="color: #fff;">Fallo de autenticación</strong>
+      </div>
+      <div style="color: var(--text-dim); font-size: 0.82rem; line-height: 1.6;">
+        <div style="margin-bottom: 0.4rem;">${e.message}. Verifica que tu token tenga permisos de lectura.</div>
+        <div>Solicitud de ZeroGPU Grant: <a href="https://huggingface.co/zero-gpu-explorers" target="_blank">zero-gpu-explorers</a></div>
+      </div>
     `;
   }
 }
