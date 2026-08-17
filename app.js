@@ -249,17 +249,6 @@ function closeAkgCreateModal() {
   if (modal) modal.classList.add('hidden');
 }
 
-function getPriorityOptionsHtml(selected = 1, totalCount = 1) {
-  let html = '';
-  const selNum = parseInt(selected, 10) || 1;
-  const count = Math.max(1, parseInt(totalCount, 10) || 1);
-  for (let i = 1; i <= count; i++) {
-    const label = i === 1 ? 'P1 (Primaria)' : `P${i} (Respaldo ${i - 1})`;
-    html += `<option value="${i}" ${i === selNum ? 'selected' : ''}>${label}</option>`;
-  }
-  return html;
-}
-
 function refreshCreateModalRows() {
   const container = document.getElementById('create-pool-keys-container');
   if (!container) return;
@@ -269,19 +258,21 @@ function refreshCreateModalRows() {
   const totalCount = rows.length;
 
   rows.forEach((row, idx) => {
-    const prioWrapper = row.querySelector('.create-key-prio-wrapper');
-    const prioSelect = row.querySelector('.row-key-prio');
+    const prioBadge = row.querySelector('.create-key-prio-badge');
     const aliasInput = row.querySelector('.row-key-alias');
     const upBtn = row.querySelector('.btn-move-up');
     const downBtn = row.querySelector('.btn-move-down');
 
-    if (prioWrapper) {
-      prioWrapper.style.display = strat === 'priority_fallback' ? 'block' : 'none';
-    }
-
-    if (prioSelect) {
-      prioSelect.innerHTML = getPriorityOptionsHtml(idx + 1, totalCount);
-      prioSelect.value = idx + 1;
+    if (prioBadge) {
+      if (strat === 'priority_fallback') {
+        prioBadge.style.display = 'inline-block';
+        prioBadge.textContent = idx === 0 ? 'P1 (Primaria)' : `P${idx + 1} (Respaldo ${idx})`;
+        prioBadge.className = idx === 0 ? 'badge badge-emerald create-key-prio-badge' : 'badge badge-mint create-key-prio-badge';
+      } else {
+        prioBadge.style.display = 'inline-block';
+        prioBadge.textContent = 'Rotativa';
+        prioBadge.className = 'badge badge-mint create-key-prio-badge';
+      }
     }
 
     if (aliasInput && !aliasInput.value) {
@@ -294,28 +285,6 @@ function refreshCreateModalRows() {
 }
 
 function handleCreateStrategyChange() {
-  refreshCreateModalRows();
-}
-
-function onRowPriorityDropdownChange(rowId, newTargetPos) {
-  const row = document.getElementById(rowId);
-  const container = document.getElementById('create-pool-keys-container');
-  if (!row || !container) return;
-
-  const targetIdx = Math.max(0, parseInt(newTargetPos, 10) - 1);
-  const rows = Array.from(container.querySelectorAll('.create-key-row'));
-  const currentIdx = rows.indexOf(row);
-
-  if (currentIdx === -1 || currentIdx === targetIdx) return;
-
-  if (targetIdx >= rows.length - 1) {
-    container.appendChild(row);
-  } else if (targetIdx > currentIdx) {
-    container.insertBefore(row, rows[targetIdx].nextSibling);
-  } else {
-    container.insertBefore(row, rows[targetIdx]);
-  }
-
   refreshCreateModalRows();
 }
 
@@ -334,14 +303,11 @@ function addCreateKeyRow() {
 
   rowDiv.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div class="create-key-prio-wrapper" style="display: ${strat === 'priority_fallback' ? 'block' : 'none'};">
-        <label style="font-size: 0.72rem; color: var(--emerald-light); font-weight: 700; margin-right: 0.3rem;">Prioridad:</label>
-        <select class="input-select row-key-prio" style="padding: 0.15rem 0.4rem; font-size: 0.72rem; width: auto; display: inline-block;" onchange="onRowPriorityDropdownChange('${rowId}', this.value)"></select>
-      </div>
+      <span class="badge badge-emerald create-key-prio-badge" style="font-size: 0.75rem; font-weight: 700;">P1 (Primaria)</span>
       <div style="display: flex; gap: 0.3rem; margin-left: auto;">
-        <button type="button" class="btn btn-outline btn-sm btn-move-up" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;" onclick="moveCreateRow('${rowId}', -1)" title="Subir Prioridad">▲</button>
-        <button type="button" class="btn btn-outline btn-sm btn-move-down" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;" onclick="moveCreateRow('${rowId}', 1)" title="Bajar Prioridad">▼</button>
-        ${container.children.length > 0 ? `<button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.4rem; font-size: 0.7rem; color: #f87171;" onclick="removeCreateKeyRow('${rowId}')">✕</button>` : ''}
+        <button type="button" class="btn btn-outline btn-sm btn-move-up" style="padding: 0.15rem 0.45rem; font-size: 0.75rem;" onclick="moveCreateRow('${rowId}', -1)" title="Subir Prioridad">▲</button>
+        <button type="button" class="btn btn-outline btn-sm btn-move-down" style="padding: 0.15rem 0.45rem; font-size: 0.75rem;" onclick="moveCreateRow('${rowId}', 1)" title="Bajar Prioridad">▼</button>
+        ${container.children.length > 0 ? `<button type="button" class="btn btn-outline btn-sm" style="padding: 0.15rem 0.45rem; font-size: 0.75rem; color: #f87171;" onclick="removeCreateKeyRow('${rowId}')">✕</button>` : ''}
       </div>
     </div>
     <div class="form-group" style="margin-bottom: 0.3rem;">
@@ -503,21 +469,16 @@ async function confirmSaveEditedPool() {
 }
 
 function openAkgAddKeyModal(poolId) {
-  const pool = akgPools.find(p => p.poolId === poolId);
   const modal = document.getElementById('akg-add-key-modal');
   const idInput = document.getElementById('add-key-pool-id');
   const valInput = document.getElementById('add-key-val');
   const aliasInput = document.getElementById('add-key-alias');
   const provInput = document.getElementById('add-key-provider');
-  const prioSelect = document.getElementById('add-key-priority');
-
-  const totalCount = (pool?.keys?.length || 0) + 1;
 
   if (idInput) idInput.value = poolId;
   if (valInput) valInput.value = '';
   if (aliasInput) aliasInput.value = '';
   if (provInput) provInput.value = 'auto';
-  if (prioSelect) prioSelect.innerHTML = getPriorityOptionsHtml(totalCount, totalCount);
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -531,7 +492,6 @@ async function confirmAddKeyToPool() {
   const keyVal = document.getElementById('add-key-val')?.value?.trim();
   const alias = document.getElementById('add-key-alias')?.value?.trim();
   const rawProv = document.getElementById('add-key-provider')?.value || 'auto';
-  const priority = parseInt(document.getElementById('add-key-priority')?.value || '1', 10);
 
   if (!keyVal) {
     showCustomModal('⚠️ Campo Requerido', 'Por favor introduce una API key válida.');
@@ -541,19 +501,19 @@ async function confirmAddKeyToPool() {
   const pool = akgPools.find(p => p.poolId === poolId);
   if (!pool) return;
 
+  if (!pool.keys) pool.keys = [];
   const provider = rawProv === 'auto' ? detectKeyProvider(keyVal) : rawProv;
   const newKey = {
     keyId: `key_${Date.now()}`,
     provider,
     keyMasked: maskApiKey(keyVal),
-    alias: alias || `${provider.toUpperCase()} Key`,
-    priority: isNaN(priority) ? 1 : Math.min(Math.max(priority, 1), 20),
+    alias: alias || `${provider.toUpperCase()} Key ${pool.keys.length + 1}`,
+    priority: pool.keys.length + 1,
     active: true,
     calls: 0,
     rateHits: 0
   };
 
-  if (!pool.keys) pool.keys = [];
   pool.keys.push(newKey);
   pool.keys.sort((a, b) => a.priority - b.priority);
 
@@ -940,12 +900,12 @@ function renderAkgPools() {
 
                   <div style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem;">
                     ${p.strategy === 'priority_fallback' ? `
-                      <div style="display: flex; align-items: center; gap: 0.25rem;">
-                        <select class="input-select" style="padding: 0.15rem 0.35rem; font-size: 0.72rem; width: auto; background: #020704; color: var(--emerald-light); border-color: rgba(16,185,129,0.3);" onchange="changeKeyPriority('${p.poolId}', '${k.keyId}', this.value)" title="Cambiar Prioridad">
-                          ${getPriorityOptionsHtml(k.priority, keys.length)}
-                        </select>
-                        <button class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.68rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', -1)" title="Subir Prioridad (▲)">▲</button>
-                        <button class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.68rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', 1)" title="Bajar Prioridad (▼)">▼</button>
+                      <div style="display: flex; align-items: center; gap: 0.35rem;">
+                        <span class="badge ${k.priority === 1 ? 'badge-emerald' : 'badge-mint'}" style="font-size: 0.72rem; font-weight: 700;">
+                          ${k.priority === 1 ? 'P1 (Primaria)' : `P${k.priority} (Respaldo ${k.priority - 1})`}
+                        </span>
+                        <button class="btn btn-outline btn-sm" style="padding: 0.15rem 0.45rem; font-size: 0.75rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', -1)" title="Subir Prioridad (▲)">▲</button>
+                        <button class="btn btn-outline btn-sm" style="padding: 0.15rem 0.45rem; font-size: 0.75rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', 1)" title="Bajar Prioridad (▼)">▼</button>
                       </div>
                     ` : `
                       <span class="badge badge-mint" style="font-size: 0.7rem;">Rotativa</span>
