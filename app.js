@@ -78,17 +78,19 @@ function getStoredToken() {
 }
 
 async function handleLogin() {
-  const token = document.getElementById('token-input')?.value?.trim();
+  const rawToken = document.getElementById('token-input')?.value?.trim();
   const feedback = document.getElementById('login-feedback');
   const btnConnect = document.getElementById('btn-connect');
 
-  if (!token) {
+  if (!rawToken) {
     if (feedback) {
       feedback.style.color = '#f87171';
-      feedback.textContent = 'Por favor, introduce tu GitHub Personal Access Token.';
+      feedback.textContent = 'Por favor, introduce tu GitHub Personal Access Token (PAT).';
     }
     return;
   }
+
+  const token = rawToken.replace(/[\r\n\s\t]/g, '');
 
   if (feedback) {
     feedback.style.color = '#34d399';
@@ -99,14 +101,22 @@ async function handleLogin() {
   try {
     const res = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `token ${token}`,
+        'Authorization': `Bearer ${token}`,
         'Accept': 'application/vnd.github.v3+json'
       }
     });
 
-    if (!res.ok) throw new Error('Token inválido o permisos insuficientes (401)');
-    const user = await res.json();
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('Token inválido o expirado (HTTP 401). Verifica los permisos de tu PAT.');
+      } else if (res.status === 403) {
+        throw new Error('Límite de tasa de GitHub API excedido o permisos insuficientes (HTTP 403).');
+      } else {
+        throw new Error(`GitHub API devolvió estado HTTP ${res.status}`);
+      }
+    }
 
+    const user = await res.json();
     sessionStorage.setItem('mantx_github_token', token);
     currentUser = user;
 
@@ -117,13 +127,44 @@ async function handleLogin() {
 
     setTimeout(() => {
       unlockConsole();
-    }, 450);
+    }, 350);
   } catch (err) {
     if (feedback) {
       feedback.style.color = '#f87171';
-      feedback.textContent = `✘ Error de autenticación: ${err.message}`;
+      if (err.message && err.message.includes('Failed to fetch')) {
+        feedback.innerHTML = `✘ <strong>Error de red (Failed to fetch):</strong> El navegador no pudo conectar con <code>api.github.com</code>.<br><span style="font-size:0.75rem; color:#fca5a5;">Posibles causas: extensiones bloqueadoras (Brave Shields, uBlock Origin, AdBlock), VPN o firewall bloqueando peticiones directas a GitHub. Desactiva el escudo en esta página e inténtalo de nuevo.</span>`;
+      } else {
+        feedback.textContent = `✘ Error de autenticación: ${err.message}`;
+      }
     }
     if (btnConnect) btnConnect.disabled = false;
+  }
+}
+
+async function checkAuthOnStartup() {
+  const token = getStoredToken();
+  if (!token) {
+    disconnectPat();
+    return;
+  }
+
+  const cleanToken = token.replace(/[\r\n\s\t]/g, '');
+
+  try {
+    const res = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${cleanToken}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    if (res.ok) {
+      currentUser = await res.json();
+      unlockConsole();
+    } else {
+      disconnectPat();
+    }
+  } catch {
+    disconnectPat();
   }
 }
 
@@ -163,39 +204,16 @@ function disconnectPat() {
   if (btnConnect) btnConnect.disabled = false;
 }
 
-async function checkAuthOnStartup() {
-  const token = getStoredToken();
-  if (!token) {
-    disconnectPat();
-    return;
-  }
-
-  try {
-    const res = await fetch('https://api.github.com/user', {
-      headers: {
-        'Authorization': `token ${token}`,
-        'Accept': 'application/vnd.github.v3+json'
-      }
-    });
-    if (res.ok) {
-      currentUser = await res.json();
-      unlockConsole();
-    } else {
-      disconnectPat();
-    }
-  } catch {
-    disconnectPat();
-  }
-}
-
 async function loadVaultData() {
   if (!currentUser) return;
   const token = getStoredToken();
+  if (!token) return;
+  const cleanToken = token.replace(/[\r\n\s\t]/g, '');
   const repo = STORAGE_REPO;
 
   try {
     const poolsRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/akg-pools.json`, {
-      headers: { 'Authorization': `token ${token}` }
+      headers: { 'Authorization': `Bearer ${cleanToken}`, 'Accept': 'application/vnd.github.v3+json' }
     });
     if (poolsRes.ok) {
       const data = await poolsRes.json();
@@ -206,7 +224,7 @@ async function loadVaultData() {
 
   try {
     const nimRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/nimphys.json`, {
-      headers: { 'Authorization': `token ${token}` }
+      headers: { 'Authorization': `Bearer ${cleanToken}`, 'Accept': 'application/vnd.github.v3+json' }
     });
     if (nimRes.ok) {
       const data = await nimRes.json();
@@ -217,7 +235,7 @@ async function loadVaultData() {
 
   try {
     const labRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/nimphys-laboratory.json`, {
-      headers: { 'Authorization': `token ${token}` }
+      headers: { 'Authorization': `Bearer ${cleanToken}`, 'Accept': 'application/vnd.github.v3+json' }
     });
     if (labRes.ok) {
       const data = await labRes.json();
