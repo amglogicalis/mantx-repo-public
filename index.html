@@ -51,10 +51,11 @@
       </div>
       <div class="nav-center">
         <button class="nav-tab active" data-tab="dashboard">📊 Dashboard</button>
+        <button class="nav-tab" data-tab="onboarding">📖 Onboarding</button>
         <button class="nav-tab" data-tab="marketplace">🗂️ Marketplace</button>
         <button class="nav-tab" data-tab="akg">🔑 AKG Gateway</button>
         <button class="nav-tab" data-tab="battles">⚔️ Deimatic Battles</button>
-        <button class="nav-tab" data-tab="nimphys">🧬 Nimphys & Forge</button>
+        <button class="nav-tab" data-tab="nimphys">🧬 Nimphys, Forge & Lab</button>
         <button class="nav-tab" data-tab="intelligence">📈 Intelligence</button>
       </div>
       <div class="nav-right">
@@ -75,17 +76,17 @@
             <span class="badge badge-mint hero-pill">CI/CD & Serverless AI Engine</span>
             <h1 class="hero-heading">Inteligencia Artificial Autónoma a Coste <span class="text-gradient">$0</span></h1>
             <p class="hero-desc">
-              Entrena modelos con LoRA/QLoRA en las 6h de GitHub Actions, sintetiza datasets con Constitutional AI, ejecuta batallas comparativas multi-modelo y gestiona tus despliegues a coste cero.
+              Entrena modelos con LoRA/QLoRA en las 6h de GitHub Actions, sintetiza datasets con Constitutional AI, ejecuta batallas comparativas multi-modelo, laboratorios de convergencia y cierra el ciclo con Auto-Heal.
             </p>
             <div class="hero-actions">
-              <button class="btn btn-primary" onclick="switchTab('marketplace')">Explorar Modelos Marketplace</button>
-              <button class="btn btn-secondary" onclick="switchTab('battles')">Iniciar Deimatic Battle</button>
+              <button class="btn btn-primary" onclick="switchTab('onboarding')">📖 Ver Guía de Onboarding</button>
+              <button class="btn btn-secondary" onclick="switchTab('marketplace')">Explorar Modelos Marketplace</button>
             </div>
           </div>
           <div class="hero-stats-grid">
             <div class="stat-card">
-              <div class="stat-num" id="stat-models">7</div>
-              <div class="stat-label">Modelos Curados (Sub-4B)</div>
+              <div class="stat-num" id="stat-models">19</div>
+              <div class="stat-label">Modelos Curados & BYOK</div>
             </div>
             <div class="stat-card">
               <div class="stat-num" id="stat-akg">0</div>
@@ -105,10 +106,15 @@
         <!-- Quick Actions Grid -->
         <div class="section-title">⚡ Módulos Transversales de MANTX</div>
         <div class="grid-3">
+          <div class="feature-card" onclick="switchTab('onboarding')">
+            <div class="feature-icon">📖</div>
+            <div class="feature-title">Onboarding & Arquitectura $0</div>
+            <div class="feature-desc">Guía conceptual completa sobre cómo funciona el cómputo serverless en Actions, ZeroGPU y el almacenamiento en Releases.</div>
+          </div>
           <div class="feature-card" onclick="switchTab('marketplace')">
             <div class="feature-icon">🗂️</div>
-            <div class="feature-title">Marketplace & Runtime Router</div>
-            <div class="feature-desc">Modelos GGUF Q4 (Llama 3.2, Qwen 2.5 Coder, Phi 3.5) y Cloud APIs listos para CPU en Actions.</div>
+            <div class="feature-title">Marketplace & ZeroGPU Detector</div>
+            <div class="feature-desc">Catálogo expandido de modelos sub-4B y detector de cuentas PRO vs Free con solicitud de ZeroGPU Grant.</div>
           </div>
           <div class="feature-card" onclick="switchTab('akg')">
             <div class="feature-icon">🔑</div>
@@ -118,42 +124,108 @@
           <div class="feature-card" onclick="switchTab('battles')">
             <div class="feature-icon">⚔️</div>
             <div class="feature-title">Deimatic Battles & Wars</div>
-            <div class="feature-desc">Arena de comparación simultánea con métricas de latencia, tok/s, calidad semántica y árbitro con IA.</div>
+            <div class="feature-desc">Arena de comparación simultánea con métricas de latencia, tok/s, estimador de tiempo y advertencia de desbordamiento de contexto.</div>
           </div>
           <div class="feature-card" onclick="switchTab('nimphys')">
-            <div class="feature-icon">🧬</div>
-            <div class="feature-title">Nimphys & Synthetic Data Forge</div>
-            <div class="feature-desc">Generación sintética con Evol-Instruct y fine-tuning con versionado automático (v1, v2, v3) en GitHub Releases.</div>
+            <div class="feature-icon">🧪</div>
+            <div class="feature-title">Nimphys Laboratory & Forge</div>
+            <div class="feature-desc">Matriz de entrenamiento comparativo (QLoRA vs LoRA vs RAFT), generador de prompts externos para semillas y fine-tuning de 6h.</div>
           </div>
           <div class="feature-card" onclick="switchTab('intelligence')">
             <div class="feature-icon">📈</div>
-            <div class="feature-title">Production Intelligence (Closed-Loop)</div>
-            <div class="feature-desc">Detección de drift semántico y auto-disparo de reentrenamiento incremental para modelos en producción.</div>
-          </div>
-          <div class="feature-card" onclick="showCustomModal('🤖 Mantx Code CLI', 'Mantx Code es el agente autónomo de desarrollo en terminal. Ejecútalo desde tu consola con:\n\nmantx code run --prompt \"Tu tarea de código\"\nmantx code roundtable --topic \"Tu arquitectura\"')">
-            <div class="feature-icon">🤖</div>
-            <div class="feature-title">Mantx Code (CLI Agéntico)</div>
-            <div class="feature-desc">Agente de terminal con deliberación entre Arquitecto, Programador, Revisor y Tester.</div>
+            <div class="feature-title">Production Intelligence & Auto-Heal</div>
+            <div class="feature-desc">Monitoreo de drift semántico y auto-reentrenamiento en bucle cerrado garantizando no-regresión.</div>
           </div>
         </div>
       </section>
 
-      <!-- TAB 2: MARKETPLACE -->
+      <!-- TAB 2: ONBOARDING -->
+      <section id="tab-onboarding" class="tab-content">
+        <div class="tab-header">
+          <div>
+            <h2>📖 Onboarding & Guía de Arquitectura MANTX</h2>
+            <p class="text-dim">Todo lo que necesitas saber para exprimir el ecosistema MLOps & LLMOps a coste $0.</p>
+          </div>
+        </div>
+
+        <div class="grid-2 mb-4">
+          <div class="panel-card">
+            <h3 style="color: var(--emerald-light); margin-bottom: 0.6rem;">💡 ¿Qué es MANTX?</h3>
+            <p class="text-dim text-sm" style="line-height: 1.6; margin-bottom: 1rem;">
+              MANTX es un motor autónomo de entrenamiento, evaluación comparativa y despliegue de modelos de Inteligencia Artificial que opera con <strong>coste $0 absoluto</strong> aprovechando los recursos gratuitos del ecosistema de desarrollo moderno (GitHub Actions, GitHub Releases y HuggingFace).
+            </p>
+            <h4 style="font-size: 0.9rem; margin-bottom: 0.4rem;">🔑 Requisitos y Credenciales:</h4>
+            <ul class="text-sm text-dim" style="padding-left: 1.2rem; line-height: 1.5;">
+              <li><strong>GitHub PAT (Personal Access Token):</strong> Imprescindible para orquestar workflows de 6h en Actions y versionar adaptadores de pesos (hasta 2GB por release).</li>
+              <li><strong>Modelos Locales Sub-4B:</strong> Corren sin coste alguno en CPU dentro de GitHub Actions (Llama 3.2, Qwen 2.5 Coder, SmolLM2, Phi 3.5).</li>
+              <li><strong>HuggingFace Token (Opcional):</strong> Si dispones de token HF, puedes desplegar en Spaces ZeroGPU o solicitar el grant gratuito para GPUs sin coste.</li>
+              <li><strong>BYOK (Bring Your Own Keys):</strong> Puedes agregar claves de Groq, Gemini, DeepSeek o OpenAI al gateway AKG para mitigar errores 429.</li>
+            </ul>
+          </div>
+
+          <div class="panel-card">
+            <h3 style="color: var(--emerald-light); margin-bottom: 0.6rem;">🔄 Ciclo de Vida Completo (Closed-Loop)</h3>
+            <div style="font-size: 0.82rem; line-height: 1.5; color: var(--text-dim);">
+              <div style="margin-bottom: 0.6rem;">
+                <strong style="color: #fff;">1. Model Selection:</strong> Explora el Marketplace y planifica el hardware target (CPU, ZeroGPU o Cloud).
+              </div>
+              <div style="margin-bottom: 0.6rem;">
+                <strong style="color: #fff;">2. Synthetic Data Forge:</strong> Sintetiza datasets de alta calidad con Constitutional AI o genera semillas con ayuda de IAs externas.
+              </div>
+              <div style="margin-bottom: 0.6rem;">
+                <strong style="color: #fff;">3. Nimphys Laboratory:</strong> Lanza matrices comparativas entre métodos (QLoRA, LoRA, RAFT) para hallar la mejor convergencia.
+              </div>
+              <div style="margin-bottom: 0.6rem;">
+                <strong style="color: #fff;">4. Deimatic Battles:</strong> Enfrenta candidatos con o sin Graph RAG para evaluar precisión y coherencia en tiempo real.
+              </div>
+              <div style="margin-bottom: 0.6rem;">
+                <strong style="color: #fff;">5. Production Intelligence (Auto-Heal):</strong> Al activarlo, el sistema detecta caídas de calidad (drift) y reentrena automáticamente el modelo desplegado.
+              </div>
+              <div>
+                <strong style="color: #fff;">6. Mantx Code CLI:</strong> Agente autónomo en terminal que utiliza tus propios Nimphys entrenados como cerebro de desarrollo.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">🚀 Flujo Rápido Recomendado para Principiantes</div>
+          <div class="grid-3" style="font-size: 0.82rem; color: var(--text-dim);">
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px;">
+              <strong style="color: #fff;">Paso 1: Genera Datos</strong><br>
+              Ve a la pestaña <strong>Nimphys, Forge & Lab</strong> y pulsa "Generar Dataset Sintético" para crear tu primer archivo de entrenamiento en formato Alpaca.
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px;">
+              <strong style="color: #fff;">Paso 2: Evalúa en el Laboratorio</strong><br>
+              Lanza un test de convergencia en el <strong>Nimphys Laboratory</strong> para ver qué método obtiene menor loss y mejor benchmark.
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px;">
+              <strong style="color: #fff;">Paso 3: Enfrenta Modelos</strong><br>
+              En <strong>Deimatic Battles</strong>, lanza un enfrentamiento entre tu modelo favorito y un rival para verificar la calidad antes del despliegue.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: MARKETPLACE -->
       <section id="tab-marketplace" class="tab-content">
         <div class="tab-header">
           <div>
             <h2>🗂️ Catálogo de Modelos Marketplace</h2>
-            <p class="text-dim">Modelos optimizados para ejecución en CPU en GitHub Actions (6h compute) y proveedores Cloud BYOK.</p>
+            <p class="text-dim">Modelos optimizados para ejecución en CPU en GitHub Actions (6h compute), ZeroGPU y proveedores Cloud BYOK.</p>
           </div>
-          <div class="filter-group">
-            <input type="text" id="market-search" class="input-text" placeholder="Buscar modelo o especialización...">
-            <select id="market-filter-spec" class="input-select">
-              <option value="">Todas las Especialidades</option>
-              <option value="code">Código & Scripts</option>
-              <option value="reasoning">Razonamiento Lógico</option>
-              <option value="chat">Conversacional / Chat</option>
-              <option value="math">Matemáticas</option>
-            </select>
+          <div style="display: flex; gap: 0.6rem;">
+            <button class="btn btn-secondary btn-sm" onclick="openHfGrantModal()">🤗 Detector HuggingFace ZeroGPU</button>
+            <div class="filter-group">
+              <input type="text" id="market-search" class="input-text" placeholder="Buscar modelo o especialización...">
+              <select id="market-filter-spec" class="input-select">
+                <option value="">Todas las Especialidades</option>
+                <option value="code">Código & Scripts</option>
+                <option value="reasoning">Razonamiento Lógico</option>
+                <option value="chat">Conversacional / Chat</option>
+                <option value="math">Matemáticas</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="grid-3" id="marketplace-grid">
@@ -161,7 +233,7 @@
         </div>
       </section>
 
-      <!-- TAB 3: AKG GATEWAY -->
+      <!-- TAB 4: AKG GATEWAY -->
       <section id="tab-akg" class="tab-content">
         <div class="tab-header">
           <div>
@@ -195,7 +267,7 @@
         </div>
       </section>
 
-      <!-- TAB 4: DEIMATIC BATTLES -->
+      <!-- TAB 5: DEIMATIC BATTLES -->
       <section id="tab-battles" class="tab-content">
         <div class="tab-header">
           <div>
@@ -209,11 +281,11 @@
           <div class="grid-3">
             <div class="form-group">
               <label>Candidatos (separados por coma):</label>
-              <input type="text" id="battle-candidates" class="input-text" placeholder="Ej: qwen-2.5-coder-3b, llama-3.2-3b-instruct">
+              <input type="text" id="battle-candidates" class="input-text" placeholder="Ej: qwen-2.5-coder-3b, llama-3.2-3b-instruct" oninput="updateBattleEstimates()">
             </div>
             <div class="form-group">
               <label>Modo RAG:</label>
-              <select id="battle-rag" class="input-select">
+              <select id="battle-rag" class="input-select" onchange="updateBattleEstimates()">
                 <option value="none">Sin RAG</option>
                 <option value="classic">RAG Clásico (Documento)</option>
                 <option value="graph">Arzor Graph RAG (Ecdysis Memory)</option>
@@ -226,8 +298,15 @@
           </div>
           <div class="form-group">
             <label>Prompt del Enfrentamiento:</label>
-            <textarea id="battle-prompt" class="input-textarea" rows="2" placeholder="Ej: Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels..."></textarea>
+            <textarea id="battle-prompt" class="input-textarea" rows="2" placeholder="Ej: Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels..." oninput="updateBattleEstimates()"></textarea>
           </div>
+          
+          <!-- Real-Time Context Guard & Time Estimate -->
+          <div id="battle-context-guard" class="text-xs mb-2 text-dim" style="padding: 0.4rem 0.8rem; background: rgba(0,0,0,0.3); border-radius: 6px; display: flex; justify-content: space-between;">
+            <span id="battle-token-info">Tokens estimados: ~0 | Capacidad: 0%</span>
+            <span id="battle-time-info" style="color: var(--emerald-light);">Tiempo estimado de batalla: ~1s</span>
+          </div>
+          <div id="battle-overflow-warning" class="text-xs text-red hidden mb-2"></div>
         </div>
 
         <div id="battle-live-results" class="grid-2">
@@ -235,16 +314,17 @@
         </div>
       </section>
 
-      <!-- TAB 5: NIMPHYS & FORGE -->
+      <!-- TAB 6: NIMPHYS, FORGE & LAB -->
       <section id="tab-nimphys" class="tab-content">
         <div class="tab-header">
           <div>
-            <h2>🧬 Nimphys Models & Synthetic Data Forge</h2>
-            <p class="text-dim">Genera datasets con Constitutional AI y entrena modelos LoRA/QLoRA/RAFT a coste $0.</p>
+            <h2>🧬 Nimphys Models, Synthetic Forge & Laboratory</h2>
+            <p class="text-dim">Genera datasets con Constitutional AI, compara métodos en el laboratorio y entrena modelos a coste $0.</p>
           </div>
+          <button class="btn btn-secondary btn-sm" onclick="openSeedsGuideModal()">📋 Guía de Semillas con IA Externa</button>
         </div>
 
-        <div class="grid-2">
+        <div class="grid-2 mb-4">
           <!-- Synthetic Data Forge -->
           <div class="panel-card">
             <div class="panel-title">🧬 Synthetic Data Forge</div>
@@ -286,16 +366,65 @@
             </div>
           </div>
         </div>
+
+        <!-- NIMPHYS LABORATORY MATRIX -->
+        <div class="panel-card">
+          <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>🧪 Nimphys Laboratory — Matriz de Convergencia Multi-Método</span>
+            <button class="btn btn-primary btn-sm" onclick="runLabExperiment()">🧪 Lanzar Experimento de Laboratorio</button>
+          </div>
+          <div class="text-xs text-dim mb-3">
+            Compara simultáneamente cómo convergen distintos métodos (QLoRA vs LoRA vs RAFT) y modelos sobre el mismo dataset para elegir la configuración óptima.
+          </div>
+          <div id="lab-matrix-results">
+            <!-- Injected via JavaScript -->
+          </div>
+        </div>
       </section>
 
-      <!-- TAB 6: PRODUCTION INTELLIGENCE -->
+      <!-- TAB 7: PRODUCTION INTELLIGENCE -->
       <section id="tab-intelligence" class="tab-content">
         <div class="tab-header">
           <div>
-            <h2>📈 Production Intelligence & Closed-Loop Engine</h2>
+            <h2>📈 Production Intelligence & Auto-Heal Engine</h2>
             <p class="text-dim">Monitorización continua de calidad, auditoría de drift semántico y auto-reentrenamiento en bucle cerrado.</p>
           </div>
           <button class="btn btn-primary" onclick="auditDriftHealth()">🔍 Auditar Calidad de Producción</button>
+        </div>
+
+        <!-- AUTO-HEAL CONTROL PANEL -->
+        <div class="panel-card mb-4" style="border-left: 4px solid var(--emerald-main);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700;">🛡️ Modo Auto-Heal (Closed-Loop Recovery)</h3>
+              <p class="text-dim text-xs">Cuando el drift supera el umbral, MANTX sintetiza datos específicos con Forge, entrena una nueva versión y solo la despliega si supera en Deimatic Battle al modelo actual.</p>
+            </div>
+            <label class="switch" style="cursor: pointer;">
+              <input type="checkbox" id="toggle-autoheal" onchange="toggleAutoHealMode()">
+              <span class="slider" style="background: var(--emerald-dark); padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; color: #fff;" id="autoheal-status-badge">DESHABILITADO</span>
+            </label>
+          </div>
+          <div class="grid-3" style="font-size: 0.8rem;">
+            <div class="form-group">
+              <label>Nimphy Objetivo:</label>
+              <select id="autoheal-nimphy-select" class="input-select" onchange="loadAutoHealForSelected()"></select>
+            </div>
+            <div class="form-group">
+              <label>Umbral de Drift para Disparo:</label>
+              <select id="autoheal-threshold-select" class="input-select" onchange="saveAutoHealConfig()">
+                <option value="10">10% de Caída Semántica</option>
+                <option value="12" selected>12% de Caída Semántica (Recomendado)</option>
+                <option value="15">15% de Caída Semántica</option>
+                <option value="20">20% de Caída Semántica</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Criterio de Despliegue:</label>
+              <div style="font-size: 0.75rem; color: var(--emerald-light); padding-top: 0.4rem;">
+                ✔ Victoria en Deimatic Battle (Garantía de no-regresión)
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="grid-3 mb-4">
@@ -328,7 +457,7 @@
     </footer>
   </div>
 
-  <!-- CUSTOM INFO / ALERT MODAL (Reemplazo de alert()) -->
+  <!-- CUSTOM INFO / ALERT MODAL -->
   <div id="info-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -343,7 +472,7 @@
     </div>
   </div>
 
-  <!-- CUSTOM AKG CREATE POOL MODAL (Reemplazo de prompt()) -->
+  <!-- CUSTOM AKG CREATE POOL MODAL -->
   <div id="akg-create-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -364,6 +493,49 @@
       <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
         <button class="btn btn-secondary btn-sm" onclick="closeAkgCreateModal()">Cancelar</button>
         <button class="btn btn-primary btn-sm" onclick="confirmCreateAkgPool()">Crear Pool</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM HUGGINGFACE GRANT MODAL -->
+  <div id="hf-grant-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🤗 HuggingFace ZeroGPU & Tier Detector</h3>
+        <button class="btn-close" onclick="closeHfGrantModal()">✕</button>
+      </div>
+      <p class="text-dim text-sm mb-3">
+        Introduce tu token de HuggingFace (lectura) para verificar tu plan y saber si puedes ejecutar Spaces en GPU gratuita:
+      </p>
+      <div class="form-group mb-3">
+        <label>HuggingFace User Token:</label>
+        <input type="password" id="hf-token-input" class="input-text" placeholder="hf_...">
+      </div>
+      <div id="hf-tier-result" class="output-box hidden mb-3"></div>
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="closeHfGrantModal()">Cerrar</button>
+        <button class="btn btn-primary btn-sm" onclick="verifyHfToken()">Verificar Cuenta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM SEEDS GUIDE MODAL -->
+  <div id="seeds-guide-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3>📋 Guía de Semillas para IAs Externas (ChatGPT / Claude / Gemini)</h3>
+        <button class="btn-close" onclick="closeSeedsGuideModal()">✕</button>
+      </div>
+      <p class="text-dim text-sm mb-3">
+        Usa estos prompts listos para copiar y pegarlos en ChatGPT o Claude para obtener tus primeras 5 muestras de alta fidelidad:
+      </p>
+      <div class="form-group mb-2">
+        <label>Prompt para ChatGPT / Gemini / Claude:</label>
+        <textarea id="seeds-guide-prompt" class="input-textarea" rows="5" readonly></textarea>
+      </div>
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="copySeedsPrompt()">📋 Copiar Prompt</button>
+        <button class="btn btn-primary btn-sm" onclick="closeSeedsGuideModal()">Entendido</button>
       </div>
     </div>
   </div>
