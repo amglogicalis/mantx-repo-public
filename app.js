@@ -438,7 +438,7 @@ function renderMarketplace() {
 
       <div style="display: flex; gap: 0.5rem;">
         <button class="btn btn-primary btn-sm btn-block" onclick="selectModelForBattle('${m.id}')">⚔️ Enfrentar</button>
-        <button class="btn btn-secondary btn-sm" onclick="showModelRuntimePlan('${m.id}', '${m.name}')">⚙️ Plan</button>
+        <button class="btn btn-secondary btn-sm" onclick="showModelRuntimePlan('${m.id}', '${m.name}')">📄 Info</button>
       </div>
     </div>
   `).join('');
@@ -457,8 +457,8 @@ function selectModelForBattle(modelId) {
 }
 
 function showModelRuntimePlan(modelId, modelName) {
-  const content = `# Plan de Ejecución Runtime MANTX\nModelo: ${modelName} (${modelId})\n\nHardware Target:   GitHub Actions CPU (Runner Ubuntu)\nEngine:            llama.cpp (GGUF Q4)\nMemoria Estimada:  ~2.4 GB RAM\n\nComando de terminal para planificar:\nmantx runtime plan --model ${modelId} --env action_cpu\n\nGenerar Action Workflow YAML:\nmantx runtime workflow --model ${modelId} --name "Runner ${modelName}"`;
-  showCustomModal(`⚙️ Plan Runtime: ${modelName}`, content);
+  const content = `# Especificaciones y Runtime MANTX\nModelo: ${modelName} (${modelId})\n\nHardware Target:   GitHub Actions CPU (Runner Ubuntu)\nEngine:            llama.cpp (GGUF Q4)\nMemoria Estimada:  ~2.4 GB RAM\n\nComando de terminal para planificar:\nmantx runtime plan --model ${modelId} --env action_cpu\n\nGenerar Action Workflow YAML:\nmantx runtime workflow --model ${modelId} --name "Runner ${modelName}"`;
+  showCustomModal(`📄 Especificaciones: ${modelName}`, content);
 }
 
 // ─── AKG POOLS RENDERING ──────────────────────────────────────
