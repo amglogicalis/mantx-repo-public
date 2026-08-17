@@ -515,28 +515,48 @@ async function confirmAddKeyToPool() {
 
 async function changeKeyPriority(poolId, keyId, newPriority) {
   const pool = akgPools.find(p => p.poolId === poolId);
-  if (!pool || !pool.keys) return;
+  if (!pool || !pool.keys || pool.keys.length === 0) return;
 
-  const key = pool.keys.find(k => k.keyId === keyId);
-  if (key) {
-    key.priority = Math.min(Math.max(parseInt(newPriority, 10) || 1, 1), 20);
-    pool.keys.sort((a, b) => a.priority - b.priority);
-    renderAkgPools();
-    await saveAkgPoolsToVault();
-  }
+  const targetPriority = Math.min(Math.max(parseInt(newPriority, 10) || 1, 1), 20);
+  const keyIndex = pool.keys.findIndex(k => k.keyId === keyId);
+  if (keyIndex === -1) return;
+
+  const [movedKey] = pool.keys.splice(keyIndex, 1);
+  movedKey.priority = targetPriority;
+
+  // Insert cleanly at position
+  const targetIndex = Math.min(targetPriority - 1, pool.keys.length);
+  pool.keys.splice(targetIndex, 0, movedKey);
+
+  // Normalize all priorities sequentially (1, 2, 3...) to eliminate any duplicates or gaps
+  pool.keys.forEach((k, idx) => {
+    k.priority = idx + 1;
+  });
+
+  renderAkgPools();
+  await saveAkgPoolsToVault();
 }
 
 async function moveKeyPriority(poolId, keyId, delta) {
   const pool = akgPools.find(p => p.poolId === poolId);
-  if (!pool || !pool.keys) return;
+  if (!pool || !pool.keys || pool.keys.length === 0) return;
 
-  const key = pool.keys.find(k => k.keyId === keyId);
-  if (key) {
-    key.priority = Math.min(Math.max(key.priority + delta, 1), 20);
-    pool.keys.sort((a, b) => a.priority - b.priority);
-    renderAkgPools();
-    await saveAkgPoolsToVault();
-  }
+  const idx = pool.keys.findIndex(k => k.keyId === keyId);
+  if (idx === -1) return;
+
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= pool.keys.length) return;
+
+  const [movedKey] = pool.keys.splice(idx, 1);
+  pool.keys.splice(newIdx, 0, movedKey);
+
+  // Normalize sequentially (1, 2, 3...)
+  pool.keys.forEach((k, i) => {
+    k.priority = i + 1;
+  });
+
+  renderAkgPools();
+  await saveAkgPoolsToVault();
 }
 
 async function deleteAkgKey(poolId, keyId) {
