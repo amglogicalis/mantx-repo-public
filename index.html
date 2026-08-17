@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.4.0">
+  <link rel="stylesheet" href="style.css?v=2.5.0">
 </head>
 <body>
 
@@ -648,15 +648,15 @@
     </div>
   </div>
 
-  <!-- PRODUCE / CREATE NIMPHY MODAL -->
+  <!-- PRODUCE / CREATE / RETRAIN NIMPHY MODAL -->
   <div id="nimphy-create-modal" class="modal-backdrop hidden">
     <div class="modal-card" style="max-width: 760px; max-height: 90vh; overflow-y: auto;">
       <div class="modal-header">
-        <h3>🧬 Producir Niphy — Entrenamiento y Personalización de Modelo</h3>
+        <h3 id="nimphy-modal-title">🧬 Producir Niphy — Creación de Nuevo Modelo</h3>
         <button class="btn-close" onclick="closeCreateNimphyModal()">✕</button>
       </div>
-      <p class="text-dim text-sm mb-3">
-        Configura tu modelo especializado. MANTX orquestará el entrenamiento a $0 en GitHub Actions o HuggingFace ZeroGPU y generará tu servidor API listo para producción.
+      <p id="nimphy-modal-desc" class="text-dim text-sm mb-3">
+        Configura tu modelo especializado desde cero. MANTX orquestará el entrenamiento a $0 en GitHub Actions o HuggingFace ZeroGPU y generará tu servidor API listo para producción.
       </p>
 
       <div class="grid-2 mb-3">
@@ -665,7 +665,7 @@
           <input type="text" id="nimphy-name" class="input-text" placeholder="Ej: PostgresQueryMaster">
         </div>
         <div class="form-group" style="margin-bottom: 0;">
-          <label>Versión Inicial:</label>
+          <label id="nimphy-version-label">Versión Inicial:</label>
           <input type="text" id="nimphy-version" class="input-text" value="v1.0.0" placeholder="v1.0.0">
         </div>
       </div>
@@ -684,6 +684,7 @@
             <option value="phi-3.5-mini-instruct">Phi-3.5 Mini Instruct — Lógica & Matemáticas</option>
             <option value="mistral-7b-instruct-v0.3">Mistral 7B Instruct v0.3 — Balanceado</option>
           </select>
+          <div id="nimphy-base-model-hint" class="text-xs text-dim hidden" style="color: var(--emerald-light); margin-top: 0.2rem;">🔒 Modelo base fijado por la arquitectura de este Niphy</div>
         </div>
         <div class="form-group" style="margin-bottom: 0;">
           <label>Método de Entrenamiento:</label>
@@ -764,7 +765,7 @@
 
       <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
         <button class="btn btn-secondary btn-sm" onclick="closeCreateNimphyModal()">Cancelar</button>
-        <button class="btn btn-primary btn-sm" onclick="confirmCreateNimphy()">🚀 Iniciar Entrenamiento Niphy</button>
+        <button class="btn btn-primary btn-sm" id="btn-confirm-nimphy" onclick="confirmCreateNimphy()">🚀 Producir Niphy</button>
       </div>
     </div>
   </div>
@@ -783,6 +784,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.4.0"></script>
+  <script src="app.js?v=2.5.0"></script>
 </body>
 </html>

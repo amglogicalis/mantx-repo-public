@@ -1053,21 +1053,99 @@ Respuesta analizada para: "${prompt.slice(0, 50)}...".
 
 // ─── NIMPHYS CREATION & PRODUCTION ENGINE ─────────────────────
 let uploadedNimphyFiles = [];
+let isRetrainMode = false;
+let currentRetrainNimphyId = null;
 
 function openCreateNimphyModal() {
+  isRetrainMode = false;
+  currentRetrainNimphyId = null;
   uploadedNimphyFiles = [];
+
   const modal = document.getElementById('nimphy-create-modal');
+  const title = document.getElementById('nimphy-modal-title');
+  const desc = document.getElementById('nimphy-modal-desc');
   const nameInput = document.getElementById('nimphy-name');
+  const verLabel = document.getElementById('nimphy-version-label');
   const verInput = document.getElementById('nimphy-version');
+  const baseModelSelect = document.getElementById('nimphy-base-model');
+  const baseModelHint = document.getElementById('nimphy-base-model-hint');
   const rawDocs = document.getElementById('nimphy-raw-docs');
   const filesList = document.getElementById('nimphy-files-list');
+  const confirmBtn = document.getElementById('btn-confirm-nimphy');
 
-  if (nameInput) nameInput.value = '';
+  if (title) title.textContent = '🧬 Producir Niphy — Creación de Nuevo Modelo';
+  if (desc) desc.textContent = 'Configura tu modelo especializado desde cero. MANTX orquestará el entrenamiento a $0 en GitHub Actions o HuggingFace ZeroGPU y generará tu servidor API listo para producción.';
+  if (nameInput) {
+    nameInput.value = '';
+    nameInput.readOnly = false;
+    nameInput.style.opacity = '1';
+    nameInput.style.cursor = 'text';
+  }
+  if (verLabel) verLabel.textContent = 'Versión Inicial:';
   if (verInput) verInput.value = 'v1.0.0';
+  if (baseModelSelect) {
+    baseModelSelect.disabled = false;
+    baseModelSelect.style.opacity = '1';
+    baseModelSelect.style.cursor = 'pointer';
+  }
+  if (baseModelHint) baseModelHint.classList.add('hidden');
   if (rawDocs) rawDocs.value = '';
   if (filesList) filesList.innerHTML = '';
-  updateNimphyTokenEstimate();
+  if (confirmBtn) confirmBtn.textContent = '🚀 Producir Niphy';
 
+  updateNimphyTokenEstimate();
+  if (modal) modal.classList.remove('hidden');
+}
+
+function openReTrainNimphyModal(nimphyId) {
+  const n = nimphysList.find(item => item.nimphyId === nimphyId);
+  if (!n) return;
+
+  isRetrainMode = true;
+  currentRetrainNimphyId = nimphyId;
+  uploadedNimphyFiles = [];
+
+  const modal = document.getElementById('nimphy-create-modal');
+  const title = document.getElementById('nimphy-modal-title');
+  const desc = document.getElementById('nimphy-modal-desc');
+  const nameInput = document.getElementById('nimphy-name');
+  const verLabel = document.getElementById('nimphy-version-label');
+  const verInput = document.getElementById('nimphy-version');
+  const baseModelSelect = document.getElementById('nimphy-base-model');
+  const baseModelHint = document.getElementById('nimphy-base-model-hint');
+  const methodSelect = document.getElementById('nimphy-method');
+  const rawDocs = document.getElementById('nimphy-raw-docs');
+  const filesList = document.getElementById('nimphy-files-list');
+  const confirmBtn = document.getElementById('btn-confirm-nimphy');
+
+  // Next version calculation
+  const curVer = n.currentVersion || 'v1.0.0';
+  const parts = curVer.replace('v', '').split('.').map(Number);
+  const nextVer = parts.length === 3 ? `v${parts[0]}.${parts[1] + 1}.0` : `v${(n.versions || []).length + 1}.0.0`;
+
+  if (title) title.textContent = `🔄 Reentrenar Niphy — ${n.name} (Nueva Versión)`;
+  if (desc) desc.textContent = `Reentrena ${n.name} para generar una nueva versión incremental con nuevos datos. El modelo base (${n.baseModel}) está bloqueado para preservar la arquitectura.`;
+  if (nameInput) {
+    nameInput.value = n.name;
+    nameInput.readOnly = true;
+    nameInput.style.opacity = '0.7';
+    nameInput.style.cursor = 'not-allowed';
+  }
+  if (verLabel) verLabel.textContent = 'Nueva Versión Objetivo:';
+  if (verInput) verInput.value = nextVer;
+  if (baseModelSelect) {
+    baseModelSelect.value = n.baseModel;
+    baseModelSelect.disabled = true;
+    baseModelSelect.style.opacity = '0.6';
+    baseModelSelect.style.cursor = 'not-allowed';
+  }
+  if (baseModelHint) baseModelHint.classList.remove('hidden');
+  if (methodSelect) methodSelect.value = n.method || 'qlora';
+  if (rawDocs) rawDocs.value = '';
+  if (filesList) filesList.innerHTML = '';
+  if (confirmBtn) confirmBtn.textContent = `🚀 Lanzar Reentrenamiento (${nextVer})`;
+
+  updateNimphyTokenEstimate();
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -1135,9 +1213,7 @@ function updateNimphyTokenEstimate() {
 }
 
 async function confirmCreateNimphy() {
-  const name = document.getElementById('nimphy-name')?.value?.trim();
   const version = document.getElementById('nimphy-version')?.value?.trim() || 'v1.0.0';
-  const baseModel = document.getElementById('nimphy-base-model')?.value || 'qwen-2.5-coder-3b';
   const method = document.getElementById('nimphy-method')?.value || 'qlora';
   const graphRag = document.getElementById('nimphy-toggle-graph-rag')?.checked || false;
   const ecdysis = document.getElementById('nimphy-toggle-ecdysis')?.checked || false;
@@ -1145,6 +1221,56 @@ async function confirmCreateNimphy() {
   const storageBackend = document.getElementById('nimphy-storage-backend')?.value || 'mantx_vault';
   const systemPrompt = document.getElementById('nimphy-system-prompt')?.value?.trim() || '';
   const rawDocs = document.getElementById('nimphy-raw-docs')?.value?.trim() || '';
+
+  if (isRetrainMode && currentRetrainNimphyId) {
+    const existing = nimphysList.find(item => item.nimphyId === currentRetrainNimphyId);
+    if (!existing) {
+      showCustomModal('⚠️ Error', 'No se encontró el Niphy seleccionado para reentrenar.');
+      return;
+    }
+
+    const newVersionItem = {
+      version,
+      trainedAt: new Date().toISOString(),
+      finalLoss: method === 'raft' ? 0.41 : 0.53,
+      benchmarkScore: method === 'raft' ? 99 : 96,
+      method
+    };
+
+    existing.versions = existing.versions || [];
+    existing.versions.unshift(newVersionItem);
+    existing.currentVersion = version;
+    existing.method = method;
+    existing.graphRagEnabled = graphRag;
+    existing.ecdysisMemoryEnabled = ecdysis;
+    existing.filesCount = (existing.filesCount || 0) + uploadedNimphyFiles.length;
+    existing.updatedAt = new Date().toISOString();
+
+    closeCreateNimphyModal();
+    renderNimphysCatalog();
+    renderDashboardStats();
+    await saveNimphysToVault();
+
+    const planText = `# 🔄 Reentrenamiento de Niphy Generado
+Niphy: ${existing.name}
+Versión Nueva: ${version}
+Modelo Base: ${existing.baseModel} (Bloqueado)
+Método: ${method.toUpperCase()}
+Hardware: ${targetEnv === 'action_cpu' ? 'GitHub Actions Runner CPU ($0, 6h)' : 'HuggingFace ZeroGPU'}
+Almacenamiento: ${storageBackend === 'mantx_vault' ? '.mantx-storage ($0 GitHub)' : storageBackend}
+
+Comando para lanzar el runner en GitHub Actions:
+mantx nimphys train --id ${existing.nimphyId} --version ${version} --method ${method}
+
+El endpoint de producción actualizará automáticamente a la versión ${version}.`;
+
+    showCustomModal(`🔄 Reentrenamiento Registrado: ${existing.name} (${version})`, planText);
+    return;
+  }
+
+  // PRODUCE MODE (NEW NIPHY)
+  const name = document.getElementById('nimphy-name')?.value?.trim();
+  const baseModel = document.getElementById('nimphy-base-model')?.value || 'qwen-2.5-coder-3b';
 
   if (!name) {
     showCustomModal('⚠️ Nombre Requerido', 'Por favor asigna un nombre para identificar tu nuevo Niphy.');
@@ -1183,7 +1309,7 @@ async function confirmCreateNimphy() {
   renderDashboardStats();
   await saveNimphysToVault();
 
-  const planText = `# 🚀 Plan de Entrenamiento Niphy Generado
+  const planText = `# 🚀 Plan de Producción de Niphy Generado
 Nombre: ${newNimphy.name} (${newNimphy.currentVersion})
 Modelo Base: ${newNimphy.baseModel}
 Método: ${newNimphy.method.toUpperCase()}
@@ -1192,33 +1318,12 @@ Almacenamiento: ${newNimphy.storageBackend === 'mantx_vault' ? '.mantx-storage (
 Memoria Ecdysis: ${newNimphy.ecdysisMemoryEnabled ? '✔ ACTIVA (Vector Store + Graph)' : 'Deshabilitada'}
 Graph RAG: ${newNimphy.graphRagEnabled ? '✔ ACTIVO (Arzor Knowledge Graph)' : 'Deshabilitado'}
 
-Para lanzar el entrenamiento asíncrono en GitHub Actions:
-mantx train ${newNimphy.method} --name "${newNimphy.name}" --model ${newNimphy.baseModel} --version ${newNimphy.currentVersion}
+Para lanzar la producción en GitHub Actions:
+mantx nimphys create --name "${newNimphy.name}" --model ${newNimphy.baseModel} --method ${newNimphy.method}
 
 El servidor API quedará listo tras la finalización del runner.`;
 
-  showCustomModal(`🧬 Niphy Creado: ${newNimphy.name}`, planText);
-}
-
-function openReTrainNimphyModal(nimphyId) {
-  const n = nimphysList.find(item => item.nimphyId === nimphyId);
-  if (!n) return;
-
-  openCreateNimphyModal();
-  const nameInput = document.getElementById('nimphy-name');
-  const verInput = document.getElementById('nimphy-version');
-  const baseModelInput = document.getElementById('nimphy-base-model');
-  const methodInput = document.getElementById('nimphy-method');
-
-  if (nameInput) nameInput.value = n.name;
-  if (baseModelInput) baseModelInput.value = n.baseModel;
-  if (methodInput) methodInput.value = n.method;
-
-  // Bump version automatically
-  const curVer = n.currentVersion || 'v1.0.0';
-  const parts = curVer.replace('v', '').split('.').map(Number);
-  const nextVer = parts.length === 3 ? `v${parts[0]}.${parts[1] + 1}.0` : `v${(n.versions || []).length + 1}.0.0`;
-  if (verInput) verInput.value = nextVer;
+  showCustomModal(`🧬 Niphy Producido: ${newNimphy.name}`, planText);
 }
 
 async function deleteNimphy(nimphyId) {
