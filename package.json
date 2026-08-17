@@ -1,0 +1,32 @@
+{
+  "name": "terra-mantx",
+  "version": "1.0.0",
+  "description": "MANTX — Autonomous AI Model Training, Comparison & Agentic Intelligence Engine for the Terra Ecosystem ($0 Cost MLOps & LLMOps)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "mantx": "./bin/mantx.js",
+    "terra-mantx": "./bin/mantx.js"
+  },
+  "keywords": [
+    "terra",
+    "mantx",
+    "mlops",
+    "llmops",
+    "automl",
+    "fine-tuning",
+    "lora",
+    "qlora",
+    "raft",
+    "model-comparison",
+    "deimatic-battles",
+    "synthetic-data",
+    "ecdysis-memory",
+    "agentic-coding",
+    "github-actions",
+    "zero-cost"
+  ],
+  "author": "AMG Logicalis / Terra Ecosystem",
+  "license": "MIT"
+}
