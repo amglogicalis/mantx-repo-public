@@ -299,7 +299,7 @@ async function verifyHfToken() {
           <strong style="color: #fff; font-size: 0.95rem;">@${username}</strong>
         </div>
         <div style="color: var(--text-dim); font-size: 0.82rem; line-height: 1.6;">
-          <div style="margin-bottom: 0.4rem;">• Acceso ZeroGPU: <strong style="color: var(--emerald-light);">HABILITADO</strong> para todos tus Spaces.</div>
+          <div style="margin-bottom: 0.4rem;">• Acceso ZeroGPU: <strong style="color: var(--emerald-light);">HABILITADO</strong> (Nvidia A100/H100 dinámicas).</div>
           <div>• MANTX configurará automáticamente tus runners con aceleración de GPU.</div>
         </div>
       `;
@@ -310,10 +310,16 @@ async function verifyHfToken() {
           <strong style="color: #fff; font-size: 0.95rem;">@${username}</strong>
         </div>
         <div style="color: var(--text-dim); font-size: 0.82rem; line-height: 1.6;">
-          <div style="margin-bottom: 0.4rem;">• Acceso actual: <strong style="color: #fff;">CPU Spaces (Gratuito)</strong>.</div>
-          <div style="margin-bottom: 0.6rem;">• Puedes solicitar el <strong>ZeroGPU Grant Gratuito</strong> para proyectos open source en:</div>
-          <div style="background: rgba(0,0,0,0.35); padding: 0.6rem 0.8rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
-            <a href="https://huggingface.co/zero-gpu-explorers" target="_blank" style="color: var(--emerald-light); text-decoration: underline; font-family: var(--font-mono); font-size: 0.78rem;">https://huggingface.co/zero-gpu-explorers</a>
+          <div style="margin-bottom: 0.5rem;">• <strong>¿Cómo activar GPU en HuggingFace?</strong></div>
+          <div style="margin-left: 0.6rem; margin-bottom: 0.6rem;">
+            1. <strong>Plan PRO ($9/mes):</strong> Desbloquea ZeroGPU al instante en tus Spaces.<br>
+            2. <strong>Community GPU Grant:</strong> Si tu proyecto es Open Source o de investigación, puedes solicitar asignación de GPU en la documentación oficial:
+          </div>
+          <div style="background: rgba(0,0,0,0.35); padding: 0.6rem 0.8rem; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 0.8rem;">
+            <a href="https://huggingface.co/docs/hub/spaces-gpus#zerogpu" target="_blank" style="color: var(--emerald-light); text-decoration: underline; font-family: var(--font-mono); font-size: 0.78rem;">https://huggingface.co/docs/hub/spaces-gpus#zerogpu</a>
+          </div>
+          <div style="padding: 0.5rem 0.7rem; background: rgba(16, 185, 129, 0.1); border-left: 3px solid var(--emerald-main); border-radius: 4px; color: #a7f3d0; font-size: 0.78rem;">
+            ⚡ <strong>Nota MANTX:</strong> Si tienes cuenta Free, no te preocupes: MANTX ejecutará automáticamente todos tus entrenamientos e inferencias en <strong>GitHub Actions CPU a coste $0</strong> (6h de cómputo por job).
           </div>
         </div>
       `;
@@ -325,8 +331,8 @@ async function verifyHfToken() {
         <strong style="color: #fff;">Fallo de autenticación</strong>
       </div>
       <div style="color: var(--text-dim); font-size: 0.82rem; line-height: 1.6;">
-        <div style="margin-bottom: 0.4rem;">${e.message}. Verifica que tu token tenga permisos de lectura.</div>
-        <div>Solicitud de ZeroGPU Grant: <a href="https://huggingface.co/zero-gpu-explorers" target="_blank">zero-gpu-explorers</a></div>
+        <div style="margin-bottom: 0.4rem;">${e.message}. Verifica que tu token de lectura sea válido.</div>
+        <div>Documentación de Spaces GPUs: <a href="https://huggingface.co/docs/hub/spaces-gpus#zerogpu" target="_blank" style="color: var(--emerald-light);">spaces-gpus docs</a></div>
       </div>
     `;
   }
