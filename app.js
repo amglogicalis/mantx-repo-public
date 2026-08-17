@@ -1289,12 +1289,23 @@ function generateDomainSpecificSamples(domain, count = 10, format = 'alpaca', co
     { q: '¿Qué diferencias arquitectónicas existen entre Redis Pub/Sub y Redis Streams?', a: 'Pub/Sub es efímero (fire-and-forget, sin persistencia ni ACK). Redis Streams ofrece log ordenado en disco con grupos de consumidores (Consumer Groups), ACK de mensajes leídos (XACK) y tolerancia a desconexiones de clientes.' },
     { q: 'Estrategia de persistencia híbrida recomendada: RDB snapshots + AOF appendfsync everysec', a: 'Combina RDB para copias de seguridad compactas y arranque veloz con AOF (Append-Only File) configurado con appendfsync everysec para garantizar un límite máximo de 1 segundo de pérdida en caso de fallo crítico.' },
     { q: 'Optimización de particionado con Redis Cluster y cálculo de Hash Slots', a: 'Redis Cluster divide el espacio de claves en 16.384 slots fijos usando CRC16(key) mod 16384. Utiliza Hash Tags como {user:100}:profile y {user:100}:orders para forzar la co-localización de datos relacionados en el mismo nodo físico.' },
-    { q: 'Métricas clave de telemetría a monitorizar en Redis con el comando INFO', a: 'Supervisa used_memory_rss vs used_memory (ratio de fragmentación > 1.5 indica fragmentación de memoria severa), instantaneous_ops_per_sec, connected_clients, rejected_connections y evicted_keys.' }
+    { q: 'Métricas clave de telemetría a monitorizar en Redis con el comando INFO', a: 'Supervisa used_memory_rss vs used_memory (ratio de fragmentación > 1.5 indica fragmentación de memoria severa), instantaneous_ops_per_sec, connected_clients, rejected_connections y evicted_keys.' },
+    { q: 'Cálculo de cardinalidades masivas en milisegundos con HyperLogLog en Redis', a: 'Aplica PFADD y PFCOUNT para estimar conteos únicos de usuarios con un error estándar del 0.81% consumiendo un máximo invariable de 12 KB de RAM por clave, independientemente del volumen de datos.' },
+    { q: 'Operaciones bit a bit ultrarrápidas con Bitmaps para métricas de retención de usuarios', a: 'Utiliza SETBIT y BITPOS mapeando el ID del usuario al offset numérico. Calcula DAU (Daily Active Users) y retención combinando días con BITOP AND / OR con un consumo de apenas 1.2 MB para 10 millones de usuarios.' },
+    { q: 'Indexación y consultas de proximidad geoespacial con GeoSets en Redis', a: 'Añade coordenadas con GEOADD ubicaciones lon lat id y realiza búsquedas espaciales en microsegundos con GEOSEARCH ... BYRADIUS 5 km WITHDIST WITHCOORD basado en codificación Geohash de 52 bits.' },
+    { q: 'Client-Side Caching con protocolo RESP3 y tracking de invalidación en Redis', a: 'Habilita CLIENT TRACKING ON para mantener una copia local en memoria del proceso de la app. Redis envía notificaciones de invalidación únicamente cuando la clave sufre una mutación, eliminando latencia de red en lecturas repetitivas.' },
+    { q: 'Eliminación asíncrona no bloqueante de grandes estructuras con UNLINK y Lazy Free', a: 'Evita el comando DEL en colecciones gigantes (bigkeys). Emplea UNLINK y activa lazyfree-lazy-eviction yes y lazyfree-lazy-expire yes para desacoplar la liberación de memoria a un hilo secundario sin congelar el event loop.' },
+    { q: 'Control de concurrencia y transacciones ACID aisladas con MULTI/EXEC y WATCH', a: 'Aplica WATCH clave para detección de colisiones optimistas antes de abrir el bloque MULTI. Si otro cliente modifica la clave antes del EXEC, la transacción aborta limpiamente devolviendo nil para reintento.' },
+    { q: 'Identificación y auditoría de BigKeys en clústeres de Redis en producción', a: 'Ejecuta redis-cli --bigkeys o analiza el espacio con MEMORY USAGE clave para localizar colecciones que excedan los 10 MB y diseñar estrategias de particionado modular.' },
+    { q: 'Mitigación de Split-Brain y quorum en failovers de Redis Sentinel', a: 'Configura min-replicas-to-write 1 y min-replicas-max-lag 10 en la instancia primaria, garantizando que si el nodo maestro pierde conectividad con la mayoría de réplicas, rechace escrituras para evitar divergencia de estado.' },
+    { q: 'Optimización de sockets TCP y parámetros de kernel Linux para Redis de alto rendimiento', a: 'Configura en el sistema operativo net.core.somaxconn = 65535, vm.overcommit_memory = 1, y desactiva Transparent Huge Pages (echo never > /sys/kernel/mm/transparent_hugepage/enabled).' },
+    { q: 'Búsqueda vectorial e inferencia semántica con Redis Vector Search (HNSW / Flat)', a: 'Crea índices con FT.CREATE ... VECTOR HNSW 6 TYPE FLOAT32 DIM 1536 DISTANCE_METRIC COSINE para ejecutar k-NN (K-Nearest Neighbors) en tiempo real para aplicaciones RAG y agentes autónomos.' }
   ] : isPostgres ? [
     { q: '¿Cómo optimizar consultas complejas en PostgreSQL con índices parciales y B-Tree?', a: 'Crea índices con cláusula WHERE indexando solo las tuplas activas: CREATE INDEX idx_orders_active ON orders(created_at) WHERE status = "pending". Esto reduce el tamaño del árbol y agiliza las lecturas en disco.' },
     { q: 'Interpretación de planes de ejecución con EXPLAIN (ANALYZE, BUFFERS)', a: 'Evalúa la métrica "Buffers: shared hit" vs "shared read" para identificar lecturas de disco innecesarias y nodos Seq Scan que requieran índices covering (INCLUDE).' },
     { q: 'Optimización de conexiones y contención de bloqueos en PostgreSQL con PgBouncer', a: 'Emplea un connection pooler transaccional como PgBouncer con pool_mode = transaction y ajusta max_connections a 2-4 veces el número de cores de CPU.' },
-    { q: 'Estrategias de particionado declarativo por rango y lista en PostgreSQL', a: 'Aplica PARTITION BY RANGE (created_at) para tablas históricas masivas, permitiendo partition pruning automático en consultas y vaciado instantáneo con DROP TABLE sin overhead de DELETE.' }
+    { q: 'Estrategias de particionado declarativo por rango y lista en PostgreSQL', a: 'Aplica PARTITION BY RANGE (created_at) para tablas históricas masivas, permitiendo partition pruning automático en consultas y vaciado instantáneo con DROP TABLE sin overhead de DELETE.' },
+    { q: 'Tuning de memoria de PostgreSQL: shared_buffers, work_mem y maintenance_work_mem', a: 'Ajusta shared_buffers al 25% de la RAM del servidor, work_mem a 32-64 MB por operación de ordenación/hash join, y effective_cache_size al 70% de la memoria total.' }
   ] : isRust ? [
     { q: '¿Cómo lograr concurrencia sin bloqueos segura en Rust usando atómicos y canales?', a: 'Utiliza primitivas atómicas de std::sync::atomic (AtomicBool, AtomicUsize) con Memory Ordering Acquire-Release o canales MPSC de crossbeam sin recurrir a Mutex pesados.' },
     { q: 'Patrón de arquitectura Zero-Copy en Rust con Lifetimes y referencias prestadas', a: 'Estructura tipos con parámetros de lifetime <\'a> consumiendo &[u8] o &str directamente de buffers de socket o mmap sin allocation en Heap.' },
@@ -1309,30 +1320,39 @@ function generateDomainSpecificSamples(domain, count = 10, format = 'alpaca', co
   const totalCount = Math.min(Math.max(parseInt(count, 10) || 10, 1), 100);
   const result = [];
 
+  const angles = [
+    '',
+    ' [Enfoque: Troubleshooting y Depuración en Producción]',
+    ' [Enfoque: Rendimiento Extremo y Baja Latencia]',
+    ' [Enfoque: Alta Disponibilidad y Resiliencia]'
+  ];
+
   for (let i = 0; i < totalCount; i++) {
     const topicIdx = i % topics.length;
     const baseTopic = topics[topicIdx];
-    const cycle = Math.floor(i / topics.length);
-    const suffix = cycle > 0 ? ` (Caso #${cycle + 1})` : '';
+    const angleIdx = Math.floor(i / topics.length) % angles.length;
+    const angle = angles[angleIdx];
+
+    const finalQuestion = angle ? `${baseTopic.q.replace(/\?$/, '')}${angle}?` : baseTopic.q;
 
     if (format === 'raft') {
       result.push({
         context: contextDocs ? contextDocs.slice(0, 300) : `Documentación técnica y especificaciones de ${d}. Directivas de arquitectura y ejecución.`,
-        question: `${baseTopic.q}${suffix}`,
+        question: finalQuestion,
         thought: `Análisis de contexto para ${d}. Deducción de principios de ingeniería y verificación de sintaxis.`,
         answer: baseTopic.a
       });
     } else if (format === 'sharegpt') {
       result.push({
         conversations: [
-          { from: 'human', value: `${baseTopic.q}${suffix}` },
+          { from: 'human', value: finalQuestion },
           { from: 'gpt', value: baseTopic.a }
         ]
       });
     } else {
       // Alpaca format (default)
       result.push({
-        instruction: `${baseTopic.q}${suffix}`,
+        instruction: finalQuestion,
         input: contextDocs ? contextDocs.slice(0, 150) : '',
         output: baseTopic.a
       });

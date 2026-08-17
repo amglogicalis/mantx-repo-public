@@ -23,6 +23,12 @@
   padding: 0;
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  box-sizing: border-box;
+}
+
 body {
   background-color: var(--bg-main);
   background-image: 
@@ -33,6 +39,12 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.main-content, .tab-content, .panel-card, .grid-2, .grid-3, .output-box {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ─── TOP NAVIGATION ─────────────────────────────────────────── */
