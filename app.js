@@ -317,11 +317,17 @@ function addCreateKeyRow() {
       <input type="text" class="input-text row-key-alias" placeholder="Alias">
       <select class="input-select row-key-prov">
         <option value="auto">Auto-Detectar</option>
-        <option value="groq">Groq</option>
+        <option value="groq">Groq Cloud (LPU)</option>
+        <option value="codestral">Mistral / Codestral</option>
+        <option value="cerebras">Cerebras CS-3</option>
+        <option value="sambanova">SambaNova SN40L</option>
+        <option value="nvidia">NVIDIA NIM</option>
+        <option value="openrouter">OpenRouter</option>
         <option value="gemini">Google Gemini</option>
         <option value="deepseek">DeepSeek</option>
         <option value="openai">OpenAI</option>
-        <option value="anthropic">Anthropic</option>
+        <option value="anthropic">Anthropic Claude</option>
+        <option value="huggingface">HuggingFace Serverless</option>
       </select>
     </div>
   `;
@@ -363,10 +369,17 @@ function autoDetectRowProvider(rowId) {
 
 function detectKeyProvider(key) {
   if (!key) return 'openai';
-  if (key.startsWith('AIza')) return 'gemini';
   if (key.startsWith('gsk_')) return 'groq';
+  if (key.startsWith('csk-')) return 'cerebras';
+  if (key.startsWith('sk-or-v1-')) return 'openrouter';
+  if (key.startsWith('nvapi-')) return 'nvidia';
   if (key.startsWith('sk-ant-')) return 'anthropic';
+  if (key.startsWith('hf_')) return 'huggingface';
+  if (key.startsWith('AIza') || key.startsWith('AQ.')) return 'gemini';
   if (key.includes('deepseek') || key.startsWith('sk-ds-')) return 'deepseek';
+  if (key.length === 36 && key.includes('-')) return 'sambanova';
+  if (key.length === 32 && !key.includes('-')) return 'codestral';
+  if (key.startsWith('sk-')) return 'openai';
   return 'openai';
 }
 
