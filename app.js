@@ -1,5 +1,5 @@
 // MANTX Web Console — Client Application Logic
-// Complete Auth Gate & SPA Dashboard for Model Marketplace, AKG Gateway, Deimatic Battles, Nimphys & Mantx Code
+// Complete Auth Gate & SPA Dashboard for Model Marketplace, AKG Gateway, Deimatic Battles, Nimphys & Intelligence
 
 const DEFAULT_MODELS = [
   { id: 'llama-3.2-1b-instruct', name: 'Llama 3.2 1B Instruct (GGUF Q4)', family: 'llama', params: '1.1B', context: '8K', speed: '26 tok/s', size: '740 MB', spec: ['chat', 'general'], desc: 'Ultraligero y de alta velocidad en GitHub Actions CPU.' },
@@ -63,7 +63,7 @@ async function handleLogin() {
 
     setTimeout(() => {
       unlockConsole();
-    }, 500);
+    }, 450);
   } catch (err) {
     if (feedback) {
       feedback.style.color = '#f87171';
@@ -139,7 +139,6 @@ async function loadVaultData() {
   const repo = STORAGE_REPO;
 
   try {
-    // Read akg-pools.json from .mantx-storage
     const poolsRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/akg-pools.json`, {
       headers: { 'Authorization': `token ${token}` }
     });
@@ -151,7 +150,6 @@ async function loadVaultData() {
   } catch {}
 
   try {
-    // Read nimphys.json from .mantx-storage
     const nimRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/nimphys.json`, {
       headers: { 'Authorization': `token ${token}` }
     });
@@ -166,6 +164,67 @@ async function loadVaultData() {
   renderAkgPools();
   renderNimphysCatalog();
   renderIntelligenceHistory();
+}
+
+// ─── CUSTOM STYLED MODALS (REEMPLAZO DE ALERT / PROMPT) ────────
+function showCustomModal(title, content) {
+  const modal = document.getElementById('info-modal');
+  const titleEl = document.getElementById('info-modal-title');
+  const contentEl = document.getElementById('info-modal-content');
+
+  if (titleEl) titleEl.textContent = title;
+  if (contentEl) contentEl.textContent = content;
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeCustomModal() {
+  const modal = document.getElementById('info-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function copyInfoContent() {
+  const contentEl = document.getElementById('info-modal-content');
+  if (contentEl) {
+    navigator.clipboard.writeText(contentEl.textContent || '');
+    const copyBtn = document.getElementById('btn-info-copy');
+    if (copyBtn) {
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = '✔ Copiado!';
+      setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+    }
+  }
+}
+
+function openAkgCreateModal() {
+  const modal = document.getElementById('akg-create-modal');
+  const inputName = document.getElementById('input-pool-name');
+  if (inputName) inputName.value = '';
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeAkgCreateModal() {
+  const modal = document.getElementById('akg-create-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function confirmCreateAkgPool() {
+  const nameInput = document.getElementById('input-pool-name')?.value?.trim();
+  const strategy = document.getElementById('select-pool-strategy')?.value || 'round_robin';
+
+  const name = nameInput || 'Production Multi-Key Pool';
+  const newPool = {
+    poolId: `pool_${Date.now()}`,
+    name,
+    masterApiKey: `akg-mantx-${Math.random().toString(36).slice(2, 10)}`,
+    strategy,
+    keys: []
+  };
+
+  akgPools.push(newPool);
+  closeAkgCreateModal();
+  renderAkgPools();
+  renderDashboardStats();
+  showCustomModal('🔑 AKG Key Pool Creado', `Pool: ${newPool.name}\nMaster Key: ${newPool.masterApiKey}\nEstrategia: ${newPool.strategy}\n\nPara añadir llaves al pool desde el CLI:\nmantx akg key add --pool ${newPool.poolId} --key "tu-api-key"`);
 }
 
 // ─── TAB NAVIGATION ───────────────────────────────────────────
@@ -230,7 +289,7 @@ function renderMarketplace() {
 
       <div style="display: flex; gap: 0.5rem;">
         <button class="btn btn-primary btn-sm btn-block" onclick="selectModelForBattle('${m.id}')">⚔️ Enfrentar</button>
-        <button class="btn btn-secondary btn-sm" onclick="alert('Comando CLI: mantx runtime plan --model ${m.id}')">⚙️ Plan</button>
+        <button class="btn btn-secondary btn-sm" onclick="showModelRuntimePlan('${m.id}', '${m.name}')">⚙️ Plan</button>
       </div>
     </div>
   `).join('');
@@ -242,9 +301,14 @@ document.getElementById('market-filter-spec')?.addEventListener('change', render
 function selectModelForBattle(modelId) {
   const input = document.getElementById('battle-candidates');
   if (input) {
-    input.value = `${input.value},${modelId}`.replace(/^,/, '');
+    input.value = input.value ? `${input.value},${modelId}` : modelId;
     switchTab('battles');
   }
+}
+
+function showModelRuntimePlan(modelId, modelName) {
+  const content = `# Plan de Ejecución Runtime MANTX\nModelo: ${modelName} (${modelId})\n\nHardware Target:   GitHub Actions CPU (Runner Ubuntu)\nEngine:            llama.cpp (GGUF Q4)\nMemoria Estimada:  ~2.4 GB RAM\n\nComando de terminal para planificar:\nmantx runtime plan --model ${modelId} --env action_cpu\n\nGenerar Action Workflow YAML:\nmantx runtime workflow --model ${modelId} --name "Runner ${modelName}"`;
+  showCustomModal(`⚙️ Plan Runtime: ${modelName}`, content);
 }
 
 // ─── AKG POOLS RENDERING ──────────────────────────────────────
@@ -287,25 +351,8 @@ function renderAkgPools() {
   }
 }
 
-function openAkgModal() {
-  const name = prompt('Nombre del nuevo AKG Key Pool:', 'Production Multi-Key Pool');
-  if (!name) return;
-
-  const newPool = {
-    poolId: `pool_${Date.now()}`,
-    name,
-    masterApiKey: `akg-mantx-${Math.random().toString(36).slice(2, 10)}`,
-    strategy: 'round_robin',
-    keys: []
-  };
-
-  akgPools.push(newPool);
-  renderAkgPools();
-  renderDashboardStats();
-}
-
 async function executeAkgTest() {
-  const prompt = document.getElementById('akg-test-prompt')?.value || 'Explica la teoría de grafos en 1 frase';
+  const prompt = document.getElementById('akg-test-prompt')?.value?.trim() || 'Explica la teoría de la información y entropía de Shannon en 2 frases';
   const out = document.getElementById('akg-test-result');
   if (!out) return;
 
@@ -318,27 +365,32 @@ async function executeAkgTest() {
 Consulta: "${prompt}"
 
 Respuesta:
-La teoría de grafos estudia las relaciones entre objetos modelados como nodos conectados mediante aristas, fundamental para algoritmos de rutas, redes neuronales y recuperación semántica.`;
-  }, 900);
+La teoría de la información cuantifica la incertidumbre de un mensaje mediante la entropía de Shannon. Permite optimizar la compresión de datos y la tasa de transferencia en canales con ruido sin pérdida de fidelidad.`;
+  }, 850);
 }
 
 // ─── DEIMATIC BATTLES ARENA ───────────────────────────────────
 async function runArenaBattle() {
-  const candidates = document.getElementById('battle-candidates')?.value.split(',').map(s => s.trim()).filter(Boolean) || [];
-  const prompt = document.getElementById('battle-prompt')?.value || '';
+  const rawCandidates = document.getElementById('battle-candidates')?.value?.trim();
+  const rawPrompt = document.getElementById('battle-prompt')?.value?.trim();
+  const rawName = document.getElementById('battle-name')?.value?.trim();
   const resultsBox = document.getElementById('battle-live-results');
   if (!resultsBox) return;
 
+  const candidates = (rawCandidates || 'qwen-2.5-coder-3b, llama-3.2-3b-instruct').split(',').map(s => s.trim()).filter(Boolean);
+  const prompt = rawPrompt || 'Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels';
+  const name = rawName || 'Showdown: Algoritmos y Concurrencia';
+
   if (candidates.length < 2) {
-    alert('Introduce al menos 2 modelos candidatos para la batalla.');
+    showCustomModal('⚠️ Parámetros Insuficientes', 'Introduce al menos 2 modelos candidatos separados por coma para lanzar una Deimatic Battle.');
     return;
   }
 
   resultsBox.innerHTML = `
     <div class="panel-card" style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
       <div class="pulse-dot" style="margin: 0 auto 1rem;"></div>
-      <h3>Ejecutando Deimatic Battle en paralelo...</h3>
-      <p class="text-dim">Midiendo latencia, velocidad (tok/s) y calidad semántica</p>
+      <h3>Ejecutando Deimatic Battle: ${name}...</h3>
+      <p class="text-dim">Midiendo latencia, velocidad (tok/s), coherencia y arbitraje con IA</p>
     </div>
   `;
 
@@ -354,10 +406,10 @@ async function runArenaBattle() {
         </div>
         <div class="output-box" style="margin-top: 0; max-height: 180px;">
 [Inferencia ${cand}]
-Respuesta técnica analizada para: "${prompt.slice(0, 45)}...".
+Respuesta analizada para: "${prompt.slice(0, 50)}...".
 
-• Implementación de concurrencia segura sin bloqueos mediante operaciones atómicas y propiedad de memoria.
-• Evaluación de rendimiento con overhead mínimo.
+• Concurrencia sin bloqueos basada en primitivas atómicas y el sistema de ownership de Rust.
+• Ausencia de data races en tiempo de compilación.
         </div>
       </div>
     `).join('');
@@ -366,10 +418,13 @@ Respuesta técnica analizada para: "${prompt.slice(0, 45)}...".
 
 // ─── SYNTHETIC DATA FORGE ────────────────────────────────────
 async function runDataForge() {
-  const name = document.getElementById('forge-name')?.value || 'Synthetic Dataset';
-  const obj = document.getElementById('forge-obj')?.value || '';
+  const rawName = document.getElementById('forge-name')?.value?.trim();
+  const rawObj = document.getElementById('forge-obj')?.value?.trim();
   const out = document.getElementById('forge-result');
   if (!out) return;
+
+  const name = rawName || 'PostgreSQL Performance & Indexing QA';
+  const obj = rawObj || 'Optimización de consultas complejas, índices B-Tree y planes EXPLAIN ANALYZE en PostgreSQL';
 
   out.classList.remove('hidden');
   out.textContent = `⏳ Sintetizando dataset con Evol-Instruct y Crítico Constitucional para: "${obj}"...`;
@@ -382,49 +437,15 @@ async function runDataForge() {
 
 [
   {
-    "instruction": "Explica la optimización de consultas en PostgreSQL",
-    "output": "Análisis exhaustivo con estructuras modulares, índices B-Tree y métricas EXPLAIN."
+    "instruction": "Explica la optimización de consultas en PostgreSQL con índices parciales",
+    "output": "Análisis exhaustivo con estructuras modulares, índices B-Tree y cláusula WHERE indexada."
   },
   {
-    "instruction": "Crea una consulta con índices parciales",
-    "output": "CREATE INDEX idx_active ON table(id) WHERE status = 'active';"
+    "instruction": "Crea una consulta con EXPLAIN ANALYZE para identificar cuellos de botella",
+    "output": "EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM orders WHERE status = 'pending';"
   }
 ]`;
-  }, 1100);
-}
-
-// ─── MANTX CODE AGENT ─────────────────────────────────────────
-async function runCodeAgent() {
-  const prompt = document.getElementById('code-prompt')?.value || 'Crear función JWT validator';
-  const out = document.getElementById('code-agent-result');
-  if (!out) return;
-
-  out.classList.remove('hidden');
-  out.textContent = `⏳ Ejecutando ciclo de planificación, generación de código y revisión...`;
-
-  setTimeout(() => {
-    out.textContent = `✔ Tarea completada con éxito:
-[Paso 1 - ARCHITECT]: Plan estructurado en módulos independientes.
-[Paso 2 - CODER]: Implementación TypeScript con tipado estricto completada.
-[Paso 3 - REVIEWER]: Auditoría de seguridad y control de excepciones aprobada.`;
   }, 1000);
-}
-
-async function runRoundTable() {
-  const topic = document.getElementById('roundtable-topic')?.value || 'Cache distribuido';
-  const out = document.getElementById('roundtable-result');
-  if (!out) return;
-
-  out.classList.remove('hidden');
-  out.textContent = `⏳ Deliberando entre Arquitecto, Programador, Revisor y Tester...`;
-
-  setTimeout(() => {
-    out.textContent = `🏛️ CONSENSO DE MESA REDONDA:
-• Arquitecto: Propone arquitectura L1/L2 (Memory Cache + Redis Fallback con TTL).
-• Coder: Diseña clase LRU con desalojo automático.
-• Revisor: Añade control de límites de memoria y mutexes contra race conditions.
-• Tester: Define 4 casos de test para expiración y concurrencia.`;
-  }, 1100);
 }
 
 // ─── NIMPHYS CATALOG ──────────────────────────────────────────
@@ -451,9 +472,25 @@ function renderNimphysCatalog() {
       <div style="font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.6rem;">
         Base: ${n.baseModel} | Método: ${n.method?.toUpperCase()} | Versiones: ${(n.versions || []).length}
       </div>
-      <button class="btn btn-outline btn-sm btn-block" onclick="alert('Lanza este Nimphy con: mantx nimphys serve --id ${n.nimphyId} --port 7430')">⚡ Lanzar API Efímera ($0)</button>
+      <button class="btn btn-outline btn-sm btn-block" onclick="showLaunchApiModal('${n.nimphyId}', '${n.name}')">⚡ Lanzar API Efímera ($0)</button>
     </div>
   `).join('');
+}
+
+function showLaunchApiModal(nimphyId, name) {
+  const content = `# Despliegue de Servidor Efímero REST OpenAI-Compatible
+Modelo: ${name} (${nimphyId})
+
+Para arrancar el servidor en tu máquina o contenedor:
+mantx nimphys serve --id ${nimphyId} --port 7430 --timeout 15
+
+Endpoints disponibles tras arranque:
+• Chat Completions: POST http://127.0.0.1:7430/v1/chat/completions
+• Models Catalog:   GET http://127.0.0.1:7430/v1/models
+• Health Check:     GET http://127.0.0.1:7430/health
+
+Auto-apagado automático por inactividad tras 15 minutos sin peticiones ($0 compute).`;
+  showCustomModal(`⚡ Servidor Efímero: ${name}`, content);
 }
 
 function renderIntelligenceHistory() {

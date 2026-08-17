@@ -18,7 +18,7 @@
       <img src="assets/logo_mantx.jpg" alt="MANTX Logo" class="login-logo">
       <h2>MANTX <span class="badge badge-emerald">Engine Gate</span></h2>
       <p class="login-desc">
-        Introduce tu GitHub Personal Access Token (PAT) para desbloquear la consola y sincronizar tu almacén <code>.mantx-storage</code> a coste $0.
+        Introduce tu GitHub Personal Access Token (PAT) para desbloquear la consola y sincronizar tu almacén privado <code>.mantx-storage</code> a coste $0.
       </p>
       
       <div class="form-group" style="text-align: left; margin-bottom: 1.2rem;">
@@ -55,7 +55,6 @@
         <button class="nav-tab" data-tab="akg">🔑 AKG Gateway</button>
         <button class="nav-tab" data-tab="battles">⚔️ Deimatic Battles</button>
         <button class="nav-tab" data-tab="nimphys">🧬 Nimphys & Forge</button>
-        <button class="nav-tab" data-tab="code">🤖 Mantx Code</button>
         <button class="nav-tab" data-tab="intelligence">📈 Intelligence</button>
       </div>
       <div class="nav-right">
@@ -76,7 +75,7 @@
             <span class="badge badge-mint hero-pill">CI/CD & Serverless AI Engine</span>
             <h1 class="hero-heading">Inteligencia Artificial Autónoma a Coste <span class="text-gradient">$0</span></h1>
             <p class="hero-desc">
-              Entrena modelos con LoRA/QLoRA en las 6h de GitHub Actions, sintetiza datasets con Constitutional AI, ejecuta batallas comparativas multi-modelo y despliega agentes de código autónomos.
+              Entrena modelos con LoRA/QLoRA en las 6h de GitHub Actions, sintetiza datasets con Constitutional AI, ejecuta batallas comparativas multi-modelo y gestiona tus despliegues a coste cero.
             </p>
             <div class="hero-actions">
               <button class="btn btn-primary" onclick="switchTab('marketplace')">Explorar Modelos Marketplace</button>
@@ -126,15 +125,15 @@
             <div class="feature-title">Nimphys & Synthetic Data Forge</div>
             <div class="feature-desc">Generación sintética con Evol-Instruct y fine-tuning con versionado automático (v1, v2, v3) en GitHub Releases.</div>
           </div>
-          <div class="feature-card" onclick="switchTab('code')">
-            <div class="feature-icon">🤖</div>
-            <div class="feature-title">Mantx Code & Round Tables</div>
-            <div class="feature-desc">Agente autónomo CLI con deliberación entre Arquitecto, Programador, Revisor y Tester.</div>
-          </div>
           <div class="feature-card" onclick="switchTab('intelligence')">
             <div class="feature-icon">📈</div>
             <div class="feature-title">Production Intelligence (Closed-Loop)</div>
             <div class="feature-desc">Detección de drift semántico y auto-disparo de reentrenamiento incremental para modelos en producción.</div>
+          </div>
+          <div class="feature-card" onclick="showCustomModal('🤖 Mantx Code CLI', 'Mantx Code es el agente autónomo de desarrollo en terminal. Ejecútalo desde tu consola con:\n\nmantx code run --prompt \"Tu tarea de código\"\nmantx code roundtable --topic \"Tu arquitectura\"')">
+            <div class="feature-icon">🤖</div>
+            <div class="feature-title">Mantx Code (CLI Agéntico)</div>
+            <div class="feature-desc">Agente de terminal con deliberación entre Arquitecto, Programador, Revisor y Tester.</div>
           </div>
         </div>
       </section>
@@ -169,7 +168,7 @@
             <h2>🔑 Mantx AKG (API Key Gateway)</h2>
             <p class="text-dim">Centralizador de claves BYOK, auto-rotación en fallos y mitigación inteligente contra límites de tasa 429.</p>
           </div>
-          <button class="btn btn-primary" onclick="openAkgModal()">+ Crear Pool de Claves</button>
+          <button class="btn btn-primary" onclick="openAkgCreateModal()">+ Crear Pool de Claves</button>
         </div>
 
         <div class="grid-2">
@@ -188,7 +187,7 @@
             </div>
             <div class="form-group">
               <label>Prompt:</label>
-              <textarea id="akg-test-prompt" class="input-textarea" rows="3" placeholder="Introduce tu consulta..."></textarea>
+              <textarea id="akg-test-prompt" class="input-textarea" rows="3" placeholder="Ej: Explica la teoría de la información y entropía de Shannon en 2 frases..."></textarea>
             </div>
             <button class="btn btn-primary btn-block" id="btn-akg-test" onclick="executeAkgTest()">Ejecutar Consulta vía AKG</button>
             <div id="akg-test-result" class="output-box hidden"></div>
@@ -210,7 +209,7 @@
           <div class="grid-3">
             <div class="form-group">
               <label>Candidatos (separados por coma):</label>
-              <input type="text" id="battle-candidates" class="input-text" value="qwen-2.5-coder-3b,llama-3.2-3b-instruct">
+              <input type="text" id="battle-candidates" class="input-text" placeholder="Ej: qwen-2.5-coder-3b, llama-3.2-3b-instruct">
             </div>
             <div class="form-group">
               <label>Modo RAG:</label>
@@ -222,12 +221,12 @@
             </div>
             <div class="form-group">
               <label>Nombre del Enfrentamiento:</label>
-              <input type="text" id="battle-name" class="input-text" value="Showdown: Programación Concurrente">
+              <input type="text" id="battle-name" class="input-text" placeholder="Ej: Showdown: Algoritmos de Grafos y Concurrencia">
             </div>
           </div>
           <div class="form-group">
             <label>Prompt del Enfrentamiento:</label>
-            <textarea id="battle-prompt" class="input-textarea" rows="2">Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels.</textarea>
+            <textarea id="battle-prompt" class="input-textarea" rows="2" placeholder="Ej: Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels..."></textarea>
           </div>
         </div>
 
@@ -251,11 +250,11 @@
             <div class="panel-title">🧬 Synthetic Data Forge</div>
             <div class="form-group">
               <label>Nombre del Dataset:</label>
-              <input type="text" id="forge-name" class="input-text" value="PostgreSQL Performance QA">
+              <input type="text" id="forge-name" class="input-text" placeholder="Ej: PostgreSQL Performance & Indexing QA">
             </div>
             <div class="form-group">
               <label>Objetivo de Entrenamiento:</label>
-              <textarea id="forge-obj" class="input-textarea" rows="2">Optimización de índices B-Tree, particionamiento y consultas EXPLAIN ANALYZE en PostgreSQL.</textarea>
+              <textarea id="forge-obj" class="input-textarea" rows="2" placeholder="Ej: Optimización de consultas complejas, índices B-Tree y planes EXPLAIN ANALYZE en PostgreSQL..."></textarea>
             </div>
             <div class="grid-2">
               <div class="form-group">
@@ -289,46 +288,7 @@
         </div>
       </section>
 
-      <!-- TAB 6: MANTX CODE -->
-      <section id="tab-code" class="tab-content">
-        <div class="tab-header">
-          <div>
-            <h2>🤖 Mantx Code & Round Tables</h2>
-            <p class="text-dim">Agente autónomo CLI con deliberación multi-agente entre Arquitecto, Coder, Revisor y Tester.</p>
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="panel-card">
-            <div class="panel-title">🤖 Ejecución de Tarea Autónoma</div>
-            <div class="form-group">
-              <label>Instrucción de Código:</label>
-              <textarea id="code-prompt" class="input-textarea" rows="3" placeholder="Ej: Implementar un pool de conexiones HTTP con reconexión automática en TypeScript..."></textarea>
-            </div>
-            <div class="form-group">
-              <label>Modo de Ejecución:</label>
-              <select id="code-mode" class="input-select">
-                <option value="autonomous">Modo Autónomo (Plan + Código + QA)</option>
-                <option value="safe">Modo Seguro (Solo propuesta)</option>
-              </select>
-            </div>
-            <button class="btn btn-primary btn-block" onclick="runCodeAgent()">Lanzar Agente Mantx Code</button>
-            <div id="code-agent-result" class="output-box hidden"></div>
-          </div>
-
-          <div class="panel-card">
-            <div class="panel-title">🏛️ Mesa Redonda de Modelos (Round Table)</div>
-            <div class="form-group">
-              <label>Tema de Discusión Arquitectónica:</label>
-              <textarea id="roundtable-topic" class="input-textarea" rows="3" placeholder="Ej: Diseñar un sistema de cache distribuido con TTL y persistencia..."></textarea>
-            </div>
-            <button class="btn btn-secondary btn-block" onclick="runRoundTable()">Iniciar Deliberación de Mesa Redonda</button>
-            <div id="roundtable-result" class="output-box hidden"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 7: PRODUCTION INTELLIGENCE -->
+      <!-- TAB 6: PRODUCTION INTELLIGENCE -->
       <section id="tab-intelligence" class="tab-content">
         <div class="tab-header">
           <div>
@@ -366,6 +326,46 @@
     <footer class="app-footer">
       <div>MANTX — Terra Ecosystem • Licencia MIT • Autonomous AI Architecture at $0 Cost</div>
     </footer>
+  </div>
+
+  <!-- CUSTOM INFO / ALERT MODAL (Reemplazo de alert()) -->
+  <div id="info-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="info-modal-title">ℹ️ Información</h3>
+        <button class="btn-close" onclick="closeCustomModal()">✕</button>
+      </div>
+      <div id="info-modal-content" class="output-box mb-3" style="max-height: 320px;"></div>
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" id="btn-info-copy" onclick="copyInfoContent()">📋 Copiar</button>
+        <button class="btn btn-primary btn-sm" onclick="closeCustomModal()">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM AKG CREATE POOL MODAL (Reemplazo de prompt()) -->
+  <div id="akg-create-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🔑 Crear Nuevo Pool de Claves AKG</h3>
+        <button class="btn-close" onclick="closeAkgCreateModal()">✕</button>
+      </div>
+      <div class="form-group" style="text-align: left; margin-bottom: 1rem;">
+        <label>Nombre del Pool:</label>
+        <input type="text" id="input-pool-name" class="input-text" placeholder="Ej: Production BYOK Pool">
+      </div>
+      <div class="form-group" style="text-align: left; margin-bottom: 1.5rem;">
+        <label>Estrategia de Rotación / Balanceo:</label>
+        <select id="select-pool-strategy" class="input-select">
+          <option value="round_robin">Round Robin (Rotación Equitativa)</option>
+          <option value="priority_fallback">Priority Fallback (Por Prioridad y Cooldown)</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="closeAkgCreateModal()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmCreateAkgPool()">Crear Pool</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
