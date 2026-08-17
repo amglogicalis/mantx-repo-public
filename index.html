@@ -455,42 +455,31 @@
 
   <!-- CUSTOM AKG CREATE POOL MODAL -->
   <div id="akg-create-modal" class="modal-backdrop hidden">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 620px;">
       <div class="modal-header">
         <h3>🔑 Crear Nuevo Pool de Claves AKG</h3>
         <button class="btn-close" onclick="closeAkgCreateModal()">✕</button>
       </div>
       <div class="form-group mb-2">
         <label>Nombre del Pool:</label>
-        <input type="text" id="input-pool-name" class="input-text" placeholder="Ej: Production BYOK Pool">
+        <input type="text" id="input-pool-name" class="input-text" placeholder="Ej: Production BYOK Multi-Key Pool">
       </div>
       <div class="form-group mb-3">
         <label>Estrategia de Rotación / Balanceo:</label>
-        <select id="select-pool-strategy" class="input-select">
-          <option value="round_robin">Round Robin (Rotación Equitativa)</option>
-          <option value="priority_fallback">Priority Fallback (Por Prioridad y Cooldown)</option>
+        <select id="select-pool-strategy" class="input-select" onchange="handleCreateStrategyChange()">
+          <option value="round_robin">Round Robin (Rotación Equitativa entre claves)</option>
+          <option value="priority_fallback">Priority Fallback (Prioridad P1 -> Fallback a P2 -> P3 en 429)</option>
         </select>
       </div>
       
-      <div style="background: rgba(0,0,0,0.3); border: 1px dashed var(--border-subtle); border-radius: 10px; padding: 0.9rem; margin-bottom: 1.2rem;">
-        <div style="font-size: 0.8rem; font-weight: 700; color: var(--emerald-light); margin-bottom: 0.5rem;">+ Clave Inicial (Opcional):</div>
-        <div class="form-group mb-2">
-          <input type="password" id="input-create-key-val" class="input-text" placeholder="API Key (ej: gsk_..., AIza..., sk-...)">
+      <div style="margin-bottom: 1.2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+          <label style="font-weight: 700; color: var(--emerald-light); font-size: 0.88rem;">Claves del Pool (Mínimo 1 obligatoria):</label>
+          <button type="button" class="btn btn-outline btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="addCreateKeyRow()">+ Añadir Otra Clave</button>
         </div>
-        <div class="grid-2">
-          <div class="form-group">
-            <input type="text" id="input-create-key-alias" class="input-text" placeholder="Alias (ej: Groq Primary)">
-          </div>
-          <div class="form-group">
-            <select id="select-create-key-provider" class="input-select">
-              <option value="auto">Auto-Detectar Proveedor</option>
-              <option value="groq">Groq (LPU)</option>
-              <option value="gemini">Google Gemini</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-            </select>
-          </div>
+        
+        <div id="create-pool-keys-container" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+          <!-- Injected dynamically via JS -->
         </div>
       </div>
 

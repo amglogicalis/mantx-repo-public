@@ -228,20 +228,101 @@ function copyInfoContent() {
   }
 }
 
+let createKeyRowsCounter = 0;
+
 function openAkgCreateModal() {
   const modal = document.getElementById('akg-create-modal');
   const inputName = document.getElementById('input-pool-name');
-  const inputKey = document.getElementById('input-create-key-val');
-  const inputAlias = document.getElementById('input-create-key-alias');
+  const container = document.getElementById('create-pool-keys-container');
+
   if (inputName) inputName.value = '';
-  if (inputKey) inputKey.value = '';
-  if (inputAlias) inputAlias.value = '';
+  if (container) {
+    container.innerHTML = '';
+    createKeyRowsCounter = 0;
+    addCreateKeyRow(); // Add 1st mandatory row
+  }
   if (modal) modal.classList.remove('hidden');
 }
 
 function closeAkgCreateModal() {
   const modal = document.getElementById('akg-create-modal');
   if (modal) modal.classList.add('hidden');
+}
+
+function handleCreateStrategyChange() {
+  const strat = document.getElementById('select-pool-strategy')?.value || 'round_robin';
+  const prioBadges = document.querySelectorAll('.create-key-prio-badge');
+  prioBadges.forEach((el, idx) => {
+    if (strat === 'priority_fallback') {
+      el.textContent = idx === 0 ? 'P1 (Primaria)' : `P${idx + 1} (Respaldo ${idx})`;
+      el.style.display = 'inline-block';
+    } else {
+      el.textContent = 'Rotativa';
+      el.style.display = 'inline-block';
+    }
+  });
+}
+
+function addCreateKeyRow() {
+  const container = document.getElementById('create-pool-keys-container');
+  if (!container) return;
+
+  createKeyRowsCounter++;
+  const rowId = `create_row_${createKeyRowsCounter}`;
+  const rowIndex = container.children.length + 1;
+  const strat = document.getElementById('select-pool-strategy')?.value || 'round_robin';
+
+  const prioLabel = strat === 'priority_fallback'
+    ? (rowIndex === 1 ? 'P1 (Primaria)' : `P${rowIndex} (Respaldo ${rowIndex - 1})`)
+    : 'Rotativa';
+
+  const rowDiv = document.createElement('div');
+  rowDiv.id = rowId;
+  rowDiv.className = 'create-key-row';
+  rowDiv.style.cssText = 'background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.4rem;';
+
+  rowDiv.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span class="badge badge-mint create-key-prio-badge" style="font-size: 0.72rem;">${prioLabel}</span>
+      ${container.children.length > 0 ? `<button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.4rem; font-size: 0.7rem; color: #f87171;" onclick="removeCreateKeyRow('${rowId}')">✕</button>` : ''}
+    </div>
+    <div class="form-group" style="margin-bottom: 0.3rem;">
+      <input type="password" class="input-text row-key-val" placeholder="Pega tu API Key aquí (ej: gsk_..., AIza..., sk-...)" required oninput="autoDetectRowProvider('${rowId}')">
+    </div>
+    <div class="grid-2">
+      <input type="text" class="input-text row-key-alias" placeholder="Alias (ej: Groq LPU Key ${rowIndex})">
+      <select class="input-select row-key-prov">
+        <option value="auto">Auto-Detectar</option>
+        <option value="groq">Groq</option>
+        <option value="gemini">Google Gemini</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+      </select>
+    </div>
+  `;
+
+  container.appendChild(rowDiv);
+  handleCreateStrategyChange();
+}
+
+function removeCreateKeyRow(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) {
+    row.remove();
+    handleCreateStrategyChange();
+  }
+}
+
+function autoDetectRowProvider(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const val = row.querySelector('.row-key-val')?.value?.trim();
+  const select = row.querySelector('.row-key-prov');
+  if (val && select && select.value === 'auto') {
+    const prov = detectKeyProvider(val);
+    select.value = prov;
+  }
 }
 
 function detectKeyProvider(key) {
@@ -261,27 +342,38 @@ function maskApiKey(key) {
 async function confirmCreateAkgPool() {
   const nameInput = document.getElementById('input-pool-name')?.value?.trim();
   const strategy = document.getElementById('select-pool-strategy')?.value || 'round_robin';
-  const initialKeyVal = document.getElementById('input-create-key-val')?.value?.trim();
-  const initialKeyAlias = document.getElementById('input-create-key-alias')?.value?.trim();
-  const initialKeyProv = document.getElementById('select-create-key-provider')?.value || 'auto';
+  const container = document.getElementById('create-pool-keys-container');
 
-  const name = nameInput || 'Production Multi-Key Pool';
-  const poolId = `pool_${Date.now()}`;
+  const rows = container ? Array.from(container.querySelectorAll('.create-key-row')) : [];
   const keys = [];
 
-  if (initialKeyVal) {
-    const provider = initialKeyProv === 'auto' ? detectKeyProvider(initialKeyVal) : initialKeyProv;
-    keys.push({
-      keyId: `key_${Date.now()}`,
-      provider,
-      keyMasked: maskApiKey(initialKeyVal),
-      alias: initialKeyAlias || `${provider.toUpperCase()} Key 1`,
-      priority: 1,
-      active: true,
-      calls: 0,
-      rateHits: 0
-    });
+  rows.forEach((row, idx) => {
+    const val = row.querySelector('.row-key-val')?.value?.trim();
+    const alias = row.querySelector('.row-key-alias')?.value?.trim();
+    const provSelect = row.querySelector('.row-key-prov')?.value || 'auto';
+
+    if (val) {
+      const provider = provSelect === 'auto' ? detectKeyProvider(val) : provSelect;
+      keys.push({
+        keyId: `key_${Date.now()}_${idx}`,
+        provider,
+        keyMasked: maskApiKey(val),
+        alias: alias || `${provider.toUpperCase()} Clave ${idx + 1}`,
+        priority: idx + 1,
+        active: true,
+        calls: 0,
+        rateHits: 0
+      });
+    }
+  });
+
+  if (keys.length === 0) {
+    showCustomModal('⚠️ Clave Requerida', 'Debes introducir al menos 1 API Key válida para poder crear el pool.');
+    return;
   }
+
+  const name = nameInput || `Production ${strategy === 'priority_fallback' ? 'Fallback' : 'RoundRobin'} Pool`;
+  const poolId = `pool_${Date.now()}`;
 
   const newPool = {
     poolId,
@@ -296,7 +388,7 @@ async function confirmCreateAkgPool() {
   renderAkgPools();
   renderDashboardStats();
   await saveAkgPoolsToVault();
-  showCustomModal('🔑 Pool de Claves Creado', `Pool: ${newPool.name}\nMaster Key: ${newPool.masterApiKey}\nEstrategia: ${newPool.strategy}\nClaves registradas: ${keys.length}\n\nPara usar este pool en tus peticiones:\nAuthorization: Bearer ${newPool.masterApiKey}`);
+  showCustomModal('🔑 Pool de Claves Creado', `Pool: ${newPool.name}\nMaster Key: ${newPool.masterApiKey}\nEstrategia: ${newPool.strategy}\nTotal claves añadidas: ${keys.length}\n\nPara usar este pool en tus peticiones:\nAuthorization: Bearer ${newPool.masterApiKey}`);
 }
 
 function openAkgEditPoolModal(poolId) {
@@ -723,7 +815,9 @@ function renderAkgPools() {
                   </div>
 
                   <div style="display: flex; align-items: center; gap: 0.8rem; font-size: 0.78rem;">
-                    <span style="color: var(--text-dim);">Prio: <strong style="color: #fff;">${k.priority || 1}</strong></span>
+                    <span class="badge ${p.strategy === 'priority_fallback' ? (k.priority === 1 ? 'badge-emerald' : 'badge-mint') : 'badge-mint'}">
+                      ${p.strategy === 'priority_fallback' ? (k.priority === 1 ? 'P1 (Primaria)' : `P${k.priority} (Respaldo ${k.priority - 1})`) : 'Rotativa'}
+                    </span>
                     <span style="color: var(--emerald-light);">Calls: ${k.calls || 0}</span>
                     <span style="color: ${k.rateHits > 0 ? '#f87171' : 'var(--text-muted)'};">429s: ${k.rateHits || 0}</span>
                     
@@ -743,24 +837,6 @@ function renderAkgPools() {
       </div>
     `;
   }).join('');
-}
-
-async function executeAkgTest() {
-  const prompt = document.getElementById('akg-test-prompt')?.value?.trim() || 'Explica la teoría de la información y entropía de Shannon en 2 frases';
-  const out = document.getElementById('akg-test-result');
-  if (!out) return;
-
-  out.classList.remove('hidden');
-  out.textContent = '⏳ Ejecutando inferencia vía AKG Gateway...';
-
-  setTimeout(() => {
-    out.textContent = `✔ Inferencia completada con éxito vía Mantx AKG Gateway:
-
-Consulta: "${prompt}"
-
-Respuesta:
-La teoría de la información cuantifica la incertidumbre de un mensaje mediante la entropía de Shannon. Permite optimizar la compresión de datos y la tasa de transferencia en canales con ruido sin pérdida de fidelidad.`;
-  }, 850);
 }
 
 // ─── DEIMATIC BATTLES ARENA & CONTEXT GUARD ───────────────────
