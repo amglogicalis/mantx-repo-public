@@ -1280,31 +1280,40 @@ function generateDomainSpecificSamples(domain, count = 10, format = 'alpaca', co
   const isDocker = /docker|k8s|kubernetes/i.test(d);
 
   const topics = isRedis ? [
-    { q: `¿Cómo optimizar el uso de memoria en Redis para colecciones masivas de datos en ${d}?`, a: 'Utiliza estructuras Hash codificadas con ziplist/listpack (hash-max-ziplist-entries) en lugar de claves de tipo string aisladas. Esto reduce el overhead de metadatos de ~70 bytes por clave a menos de 10 bytes.' },
-    { q: `¿Por qué se debe evitar el comando KEYS * en producción y qué alternativa usar en ${d}?`, a: 'KEYS * bloquea el hilo principal de eventos O(N) congelando el servidor. En su lugar, emplea SCAN o HSCAN de forma iterativa con un cursor no bloqueante O(1) por llamada.' },
-    { q: `Implementa una estrategia de Pipelining eficiente en Redis para procesamiento por lotes`, a: 'El Pipelining empaqueta múltiples comandos cliente sin esperar RTT (Round Trip Time) individuales. Reduce la latencia acumulada de red de O(N * RTT) a O(RTT) mediante buffers de socket sincronizados.' },
-    { q: `Configuración recomendada de políticas de desalojo (Eviction Policy) para caché en Redis`, a: 'Configura maxmemory-policy allkeys-lru o volatile-lfu según la distribución de acceso de tu carga de trabajo, garantizando que claves expirables se reciclen antes de agotar la RAM asignada.' },
-    { q: `Patrón de bloqueo distribuido seguro con Redlock y TTL en Redis`, a: 'Utiliza SET resource_name my_random_token NX PX 30000 con un UUID de liberación condicional validado vía script Lua: if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end.' }
+    { q: '¿Cómo optimizar el uso de memoria en Redis para colecciones masivas de datos en producción?', a: 'Utiliza estructuras Hash codificadas con ziplist/listpack (hash-max-ziplist-entries) en lugar de claves de tipo string aisladas. Esto reduce el overhead de metadatos de ~70 bytes por clave a menos de 10 bytes.' },
+    { q: '¿Por qué se debe evitar el comando KEYS * en producción y qué alternativa segura usar?', a: 'KEYS * bloquea el hilo principal de eventos de Redis con complejidad O(N), congelando el servidor. En su lugar, emplea SCAN o HSCAN de forma iterativa con un cursor no bloqueante O(1) por llamada.' },
+    { q: 'Implementa una estrategia de Pipelining eficiente en Redis para procesamiento por lotes', a: 'El Pipelining empaqueta múltiples comandos cliente sin esperar los Round Trip Time (RTT) individuales. Reduce la latencia acumulada de red de O(N * RTT) a O(RTT) mediante buffers de socket sincronizados.' },
+    { q: 'Configuración recomendada de políticas de desalojo (Eviction Policy) para caché en Redis', a: 'Configura maxmemory-policy allkeys-lru o volatile-lfu según la distribución de acceso de tu carga de trabajo, garantizando que claves expirables se reciclen antes de agotar la RAM asignada.' },
+    { q: 'Patrón de bloqueo distribuido seguro con Redlock y TTL en Redis', a: 'Utiliza SET resource_name my_random_token NX PX 30000 con un UUID de liberación condicional validado vía script Lua atómico: if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end.' },
+    { q: '¿Cómo mitigar el problema de Cache Stampede o Thundering Herd en Redis?', a: 'Emplea técnicas de Early Expiration probabilística (algoritmo XFetch) o bloqueos distribuidos mutuos breves para que un único worker compute el dato pesado mientras los demás consumen la caché stale durante ese intervalo.' },
+    { q: '¿Qué diferencias arquitectónicas existen entre Redis Pub/Sub y Redis Streams?', a: 'Pub/Sub es efímero (fire-and-forget, sin persistencia ni ACK). Redis Streams ofrece log ordenado en disco con grupos de consumidores (Consumer Groups), ACK de mensajes leídos (XACK) y tolerancia a desconexiones de clientes.' },
+    { q: 'Estrategia de persistencia híbrida recomendada: RDB snapshots + AOF appendfsync everysec', a: 'Combina RDB para copias de seguridad compactas y arranque veloz con AOF (Append-Only File) configurado con appendfsync everysec para garantizar un límite máximo de 1 segundo de pérdida en caso de fallo crítico.' },
+    { q: 'Optimización de particionado con Redis Cluster y cálculo de Hash Slots', a: 'Redis Cluster divide el espacio de claves en 16.384 slots fijos usando CRC16(key) mod 16384. Utiliza Hash Tags como {user:100}:profile y {user:100}:orders para forzar la co-localización de datos relacionados en el mismo nodo físico.' },
+    { q: 'Métricas clave de telemetría a monitorizar en Redis con el comando INFO', a: 'Supervisa used_memory_rss vs used_memory (ratio de fragmentación > 1.5 indica fragmentación de memoria severa), instantaneous_ops_per_sec, connected_clients, rejected_connections y evicted_keys.' }
   ] : isPostgres ? [
-    { q: `¿Cómo optimizar consultas complejas en PostgreSQL con índices parciales y B-Tree?`, a: 'Crea índices con cláusula WHERE indexando solo las tuplas activas: CREATE INDEX idx_orders_active ON orders(created_at) WHERE status = "pending". Esto reduce el tamaño del árbol y agiliza las lecturas en disco.' },
-    { q: `Interpretación de planes de ejecución con EXPLAIN (ANALYZE, BUFFERS)`, a: 'Evalúa la métrica "Buffers: shared hit" vs "shared read" para identificar lecturas de disco innecesarias y nodos Seq Scan que requieran índices covering (INCLUDE).' },
-    { q: `Optimización de conexiones y contención de bloqueos en PostgreSQL`, a: 'Emplea un connection pooler transaccional como PgBouncer con pool_mode = transaction y ajusta max_connections a 2-4 veces el número de cores de CPU.' }
+    { q: '¿Cómo optimizar consultas complejas en PostgreSQL con índices parciales y B-Tree?', a: 'Crea índices con cláusula WHERE indexando solo las tuplas activas: CREATE INDEX idx_orders_active ON orders(created_at) WHERE status = "pending". Esto reduce el tamaño del árbol y agiliza las lecturas en disco.' },
+    { q: 'Interpretación de planes de ejecución con EXPLAIN (ANALYZE, BUFFERS)', a: 'Evalúa la métrica "Buffers: shared hit" vs "shared read" para identificar lecturas de disco innecesarias y nodos Seq Scan que requieran índices covering (INCLUDE).' },
+    { q: 'Optimización de conexiones y contención de bloqueos en PostgreSQL con PgBouncer', a: 'Emplea un connection pooler transaccional como PgBouncer con pool_mode = transaction y ajusta max_connections a 2-4 veces el número de cores de CPU.' },
+    { q: 'Estrategias de particionado declarativo por rango y lista en PostgreSQL', a: 'Aplica PARTITION BY RANGE (created_at) para tablas históricas masivas, permitiendo partition pruning automático en consultas y vaciado instantáneo con DROP TABLE sin overhead de DELETE.' }
   ] : isRust ? [
-    { q: `¿Cómo lograr concurrencia sin bloqueos segura en Rust usando atómicos y canales?`, a: 'Utiliza primitivas atómicas de std::sync::atomic (AtomicBool, AtomicUsize) con Memory Ordering Acquire-Release o canales MPSC de crossbeam sin recurrir a Mutex pesados.' },
-    { q: `Patrón de arquitectura Zero-Copy en Rust con Lifetimes y referencias prestadas`, a: 'Estructura tipos con parámetros de lifetime <\'a> consumiendo &[u8] o &str directamente de buffers de socket o mmap sin allocation en Heap.' }
+    { q: '¿Cómo lograr concurrencia sin bloqueos segura en Rust usando atómicos y canales?', a: 'Utiliza primitivas atómicas de std::sync::atomic (AtomicBool, AtomicUsize) con Memory Ordering Acquire-Release o canales MPSC de crossbeam sin recurrir a Mutex pesados.' },
+    { q: 'Patrón de arquitectura Zero-Copy en Rust con Lifetimes y referencias prestadas', a: 'Estructura tipos con parámetros de lifetime <\'a> consumiendo &[u8] o &str directamente de buffers de socket o mmap sin allocation en Heap.' },
+    { q: 'Manejo de errores idiomático con Result, Error trait y thiserror en Rust', a: 'Define enums de error tipados derivados con #[derive(thiserror::Error)] para permitir propagación ergonómica con el operador ? sin perder el stacktrace ni causar panics.' }
   ] : [
     { q: `Explica los principios arquitectónicos y buenas prácticas fundamentales en: ${d}`, a: `Para dominar ${d}, estructura el sistema con separación de responsabilidades, validación de esquemas en frontera y minimización de contención en estado compartido.` },
     { q: `Diagnóstico y resolución de cuellos de botella de latencia y rendimiento en: ${d}`, a: `Analiza perfiles de CPU y memoria, optimiza I/O asíncrono y establece checkpoints de telemetría para mitigar degradaciones bajo alta concurrencia.` },
-    { q: `Implementación de pipeline modular y tolerante a fallos para: ${d}`, a: `Aplica patrones de Circuit Breaker, reintentos exponenciales con jitter y almacenamiento de estado idempotente.` }
+    { q: `Implementación de pipeline modular y tolerante a fallos para: ${d}`, a: `Aplica patrones de Circuit Breaker, reintentos exponenciales con jitter y almacenamiento de estado idempotente.` },
+    { q: `Estrategias de observabilidad y métricas de producción para: ${d}`, a: `Configura métricas de golden signals (latencia, tráfico, errores y saturación) con tracing distribuido OpenTelemetry.` }
   ];
 
-  const totalCount = Math.min(Math.max(parseInt(count, 10) || 10, 5), 100);
+  const totalCount = Math.min(Math.max(parseInt(count, 10) || 10, 1), 100);
   const result = [];
 
   for (let i = 0; i < totalCount; i++) {
-    const baseTopic = topics[i % topics.length];
-    const iterationVariant = Math.floor(i / topics.length) + 1;
-    const suffix = iterationVariant > 1 ? ` (Variante #${iterationVariant})` : '';
+    const topicIdx = i % topics.length;
+    const baseTopic = topics[topicIdx];
+    const cycle = Math.floor(i / topics.length);
+    const suffix = cycle > 0 ? ` (Caso #${cycle + 1})` : '';
 
     if (format === 'raft') {
       result.push({
@@ -1370,14 +1379,14 @@ async function runDataForge() {
     const previewData = dataset.slice(0, previewCount);
 
     out.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+      <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.8rem;">
         <div>
-          <strong style="color: var(--emerald-light); font-size: 0.85rem;">✔ Dataset Sintetizado: ${currentGeneratedDataset.count} Muestras (100% Calidad Aprobada)</strong>
-          <div class="text-dim text-xs">Dominio: ${domain} | Formato: ${fmt.toUpperCase()}</div>
+          <strong style="color: var(--emerald-light); font-size: 0.88rem;">✔ Dataset Sintetizado: ${currentGeneratedDataset.count} Muestras (100% Calidad Aprobada)</strong>
+          <div class="text-dim text-xs" style="margin-top: 0.2rem;">Dominio: ${domain} | Formato: ${fmt.toUpperCase()} | Estrategia: ${strat.toUpperCase()}</div>
         </div>
-        <div style="display: flex; gap: 0.4rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
           <button class="btn btn-outline btn-sm" onclick="downloadForgeDataset()">📥 Descargar JSON</button>
-          <button class="btn btn-primary btn-sm" onclick="trainNimphyWithForge()">🚀 Entrenar Niphy con este Dataset</button>
+          <button class="btn btn-primary btn-sm" onclick="trainNimphyWithForge()">🚀 Entrenar Niphy</button>
         </div>
       </div>
       <div class="text-xs text-dim mb-1">Previsualización de muestras generadas (${previewCount} de ${dataset.length}):</div>
