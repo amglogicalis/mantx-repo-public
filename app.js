@@ -30,12 +30,11 @@ const DEFAULT_MODELS = [
 
 const STORAGE_REPO = '.mantx-storage';
 
-let currentUser = null;
-let akgPools = [];
-let nimphysList = [
+const DEFAULT_NIMPHYS = [
   {
     nimphyId: 'nimphy_default_1',
     name: 'PostgreSQL-Optimizer',
+    providerType: 'local_runner',
     currentVersion: 'v1.2.0',
     baseModel: 'qwen-2.5-coder-3b',
     method: 'raft',
@@ -54,6 +53,7 @@ let nimphysList = [
   {
     nimphyId: 'nimphy_default_2',
     name: 'Rust-ConcurrencyKernel',
+    providerType: 'local_runner',
     currentVersion: 'v1.0.0',
     baseModel: 'llama-3.2-3b-instruct',
     method: 'qlora',
@@ -66,34 +66,54 @@ let nimphysList = [
       { version: 'v1.0.0', trainedAt: '2026-08-15T09:00:00Z', finalLoss: 0.59, benchmarkScore: 94, method: 'qlora' }
     ],
     createdAt: '2026-08-15T09:00:00Z'
+  },
+  {
+    nimphyId: 'nimphy_default_3',
+    name: 'Termes-Architecture-Symbiont',
+    providerType: 'termes',
+    currentVersion: 'v1.0.0',
+    baseModel: 'termes-gemini-2.0-flash',
+    method: 'ecdysis_memory',
+    graphRagEnabled: true,
+    ecdysisMemoryEnabled: true,
+    targetEnv: 'action_cpu',
+    storageBackend: 'mantx_vault',
+    filesCount: 2,
+    versions: [
+      { version: 'v1.0.0', trainedAt: '2026-08-16T12:00:00Z', finalLoss: 0.38, benchmarkScore: 98, method: 'ecdysis_memory' }
+    ],
+    createdAt: '2026-08-16T12:00:00Z'
   }
 ];
+
+let currentUser = null;
+let akgPools = [];
+let nimphysList = JSON.parse(JSON.stringify(DEFAULT_NIMPHYS));
 let battleHistory = [];
 let labExperiments = [];
 let autoHealMap = {};
 
 // ─── LOGIN GATE & AUTHENTICATION ───────────────────────────────
-function sanitizeAsciiToken(str) {
+function sanitizeToken(str) {
   if (!str) return '';
-  // Elimina cualquier caracter no-ASCII o unicode invisible (zero-width space, non-breaking space, etc.)
-  return str.replace(/[^\x20-\x7E]/g, '').replace(/[\s\r\n\t]/g, '').trim();
+  return str.replace(/[^\x21-\x7E]/g, '').trim();
 }
 
 function getStoredToken() {
-  const t = sessionStorage.getItem('mantx_github_token') || '';
-  return sanitizeAsciiToken(t);
+  return sanitizeToken(sessionStorage.getItem('mantx_github_token') || '');
 }
 
 async function handleLogin() {
-  const rawInput = document.getElementById('token-input')?.value || '';
-  const token = sanitizeAsciiToken(rawInput);
+  const inputEl = document.getElementById('token-input');
+  const raw = inputEl ? inputEl.value : '';
+  const token = sanitizeToken(raw);
   const feedback = document.getElementById('login-feedback');
   const btnConnect = document.getElementById('btn-connect');
 
   if (!token) {
     if (feedback) {
       feedback.style.color = '#f87171';
-      feedback.textContent = 'Por favor, introduce tu GitHub Personal Access Token (PAT).';
+      feedback.textContent = 'Por favor, introduce tu GitHub Personal Access Token.';
     }
     return;
   }
@@ -104,11 +124,6 @@ async function handleLogin() {
   }
   if (btnConnect) btnConnect.disabled = true;
 
-  // Try Strategy 1: Authorization: token ${token} (Standard GitHub REST format for browser CORS)
-  // Try Strategy 2: Authorization: Bearer ${token} (Fine-grained format)
-  let user = null;
-  let lastError = null;
-
   try {
     const res = await fetch('https://api.github.com/user', {
       headers: {
@@ -117,64 +132,57 @@ async function handleLogin() {
     });
 
     if (res.ok) {
-      user = await res.json();
-    } else if (res.status === 401) {
-      // Try Bearer fallback
-      const resBearer = await fetch('https://api.github.com/user', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (resBearer.ok) {
-        user = await resBearer.json();
-      } else {
-        throw new Error('Token inválido o sin permisos (HTTP 401). Verifica tu PAT.');
+      const user = await res.json();
+      sessionStorage.setItem('mantx_github_token', token);
+      currentUser = user;
+      if (feedback) {
+        feedback.style.color = '#34d399';
+        feedback.textContent = `✔ Conectado como @${user.login}. Abriendo MANTX...`;
       }
-    } else {
-      throw new Error(`GitHub API devolvió estado HTTP ${res.status}`);
+      setTimeout(unlockConsole, 300);
+      return;
     }
+
+    if (res.status === 401) {
+      // Fallback to Bearer format for fine-grained PAT
+      try {
+        const resBearer = await fetch('https://api.github.com/user', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (resBearer.ok) {
+          const user = await resBearer.json();
+          sessionStorage.setItem('mantx_github_token', token);
+          currentUser = user;
+          if (feedback) {
+            feedback.style.color = '#34d399';
+            feedback.textContent = `✔ Conectado como @${user.login}. Abriendo MANTX...`;
+          }
+          setTimeout(unlockConsole, 300);
+          return;
+        }
+      } catch {}
+      throw new Error('Token de GitHub no válido o expirado (HTTP 401). Verifica los permisos del PAT.');
+    }
+
+    throw new Error(`GitHub API devolvió estado HTTP ${res.status}`);
   } catch (err) {
-    lastError = err;
-  }
-
-  if (user) {
-    sessionStorage.setItem('mantx_github_token', token);
-    currentUser = user;
-
+    console.error('GitHub Auth Error:', err);
     if (feedback) {
-      feedback.style.color = '#34d399';
-      feedback.textContent = `✔ Conectado como @${user.login}. Accediendo a MANTX...`;
-    }
-
-    setTimeout(() => {
-      unlockConsole();
-    }, 350);
-    return;
-  }
-
-  // Error handling
-  if (feedback) {
-    feedback.style.color = '#f87171';
-    if (lastError && lastError.message && lastError.message.includes('Failed to fetch')) {
+      feedback.style.color = '#f87171';
       feedback.innerHTML = `
-        <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.6rem; margin-bottom: 0.5rem; text-align: left;">
-          <strong>✘ Error de conexión directa con GitHub API:</strong><br>
-          El navegador no pudo alcanzar <code>api.github.com</code> (común si Brave Shields, uBlock o una VPN bloquea peticiones de origen cruzado).
-          <div style="margin-top: 0.4rem; font-size: 0.75rem; color: #fca5a5;">
-            👉 Puedes desactivar el escudo en esta pestaña o entrar directamente con el botón de abajo:
-          </div>
-        </div>
+        <div style="margin-bottom: 0.5rem;">✘ ${err.message}</div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="enterDemoMode()" style="font-size: 0.75rem;">
+          ⚡ Acceder en Modo Local / Demo
+        </button>
       `;
-    } else {
-      feedback.textContent = `✘ Error de autenticación: ${lastError?.message || 'No se pudo verificar el token'}`;
     }
+    if (btnConnect) btnConnect.disabled = false;
   }
-  if (btnConnect) btnConnect.disabled = false;
 }
 
 function enterDemoMode() {
   currentUser = {
-    login: 'mantx-user',
+    login: 'mantx-explorer',
     name: 'MANTX Explorer',
     avatar_url: 'assets/logo_mantx.jpg'
   };
@@ -224,7 +232,7 @@ function disconnectPat() {
   sessionStorage.removeItem('mantx_github_token');
   currentUser = null;
   akgPools = [];
-  nimphysList = [];
+  nimphysList = JSON.parse(JSON.stringify(DEFAULT_NIMPHYS));
   battleHistory = [];
   labExperiments = [];
 
