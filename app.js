@@ -249,16 +249,23 @@ function closeAkgCreateModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+function getPriorityOptionsHtml(selected = 1) {
+  let html = '';
+  for (let i = 1; i <= 20; i++) {
+    const label = i === 1 ? 'P1 (Primaria)' : `P${i} (Respaldo ${i - 1})`;
+    html += `<option value="${i}" ${i === Number(selected) ? 'selected' : ''}>${label}</option>`;
+  }
+  return html;
+}
+
 function handleCreateStrategyChange() {
   const strat = document.getElementById('select-pool-strategy')?.value || 'round_robin';
-  const prioBadges = document.querySelectorAll('.create-key-prio-badge');
-  prioBadges.forEach((el, idx) => {
+  const prioContainers = document.querySelectorAll('.create-key-prio-wrapper');
+  prioContainers.forEach((el, idx) => {
     if (strat === 'priority_fallback') {
-      el.textContent = idx === 0 ? 'P1 (Primaria)' : `P${idx + 1} (Respaldo ${idx})`;
-      el.style.display = 'inline-block';
+      el.style.display = 'block';
     } else {
-      el.textContent = 'Rotativa';
-      el.style.display = 'inline-block';
+      el.style.display = 'none';
     }
   });
 }
@@ -272,10 +279,6 @@ function addCreateKeyRow() {
   const rowIndex = container.children.length + 1;
   const strat = document.getElementById('select-pool-strategy')?.value || 'round_robin';
 
-  const prioLabel = strat === 'priority_fallback'
-    ? (rowIndex === 1 ? 'P1 (Primaria)' : `P${rowIndex} (Respaldo ${rowIndex - 1})`)
-    : 'Rotativa';
-
   const rowDiv = document.createElement('div');
   rowDiv.id = rowId;
   rowDiv.className = 'create-key-row';
@@ -283,8 +286,17 @@ function addCreateKeyRow() {
 
   rowDiv.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center;">
-      <span class="badge badge-mint create-key-prio-badge" style="font-size: 0.72rem;">${prioLabel}</span>
-      ${container.children.length > 0 ? `<button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.4rem; font-size: 0.7rem; color: #f87171;" onclick="removeCreateKeyRow('${rowId}')">✕</button>` : ''}
+      <div class="create-key-prio-wrapper" style="display: ${strat === 'priority_fallback' ? 'block' : 'none'};">
+        <label style="font-size: 0.72rem; color: var(--emerald-light); font-weight: 700; margin-right: 0.3rem;">Prioridad:</label>
+        <select class="input-select row-key-prio" style="padding: 0.15rem 0.4rem; font-size: 0.72rem; width: auto; display: inline-block;">
+          ${getPriorityOptionsHtml(Math.min(rowIndex, 20))}
+        </select>
+      </div>
+      <div style="display: flex; gap: 0.3rem; margin-left: auto;">
+        <button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;" onclick="moveCreateRow('${rowId}', -1)" title="Subir Prioridad">▲</button>
+        <button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;" onclick="moveCreateRow('${rowId}', 1)" title="Bajar Prioridad">▼</button>
+        ${container.children.length > 0 ? `<button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.4rem; font-size: 0.7rem; color: #f87171;" onclick="removeCreateKeyRow('${rowId}')">✕</button>` : ''}
+      </div>
     </div>
     <div class="form-group" style="margin-bottom: 0.3rem;">
       <input type="password" class="input-text row-key-val" placeholder="Pega tu API Key aquí (ej: gsk_..., AIza..., sk-...)" required oninput="autoDetectRowProvider('${rowId}')">
@@ -304,6 +316,17 @@ function addCreateKeyRow() {
 
   container.appendChild(rowDiv);
   handleCreateStrategyChange();
+}
+
+function moveCreateRow(rowId, delta) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const container = row.parentElement;
+  if (delta === -1 && row.previousElementSibling) {
+    container.insertBefore(row, row.previousElementSibling);
+  } else if (delta === 1 && row.nextElementSibling) {
+    container.insertBefore(row.nextElementSibling, row);
+  }
 }
 
 function removeCreateKeyRow(rowId) {
@@ -351,6 +374,7 @@ async function confirmCreateAkgPool() {
     const val = row.querySelector('.row-key-val')?.value?.trim();
     const alias = row.querySelector('.row-key-alias')?.value?.trim();
     const provSelect = row.querySelector('.row-key-prov')?.value || 'auto';
+    const prioVal = parseInt(row.querySelector('.row-key-prio')?.value || `${idx + 1}`, 10);
 
     if (val) {
       const provider = provSelect === 'auto' ? detectKeyProvider(val) : provSelect;
@@ -359,7 +383,7 @@ async function confirmCreateAkgPool() {
         provider,
         keyMasked: maskApiKey(val),
         alias: alias || `${provider.toUpperCase()} Clave ${idx + 1}`,
-        priority: idx + 1,
+        priority: isNaN(prioVal) ? (idx + 1) : Math.min(Math.max(prioVal, 1), 20),
         active: true,
         calls: 0,
         rateHits: 0
@@ -371,6 +395,9 @@ async function confirmCreateAkgPool() {
     showCustomModal('⚠️ Clave Requerida', 'Debes introducir al menos 1 API Key válida para poder crear el pool.');
     return;
   }
+
+  // Sort keys by priority (P1 first)
+  keys.sort((a, b) => a.priority - b.priority);
 
   const name = nameInput || `Production ${strategy === 'priority_fallback' ? 'Fallback' : 'RoundRobin'} Pool`;
   const poolId = `pool_${Date.now()}`;
@@ -434,13 +461,13 @@ function openAkgAddKeyModal(poolId) {
   const valInput = document.getElementById('add-key-val');
   const aliasInput = document.getElementById('add-key-alias');
   const provInput = document.getElementById('add-key-provider');
-  const prioInput = document.getElementById('add-key-priority');
+  const prioSelect = document.getElementById('add-key-priority');
 
   if (idInput) idInput.value = poolId;
   if (valInput) valInput.value = '';
   if (aliasInput) aliasInput.value = '';
   if (provInput) provInput.value = 'auto';
-  if (prioInput) prioInput.value = '1';
+  if (prioSelect) prioSelect.innerHTML = getPriorityOptionsHtml(1);
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -470,7 +497,7 @@ async function confirmAddKeyToPool() {
     provider,
     keyMasked: maskApiKey(keyVal),
     alias: alias || `${provider.toUpperCase()} Key`,
-    priority: isNaN(priority) ? 1 : priority,
+    priority: isNaN(priority) ? 1 : Math.min(Math.max(priority, 1), 20),
     active: true,
     calls: 0,
     rateHits: 0
@@ -478,11 +505,38 @@ async function confirmAddKeyToPool() {
 
   if (!pool.keys) pool.keys = [];
   pool.keys.push(newKey);
+  pool.keys.sort((a, b) => a.priority - b.priority);
 
   closeAkgAddKeyModal();
   renderAkgPools();
   await saveAkgPoolsToVault();
-  showCustomModal('✔ Clave Añadida', `Se ha registrado la clave "${newKey.alias}" (${newKey.provider.toUpperCase()}) en el pool "${pool.name}".`);
+  showCustomModal('✔ Clave Añadida', `Se ha registrado la clave "${newKey.alias}" (${newKey.provider.toUpperCase()}) en el pool "${pool.name}" con Prioridad P${newKey.priority}.`);
+}
+
+async function changeKeyPriority(poolId, keyId, newPriority) {
+  const pool = akgPools.find(p => p.poolId === poolId);
+  if (!pool || !pool.keys) return;
+
+  const key = pool.keys.find(k => k.keyId === keyId);
+  if (key) {
+    key.priority = Math.min(Math.max(parseInt(newPriority, 10) || 1, 1), 20);
+    pool.keys.sort((a, b) => a.priority - b.priority);
+    renderAkgPools();
+    await saveAkgPoolsToVault();
+  }
+}
+
+async function moveKeyPriority(poolId, keyId, delta) {
+  const pool = akgPools.find(p => p.poolId === poolId);
+  if (!pool || !pool.keys) return;
+
+  const key = pool.keys.find(k => k.keyId === keyId);
+  if (key) {
+    key.priority = Math.min(Math.max(key.priority + delta, 1), 20);
+    pool.keys.sort((a, b) => a.priority - b.priority);
+    renderAkgPools();
+    await saveAkgPoolsToVault();
+  }
 }
 
 async function deleteAkgKey(poolId, keyId) {
@@ -814,10 +868,18 @@ function renderAkgPools() {
                     </div>
                   </div>
 
-                  <div style="display: flex; align-items: center; gap: 0.8rem; font-size: 0.78rem;">
-                    <span class="badge ${p.strategy === 'priority_fallback' ? (k.priority === 1 ? 'badge-emerald' : 'badge-mint') : 'badge-mint'}">
-                      ${p.strategy === 'priority_fallback' ? (k.priority === 1 ? 'P1 (Primaria)' : `P${k.priority} (Respaldo ${k.priority - 1})`) : 'Rotativa'}
-                    </span>
+                  <div style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem;">
+                    ${p.strategy === 'priority_fallback' ? `
+                      <div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <select class="input-select" style="padding: 0.15rem 0.35rem; font-size: 0.72rem; width: auto; background: #020704; color: var(--emerald-light); border-color: rgba(16,185,129,0.3);" onchange="changeKeyPriority('${p.poolId}', '${k.keyId}', this.value)" title="Cambiar Prioridad (P1 a P20)">
+                          ${getPriorityOptionsHtml(k.priority)}
+                        </select>
+                        <button class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.68rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', -1)" title="Subir Prioridad (▲)">▲</button>
+                        <button class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.68rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', 1)" title="Bajar Prioridad (▼)">▼</button>
+                      </div>
+                    ` : `
+                      <span class="badge badge-mint" style="font-size: 0.7rem;">Rotativa</span>
+                    `}
                     <span style="color: var(--emerald-light);">Calls: ${k.calls || 0}</span>
                     <span style="color: ${k.rateHits > 0 ? '#f87171' : 'var(--text-muted)'};">429s: ${k.rateHits || 0}</span>
                     
