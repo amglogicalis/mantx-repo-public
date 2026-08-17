@@ -243,27 +243,8 @@
           <button class="btn btn-primary" onclick="openAkgCreateModal()">+ Crear Pool de Claves</button>
         </div>
 
-        <div class="grid-2">
-          <div class="panel-card">
-            <div class="panel-title">Pools de Claves Registrados</div>
-            <div id="akg-pools-list">
-              <!-- Injected via JavaScript -->
-            </div>
-          </div>
-
-          <div class="panel-card">
-            <div class="panel-title">🧪 Playground de Inferencia AKG</div>
-            <div class="form-group">
-              <label>Pool de Inferencia:</label>
-              <select id="akg-test-pool" class="input-select"></select>
-            </div>
-            <div class="form-group">
-              <label>Prompt:</label>
-              <textarea id="akg-test-prompt" class="input-textarea" rows="3" placeholder="Ej: Explica la teoría de la información y entropía de Shannon en 2 frases..."></textarea>
-            </div>
-            <button class="btn btn-primary btn-block" id="btn-akg-test" onclick="executeAkgTest()">Ejecutar Consulta vía AKG</button>
-            <div id="akg-test-result" class="output-box hidden"></div>
-          </div>
+        <div id="akg-pools-list">
+          <!-- Injected via JavaScript -->
         </div>
       </section>
 
@@ -479,20 +460,109 @@
         <h3>🔑 Crear Nuevo Pool de Claves AKG</h3>
         <button class="btn-close" onclick="closeAkgCreateModal()">✕</button>
       </div>
-      <div class="form-group" style="text-align: left; margin-bottom: 1rem;">
+      <div class="form-group mb-2">
         <label>Nombre del Pool:</label>
         <input type="text" id="input-pool-name" class="input-text" placeholder="Ej: Production BYOK Pool">
       </div>
-      <div class="form-group" style="text-align: left; margin-bottom: 1.5rem;">
+      <div class="form-group mb-3">
         <label>Estrategia de Rotación / Balanceo:</label>
         <select id="select-pool-strategy" class="input-select">
           <option value="round_robin">Round Robin (Rotación Equitativa)</option>
           <option value="priority_fallback">Priority Fallback (Por Prioridad y Cooldown)</option>
         </select>
       </div>
+      
+      <div style="background: rgba(0,0,0,0.3); border: 1px dashed var(--border-subtle); border-radius: 10px; padding: 0.9rem; margin-bottom: 1.2rem;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: var(--emerald-light); margin-bottom: 0.5rem;">+ Clave Inicial (Opcional):</div>
+        <div class="form-group mb-2">
+          <input type="password" id="input-create-key-val" class="input-text" placeholder="API Key (ej: gsk_..., AIza..., sk-...)">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <input type="text" id="input-create-key-alias" class="input-text" placeholder="Alias (ej: Groq Primary)">
+          </div>
+          <div class="form-group">
+            <select id="select-create-key-provider" class="input-select">
+              <option value="auto">Auto-Detectar Proveedor</option>
+              <option value="groq">Groq (LPU)</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
         <button class="btn btn-secondary btn-sm" onclick="closeAkgCreateModal()">Cancelar</button>
         <button class="btn btn-primary btn-sm" onclick="confirmCreateAkgPool()">Crear Pool</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM AKG EDIT POOL MODAL -->
+  <div id="akg-edit-pool-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>✏️ Editar Pool de Claves AKG</h3>
+        <button class="btn-close" onclick="closeAkgEditPoolModal()">✕</button>
+      </div>
+      <input type="hidden" id="edit-pool-id">
+      <div class="form-group mb-2">
+        <label>Nombre del Pool:</label>
+        <input type="text" id="edit-pool-name" class="input-text">
+      </div>
+      <div class="form-group mb-3">
+        <label>Estrategia de Rotación:</label>
+        <select id="edit-pool-strategy" class="input-select">
+          <option value="round_robin">Round Robin (Rotación Equitativa)</option>
+          <option value="priority_fallback">Priority Fallback (Por Prioridad y Cooldown)</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="closeAkgEditPoolModal()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmSaveEditedPool()">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM AKG ADD KEY MODAL -->
+  <div id="akg-add-key-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>➕ Añadir Clave al Pool</h3>
+        <button class="btn-close" onclick="closeAkgAddKeyModal()">✕</button>
+      </div>
+      <input type="hidden" id="add-key-pool-id">
+      <div class="form-group mb-2">
+        <label>API Key / Secret Token:</label>
+        <input type="password" id="add-key-val" class="input-text" placeholder="Pega tu API Key aquí (AIza..., gsk_..., sk-...)">
+      </div>
+      <div class="grid-2 mb-2">
+        <div class="form-group">
+          <label>Alias / Identificador:</label>
+          <input type="text" id="add-key-alias" class="input-text" placeholder="Ej: Groq Secondary LPU">
+        </div>
+        <div class="form-group">
+          <label>Proveedor:</label>
+          <select id="add-key-provider" class="input-select">
+            <option value="auto">Auto-Detectar</option>
+            <option value="groq">Groq</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group mb-3">
+        <label>Prioridad (1 = Mayor prioridad en Fallback):</label>
+        <input type="number" id="add-key-priority" class="input-text" value="1" min="1" max="10">
+      </div>
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="closeAkgAddKeyModal()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmAddKeyToPool()">Añadir Clave</button>
       </div>
     </div>
   </div>
