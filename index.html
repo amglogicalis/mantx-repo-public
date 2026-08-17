@@ -300,65 +300,112 @@
         <div class="tab-header">
           <div>
             <h2>🧬 Nimphys Models, Synthetic Forge & Laboratory</h2>
-            <p class="text-dim">Genera datasets con Constitutional AI, compara métodos en el laboratorio y entrena modelos a coste $0.</p>
+            <p class="text-dim">Entrena y personaliza modelos especializados (Nimphys) a coste $0, sintetiza datasets con Constitutional AI y compara métodos en el laboratorio.</p>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="openSeedsGuideModal()">📋 Guía de Semillas con IA Externa</button>
+          <div style="display: flex; gap: 0.6rem;">
+            <button class="btn btn-secondary btn-sm" onclick="openSeedsGuideModal()">📋 Guía Semillas con IA Externa</button>
+            <button class="btn btn-primary" onclick="openCreateNimphyModal()">+ Producir / Entrenar Niphy</button>
+          </div>
+        </div>
+
+        <!-- 1. NIMPHYS CATALOG & ACTIVE SERVERS -->
+        <div class="panel-card mb-4">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700;">🏋️ Catálogo de Nimphys Entrenados & Servidores API ($0)</h3>
+              <p class="text-dim text-xs">Modelos personalizados con versionado incremental (v1, v2...), memoria semántica y servidores OpenAI-compatibles listos para producción.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openCreateNimphyModal()">+ Nuevo Niphy</button>
+          </div>
+          <div id="nimphys-catalog-list">
+            <!-- Injected via JavaScript -->
+          </div>
         </div>
 
         <div class="grid-2 mb-4">
-          <!-- Synthetic Data Forge -->
+          <!-- 2. SYNTHETIC DATA FORGE -->
           <div class="panel-card">
-            <div class="panel-title">🧬 Synthetic Data Forge</div>
-            <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+              <span class="panel-title" style="margin-bottom: 0;">🧬 Synthetic Data Forge</span>
+              <span class="badge badge-emerald" style="font-size: 0.68rem;">Evol-Instruct + Constitutional AI</span>
+            </div>
+            
+            <!-- Forge Source Mode Selector -->
+            <div class="form-group mb-2">
+              <label>Modo de Inicio de Datos:</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem;">
+                <button type="button" class="btn btn-outline btn-sm forge-mode-btn active" id="btn-forge-mode-auto" onclick="setForgeMode('auto')" style="font-size: 0.72rem; padding: 0.4rem 0.2rem;">🤖 Autónomo</button>
+                <button type="button" class="btn btn-outline btn-sm forge-mode-btn" id="btn-forge-mode-docs" onclick="setForgeMode('docs')" style="font-size: 0.72rem; padding: 0.4rem 0.2rem;">📁 Mis Documentos</button>
+                <button type="button" class="btn btn-outline btn-sm forge-mode-btn" id="btn-forge-mode-external" onclick="setForgeMode('external')" style="font-size: 0.72rem; padding: 0.4rem 0.2rem;">💡 Semilla Externa</button>
+              </div>
+            </div>
+
+            <div class="form-group mb-2">
               <label>Nombre del Dataset:</label>
-              <input type="text" id="forge-name" class="input-text" placeholder="Ej: PostgreSQL Performance & Indexing QA">
+              <input type="text" id="forge-name" class="input-text" placeholder="Ej: PostgreSQL Optimization & EXPLAIN QA">
             </div>
-            <div class="form-group">
-              <label>Objetivo de Entrenamiento:</label>
-              <textarea id="forge-obj" class="input-textarea" rows="2" placeholder="Ej: Optimización de consultas complejas, índices B-Tree y planes EXPLAIN ANALYZE en PostgreSQL..."></textarea>
+
+            <div class="form-group mb-2">
+              <label>Objetivo de Especialización / Dominio:</label>
+              <textarea id="forge-obj" class="input-textarea" rows="2" placeholder="Ej: Optimización de consultas SQL, análisis de planes EXPLAIN ANALYZE, particionamiento de tablas y tuning de PostgreSQL..."></textarea>
             </div>
-            <div class="grid-2">
-              <div class="form-group">
+
+            <!-- Context / Docs Upload Area (Visible when docs mode selected) -->
+            <div id="forge-docs-container" class="form-group mb-2 hidden" style="background: rgba(0,0,0,0.3); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
+              <label style="color: var(--emerald-light);">📄 Adjuntar Documentación o Ejemplos Semilla:</label>
+              <textarea id="forge-docs-input" class="input-textarea" rows="3" placeholder="Pega aquí el contenido de tus documentos, código o ejemplos en bruto..."></textarea>
+            </div>
+
+            <div class="grid-3 mb-3">
+              <div class="form-group" style="margin-bottom: 0;">
                 <label>Estrategia:</label>
                 <select id="forge-strat" class="input-select">
-                  <option value="constitutional_critique">Constitutional AI (Generador + Crítico)</option>
+                  <option value="constitutional_critique">Constitutional AI</option>
                   <option value="evol_instruct">Evol-Instruct</option>
                   <option value="raft_docs">RAFT (Docs + QA)</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>Formato de Salida:</label>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Formato:</label>
                 <select id="forge-fmt" class="input-select">
-                  <option value="alpaca">Alpaca / ChatML (LoRA)</option>
+                  <option value="alpaca">Alpaca / ChatML</option>
+                  <option value="raft">RAFT Format</option>
                   <option value="sharegpt">ShareGPT</option>
-                  <option value="raft">RAFT Dataset</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Muestras:</label>
+                <select id="forge-count" class="input-select">
+                  <option value="10">10 Muestras (Rápido)</option>
+                  <option value="50">50 Muestras</option>
+                  <option value="100">100 Muestras</option>
+                  <option value="500">500 Muestras (Completo)</option>
                 </select>
               </div>
             </div>
-            <button class="btn btn-primary btn-block" onclick="runDataForge()">Generar Dataset Sintético</button>
-            <div id="forge-result" class="output-box hidden"></div>
+
+            <button class="btn btn-primary btn-block" onclick="runDataForge()">⚡ Sintetizar Dataset con Forge</button>
+            <div id="forge-result" class="output-box hidden" style="margin-top: 0.8rem; max-height: 200px;"></div>
           </div>
 
-          <!-- Trained Nimphys Catalog -->
+          <!-- 3. NIMPHYS LABORATORY MATRIX -->
           <div class="panel-card">
-            <div class="panel-title">🏋️ Nimphys Entrenados & Servidor Efímero</div>
-            <div id="nimphys-catalog-list">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+              <span class="panel-title" style="margin-bottom: 0;">🧪 Nimphys Laboratory Matrix</span>
+              <button class="btn btn-primary btn-sm" onclick="runLabExperiment()">🧪 Lanzar Comparativa</button>
+            </div>
+            <p class="text-dim text-xs mb-3">
+              Compara simultáneamente cómo convergen distintos métodos (QLoRA vs LoRA vs RAFT vs AFT) y modelos sobre el mismo dataset para elegir la configuración de mayor precisión.
+            </p>
+
+            <div class="form-group mb-2">
+              <label>Prompt de Evaluación / Benchmark:</label>
+              <input type="text" id="lab-eval-prompt" class="input-text" placeholder="Ej: Implementa un debounce concurrente en TypeScript con tipado genérico estricto">
+            </div>
+
+            <div id="lab-matrix-results">
               <!-- Injected via JavaScript -->
             </div>
-          </div>
-        </div>
-
-        <!-- NIMPHYS LABORATORY MATRIX -->
-        <div class="panel-card">
-          <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>🧪 Nimphys Laboratory — Matriz de Convergencia Multi-Método</span>
-            <button class="btn btn-primary btn-sm" onclick="runLabExperiment()">🧪 Lanzar Experimento de Laboratorio</button>
-          </div>
-          <div class="text-xs text-dim mb-3">
-            Compara simultáneamente cómo convergen distintos métodos (QLoRA vs LoRA vs RAFT) y modelos sobre el mismo dataset para elegir la configuración óptima.
-          </div>
-          <div id="lab-matrix-results">
-            <!-- Injected via JavaScript -->
           </div>
         </div>
       </section>
@@ -596,6 +643,141 @@
       <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
         <button class="btn btn-secondary btn-sm" onclick="copySeedsPrompt()">📋 Copiar Prompt</button>
         <button class="btn btn-primary btn-sm" onclick="closeSeedsGuideModal()">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCE / CREATE NIMPHY MODAL -->
+  <div id="nimphy-create-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 760px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3>🧬 Producir Niphy — Entrenamiento y Personalización de Modelo</h3>
+        <button class="btn-close" onclick="closeCreateNimphyModal()">✕</button>
+      </div>
+      <p class="text-dim text-sm mb-3">
+        Configura tu modelo especializado. MANTX orquestará el entrenamiento a $0 en GitHub Actions o HuggingFace ZeroGPU y generará tu servidor API listo para producción.
+      </p>
+
+      <div class="grid-2 mb-3">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Nombre del Niphy:</label>
+          <input type="text" id="nimphy-name" class="input-text" placeholder="Ej: PostgresQueryMaster">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Versión Inicial:</label>
+          <input type="text" id="nimphy-version" class="input-text" value="v1.0.0" placeholder="v1.0.0">
+        </div>
+      </div>
+
+      <div class="grid-2 mb-3">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Modelo Base:</label>
+          <select id="nimphy-base-model" class="input-select">
+            <option value="qwen-2.5-coder-3b">Qwen 2.5 Coder 3B (GGUF Q4) — Código y Scripts</option>
+            <option value="qwen-2.5-coder-7b">Qwen 2.5 Coder 7B (GGUF Q4) — Máximo Rendimiento Código</option>
+            <option value="llama-3.2-3b-instruct">Llama 3.2 3B Instruct — Razonamiento General</option>
+            <option value="llama-3.2-1b-instruct">Llama 3.2 1B Instruct — Ultra-Ligero</option>
+            <option value="smollm2-135m-instruct">SmolLM2 135M Instruct — Micro-Edge</option>
+            <option value="smollm2-1.7b-instruct">SmolLM2 1.7B Instruct — Edge Balanceado</option>
+            <option value="deepseek-coder-6.7b">DeepSeek Coder 6.7B — Refactor & Bugfix</option>
+            <option value="phi-3.5-mini-instruct">Phi-3.5 Mini Instruct — Lógica & Matemáticas</option>
+            <option value="mistral-7b-instruct-v0.3">Mistral 7B Instruct v0.3 — Balanceado</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Método de Entrenamiento:</label>
+          <select id="nimphy-method" class="input-select" onchange="onNimphyMethodChange()">
+            <option value="qlora">LoRA / QLoRA 4-bit (Unsloth — Rápido y Eficiente)</option>
+            <option value="raft">RAFT (Retrieval-Augmented Fine-Tuning con Docs)</option>
+            <option value="aft">AFT Compiler (Adaptive Fine-Tuning Arzor)</option>
+            <option value="full_peft">PEFT / Full Fine-Tuning</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- DATASET & DOCUMENTS SOURCE -->
+      <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.9rem; margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <label style="font-weight: 700; color: var(--emerald-light); margin-bottom: 0;">📄 Documentos & Datasets de Entrada:</label>
+          <span id="nimphy-tokens-badge" class="badge badge-mint" style="font-size: 0.68rem;">0 Archivos | ~0 Tokens</span>
+        </div>
+
+        <!-- File Drag & Drop Area -->
+        <div style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 1rem; text-align: center; margin-bottom: 0.7rem; cursor: pointer; background: #020704;" onclick="document.getElementById('nimphy-file-upload').click()">
+          <input type="file" id="nimphy-file-upload" multiple style="display: none;" onchange="handleNimphyFilesSelected(this.files)">
+          <div style="font-size: 1.4rem; margin-bottom: 0.3rem;">📁</div>
+          <div style="font-size: 0.85rem; font-weight: 600; color: #fff;">Haz clic para subir o arrastra aquí tus documentos</div>
+          <div class="text-dim text-xs">Formatos compatibles: .txt, .md, .pdf (texto), .json, .yaml, .py, .js, .ts, .sql</div>
+        </div>
+
+        <div id="nimphy-files-list" style="margin-bottom: 0.7rem; display: flex; flex-direction: column; gap: 0.3rem;"></div>
+
+        <!-- Direct text paste / Prompt examples -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.75rem;">O pega documentación / especificaciones en texto directo:</label>
+          <textarea id="nimphy-raw-docs" class="input-textarea" rows="3" placeholder="Pega aquí fragmentos de código, manuales, schemas SQL, ontologías o ejemplos Q&A..." oninput="updateNimphyTokenEstimate()"></textarea>
+        </div>
+      </div>
+
+      <!-- ADVANCED TOGGLES -->
+      <div class="grid-2 mb-3" style="font-size: 0.82rem;">
+        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #fff; font-weight: 600;">
+            <input type="checkbox" id="nimphy-toggle-graph-rag" checked>
+            <span>🕸️ Integrar Arzor Graph RAG</span>
+          </label>
+          <p class="text-dim text-xs" style="margin-top: 0.3rem; margin-bottom: 0;">Genera un grafo semántico de entidades a partir de los documentos adjuntos.</p>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #fff; font-weight: 600;">
+            <input type="checkbox" id="nimphy-toggle-ecdysis" checked>
+            <span>🧠 Memoria Mantx Ecdysis</span>
+          </label>
+          <p class="text-dim text-xs" style="margin-top: 0.3rem; margin-bottom: 0;">Envuelve el modelo con vector store persistente para recordar entre sesiones.</p>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-3">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Hardware Target ($0 Compute):</label>
+          <select id="nimphy-target-env" class="input-select">
+            <option value="action_cpu">GitHub Actions Runner CPU ($0, 6h)</option>
+            <option value="hf_zerogpu">HuggingFace ZeroGPU (Nvidia A100)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Almacenamiento de Pesos:</label>
+          <select id="nimphy-storage-backend" class="input-select">
+            <option value="mantx_vault">.mantx-storage ($0 GitHub Repo)</option>
+            <option value="rolla_ball">📦 Rolla-Ball ($0 Terra Storage)</option>
+            <option value="s3">☁️ AWS S3</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group mb-3">
+        <label>System Prompt / Directivas de Comportamiento:</label>
+        <input type="text" id="nimphy-system-prompt" class="input-text" placeholder="Ej: Eres un arquitecto sénior experto en optimización de bases de datos PostgreSQL...">
+      </div>
+
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="closeCreateNimphyModal()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmCreateNimphy()">🚀 Iniciar Entrenamiento Niphy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NIMPHY API SERVE MODAL -->
+  <div id="nimphy-api-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 id="nimphy-api-modal-title">⚡ Servidor API REST OpenAI-Compatible</h3>
+        <button class="btn-close" onclick="closeNimphyApiModal()">✕</button>
+      </div>
+      <div id="nimphy-api-modal-body"></div>
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end; margin-top: 1rem;">
+        <button class="btn btn-secondary btn-sm" onclick="closeNimphyApiModal()">Cerrar</button>
       </div>
     </div>
   </div>

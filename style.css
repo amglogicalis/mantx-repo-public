@@ -609,6 +609,13 @@ body {
   background: rgba(6, 17, 11, 0.95);
 }
 
+.forge-mode-btn.active {
+  background: var(--emerald-main) !important;
+  color: #010402 !important;
+  font-weight: 700;
+  border-color: var(--emerald-main) !important;
+}
+
 @media (max-width: 900px) {
   .hero-card { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
