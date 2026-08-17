@@ -249,25 +249,74 @@ function closeAkgCreateModal() {
   if (modal) modal.classList.add('hidden');
 }
 
-function getPriorityOptionsHtml(selected = 1) {
+function getPriorityOptionsHtml(selected = 1, totalCount = 1) {
   let html = '';
-  for (let i = 1; i <= 20; i++) {
+  const selNum = parseInt(selected, 10) || 1;
+  const count = Math.max(1, parseInt(totalCount, 10) || 1);
+  for (let i = 1; i <= count; i++) {
     const label = i === 1 ? 'P1 (Primaria)' : `P${i} (Respaldo ${i - 1})`;
-    html += `<option value="${i}" ${i === Number(selected) ? 'selected' : ''}>${label}</option>`;
+    html += `<option value="${i}" ${i === selNum ? 'selected' : ''}>${label}</option>`;
   }
   return html;
 }
 
-function handleCreateStrategyChange() {
+function refreshCreateModalRows() {
+  const container = document.getElementById('create-pool-keys-container');
+  if (!container) return;
+
+  const rows = Array.from(container.querySelectorAll('.create-key-row'));
   const strat = document.getElementById('select-pool-strategy')?.value || 'round_robin';
-  const prioContainers = document.querySelectorAll('.create-key-prio-wrapper');
-  prioContainers.forEach((el, idx) => {
-    if (strat === 'priority_fallback') {
-      el.style.display = 'block';
-    } else {
-      el.style.display = 'none';
+  const totalCount = rows.length;
+
+  rows.forEach((row, idx) => {
+    const prioWrapper = row.querySelector('.create-key-prio-wrapper');
+    const prioSelect = row.querySelector('.row-key-prio');
+    const aliasInput = row.querySelector('.row-key-alias');
+    const upBtn = row.querySelector('.btn-move-up');
+    const downBtn = row.querySelector('.btn-move-down');
+
+    if (prioWrapper) {
+      prioWrapper.style.display = strat === 'priority_fallback' ? 'block' : 'none';
     }
+
+    if (prioSelect) {
+      prioSelect.innerHTML = getPriorityOptionsHtml(idx + 1, totalCount);
+      prioSelect.value = idx + 1;
+    }
+
+    if (aliasInput && !aliasInput.value) {
+      aliasInput.placeholder = `Alias (ej: Clave ${idx + 1})`;
+    }
+
+    if (upBtn) upBtn.disabled = idx === 0;
+    if (downBtn) downBtn.disabled = idx === totalCount - 1;
   });
+}
+
+function handleCreateStrategyChange() {
+  refreshCreateModalRows();
+}
+
+function onRowPriorityDropdownChange(rowId, newTargetPos) {
+  const row = document.getElementById(rowId);
+  const container = document.getElementById('create-pool-keys-container');
+  if (!row || !container) return;
+
+  const targetIdx = Math.max(0, parseInt(newTargetPos, 10) - 1);
+  const rows = Array.from(container.querySelectorAll('.create-key-row'));
+  const currentIdx = rows.indexOf(row);
+
+  if (currentIdx === -1 || currentIdx === targetIdx) return;
+
+  if (targetIdx >= rows.length - 1) {
+    container.appendChild(row);
+  } else if (targetIdx > currentIdx) {
+    container.insertBefore(row, rows[targetIdx].nextSibling);
+  } else {
+    container.insertBefore(row, rows[targetIdx]);
+  }
+
+  refreshCreateModalRows();
 }
 
 function addCreateKeyRow() {
@@ -276,25 +325,22 @@ function addCreateKeyRow() {
 
   createKeyRowsCounter++;
   const rowId = `create_row_${createKeyRowsCounter}`;
-  const rowIndex = container.children.length + 1;
   const strat = document.getElementById('select-pool-strategy')?.value || 'round_robin';
 
   const rowDiv = document.createElement('div');
   rowDiv.id = rowId;
   rowDiv.className = 'create-key-row';
-  rowDiv.style.cssText = 'background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.4rem;';
+  rowDiv.style.cssText = 'background: #040e08; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.4rem;';
 
   rowDiv.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div class="create-key-prio-wrapper" style="display: ${strat === 'priority_fallback' ? 'block' : 'none'};">
         <label style="font-size: 0.72rem; color: var(--emerald-light); font-weight: 700; margin-right: 0.3rem;">Prioridad:</label>
-        <select class="input-select row-key-prio" style="padding: 0.15rem 0.4rem; font-size: 0.72rem; width: auto; display: inline-block;">
-          ${getPriorityOptionsHtml(Math.min(rowIndex, 20))}
-        </select>
+        <select class="input-select row-key-prio" style="padding: 0.15rem 0.4rem; font-size: 0.72rem; width: auto; display: inline-block;" onchange="onRowPriorityDropdownChange('${rowId}', this.value)"></select>
       </div>
       <div style="display: flex; gap: 0.3rem; margin-left: auto;">
-        <button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;" onclick="moveCreateRow('${rowId}', -1)" title="Subir Prioridad">▲</button>
-        <button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;" onclick="moveCreateRow('${rowId}', 1)" title="Bajar Prioridad">▼</button>
+        <button type="button" class="btn btn-outline btn-sm btn-move-up" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;" onclick="moveCreateRow('${rowId}', -1)" title="Subir Prioridad">▲</button>
+        <button type="button" class="btn btn-outline btn-sm btn-move-down" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;" onclick="moveCreateRow('${rowId}', 1)" title="Bajar Prioridad">▼</button>
         ${container.children.length > 0 ? `<button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.4rem; font-size: 0.7rem; color: #f87171;" onclick="removeCreateKeyRow('${rowId}')">✕</button>` : ''}
       </div>
     </div>
@@ -302,7 +348,7 @@ function addCreateKeyRow() {
       <input type="password" class="input-text row-key-val" placeholder="Pega tu API Key aquí (ej: gsk_..., AIza..., sk-...)" required oninput="autoDetectRowProvider('${rowId}')">
     </div>
     <div class="grid-2">
-      <input type="text" class="input-text row-key-alias" placeholder="Alias (ej: Groq LPU Key ${rowIndex})">
+      <input type="text" class="input-text row-key-alias" placeholder="Alias">
       <select class="input-select row-key-prov">
         <option value="auto">Auto-Detectar</option>
         <option value="groq">Groq</option>
@@ -315,7 +361,7 @@ function addCreateKeyRow() {
   `;
 
   container.appendChild(rowDiv);
-  handleCreateStrategyChange();
+  refreshCreateModalRows();
 }
 
 function moveCreateRow(rowId, delta) {
@@ -327,13 +373,14 @@ function moveCreateRow(rowId, delta) {
   } else if (delta === 1 && row.nextElementSibling) {
     container.insertBefore(row.nextElementSibling, row);
   }
+  refreshCreateModalRows();
 }
 
 function removeCreateKeyRow(rowId) {
   const row = document.getElementById(rowId);
   if (row) {
     row.remove();
-    handleCreateStrategyChange();
+    refreshCreateModalRows();
   }
 }
 
@@ -456,6 +503,7 @@ async function confirmSaveEditedPool() {
 }
 
 function openAkgAddKeyModal(poolId) {
+  const pool = akgPools.find(p => p.poolId === poolId);
   const modal = document.getElementById('akg-add-key-modal');
   const idInput = document.getElementById('add-key-pool-id');
   const valInput = document.getElementById('add-key-val');
@@ -463,11 +511,13 @@ function openAkgAddKeyModal(poolId) {
   const provInput = document.getElementById('add-key-provider');
   const prioSelect = document.getElementById('add-key-priority');
 
+  const totalCount = (pool?.keys?.length || 0) + 1;
+
   if (idInput) idInput.value = poolId;
   if (valInput) valInput.value = '';
   if (aliasInput) aliasInput.value = '';
   if (provInput) provInput.value = 'auto';
-  if (prioSelect) prioSelect.innerHTML = getPriorityOptionsHtml(1);
+  if (prioSelect) prioSelect.innerHTML = getPriorityOptionsHtml(totalCount, totalCount);
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -891,8 +941,8 @@ function renderAkgPools() {
                   <div style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem;">
                     ${p.strategy === 'priority_fallback' ? `
                       <div style="display: flex; align-items: center; gap: 0.25rem;">
-                        <select class="input-select" style="padding: 0.15rem 0.35rem; font-size: 0.72rem; width: auto; background: #020704; color: var(--emerald-light); border-color: rgba(16,185,129,0.3);" onchange="changeKeyPriority('${p.poolId}', '${k.keyId}', this.value)" title="Cambiar Prioridad (P1 a P20)">
-                          ${getPriorityOptionsHtml(k.priority)}
+                        <select class="input-select" style="padding: 0.15rem 0.35rem; font-size: 0.72rem; width: auto; background: #020704; color: var(--emerald-light); border-color: rgba(16,185,129,0.3);" onchange="changeKeyPriority('${p.poolId}', '${k.keyId}', this.value)" title="Cambiar Prioridad">
+                          ${getPriorityOptionsHtml(k.priority, keys.length)}
                         </select>
                         <button class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.68rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', -1)" title="Subir Prioridad (▲)">▲</button>
                         <button class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.68rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', 1)" title="Bajar Prioridad (▼)">▼</button>
