@@ -104,25 +104,40 @@ async function handleLogin() {
   }
   if (btnConnect) btnConnect.disabled = true;
 
+  // Try Strategy 1: Authorization: token ${token} (Standard GitHub REST format for browser CORS)
+  // Try Strategy 2: Authorization: Bearer ${token} (Fine-grained format)
+  let user = null;
+  let lastError = null;
+
   try {
     const res = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github.v3+json'
+        'Authorization': `token ${token}`
       }
     });
 
-    if (!res.ok) {
-      if (res.status === 401) {
-        throw new Error('Token inválido o expirado (HTTP 401). Verifica los permisos de tu PAT.');
-      } else if (res.status === 403) {
-        throw new Error('Límite de tasa de GitHub API excedido o permisos insuficientes (HTTP 403).');
+    if (res.ok) {
+      user = await res.json();
+    } else if (res.status === 401) {
+      // Try Bearer fallback
+      const resBearer = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (resBearer.ok) {
+        user = await resBearer.json();
       } else {
-        throw new Error(`GitHub API devolvió estado HTTP ${res.status}`);
+        throw new Error('Token inválido o sin permisos (HTTP 401). Verifica tu PAT.');
       }
+    } else {
+      throw new Error(`GitHub API devolvió estado HTTP ${res.status}`);
     }
+  } catch (err) {
+    lastError = err;
+  }
 
-    const user = await res.json();
+  if (user) {
     sessionStorage.setItem('mantx_github_token', token);
     currentUser = user;
 
@@ -134,17 +149,36 @@ async function handleLogin() {
     setTimeout(() => {
       unlockConsole();
     }, 350);
-  } catch (err) {
-    if (feedback) {
-      feedback.style.color = '#f87171';
-      if (err.message && err.message.includes('Failed to fetch')) {
-        feedback.innerHTML = `✘ <strong>Error de red (Failed to fetch):</strong> El navegador no pudo conectar con <code>api.github.com</code>.<br><span style="font-size:0.75rem; color:#fca5a5;">Posibles causas: extensiones bloqueadoras (Brave Shields, uBlock Origin, AdBlock), VPN o firewall bloqueando peticiones directas a GitHub. Desactiva el escudo en esta página e inténtalo de nuevo.</span>`;
-      } else {
-        feedback.textContent = `✘ Error de autenticación: ${err.message}`;
-      }
-    }
-    if (btnConnect) btnConnect.disabled = false;
+    return;
   }
+
+  // Error handling
+  if (feedback) {
+    feedback.style.color = '#f87171';
+    if (lastError && lastError.message && lastError.message.includes('Failed to fetch')) {
+      feedback.innerHTML = `
+        <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.6rem; margin-bottom: 0.5rem; text-align: left;">
+          <strong>✘ Error de conexión directa con GitHub API:</strong><br>
+          El navegador no pudo alcanzar <code>api.github.com</code> (común si Brave Shields, uBlock o una VPN bloquea peticiones de origen cruzado).
+          <div style="margin-top: 0.4rem; font-size: 0.75rem; color: #fca5a5;">
+            👉 Puedes desactivar el escudo en esta pestaña o entrar directamente con el botón de abajo:
+          </div>
+        </div>
+      `;
+    } else {
+      feedback.textContent = `✘ Error de autenticación: ${lastError?.message || 'No se pudo verificar el token'}`;
+    }
+  }
+  if (btnConnect) btnConnect.disabled = false;
+}
+
+function enterDemoMode() {
+  currentUser = {
+    login: 'mantx-user',
+    name: 'MANTX Explorer',
+    avatar_url: 'assets/logo_mantx.jpg'
+  };
+  unlockConsole();
 }
 
 async function checkAuthOnStartup() {
@@ -157,8 +191,7 @@ async function checkAuthOnStartup() {
   try {
     const res = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github.v3+json'
+        'Authorization': `token ${token}`
       }
     });
     if (res.ok) {
