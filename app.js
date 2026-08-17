@@ -11,6 +11,8 @@ const DEFAULT_MODELS = [
   { id: 'gemma-2-2b-it', name: 'Google Gemma 2 2B IT (GGUF Q4)', family: 'gemma', params: '2.6B', context: '8K', speed: '18 tok/s', size: '1.60 GB', spec: ['chat', 'general'], desc: 'Modelo versátil de Google optimizado para seguimiento de instrucciones.' }
 ];
 
+const STORAGE_REPO = '.mantx-storage';
+
 let currentUser = null;
 let akgPools = [];
 let nimphysList = [];
@@ -21,13 +23,8 @@ function getStoredToken() {
   return sessionStorage.getItem('mantx_github_token') || '';
 }
 
-function getStoredRepo() {
-  return sessionStorage.getItem('mantx_storage_repo') || '.mantx-storage';
-}
-
 async function handleLogin() {
   const token = document.getElementById('token-input')?.value?.trim();
-  const repo = document.getElementById('repo-input')?.value?.trim() || '.mantx-storage';
   const feedback = document.getElementById('login-feedback');
   const btnConnect = document.getElementById('btn-connect');
 
@@ -57,7 +54,6 @@ async function handleLogin() {
     const user = await res.json();
 
     sessionStorage.setItem('mantx_github_token', token);
-    sessionStorage.setItem('mantx_storage_repo', repo);
     currentUser = user;
 
     if (feedback) {
@@ -94,7 +90,6 @@ function unlockConsole() {
 
 function disconnectPat() {
   sessionStorage.removeItem('mantx_github_token');
-  sessionStorage.removeItem('mantx_storage_repo');
   currentUser = null;
   akgPools = [];
   nimphysList = [];
@@ -141,7 +136,7 @@ async function checkAuthOnStartup() {
 async function loadVaultData() {
   if (!currentUser) return;
   const token = getStoredToken();
-  const repo = getStoredRepo();
+  const repo = STORAGE_REPO;
 
   try {
     // Read akg-pools.json from .mantx-storage
