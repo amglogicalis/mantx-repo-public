@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.2.0">
+  <link rel="stylesheet" href="style.css?v=4.3.0">
 </head>
 <body>
 
@@ -387,19 +387,14 @@
             <div id="forge-result" class="output-box hidden" style="margin-top: 0.8rem; max-height: 200px;"></div>
           </div>
 
-          <!-- 3. NIMPHYS LABORATORY MATRIX -->
+          <!-- 3. NIMPHYS LABORATORY MATRIX STUDIO -->
           <div class="panel-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
-              <span class="panel-title" style="margin-bottom: 0;">🧪 Nimphys Laboratory Matrix</span>
-              <button class="btn btn-primary btn-sm" onclick="runLabExperiment()">🧪 Lanzar Comparativa</button>
-            </div>
-            <p class="text-dim text-xs mb-3">
-              Compara simultáneamente cómo convergen distintos métodos (QLoRA vs LoRA vs RAFT vs AFT) y modelos sobre el mismo dataset para elegir la configuración de mayor precisión.
-            </p>
-
-            <div class="form-group mb-2">
-              <label>Prompt de Evaluación / Benchmark:</label>
-              <input type="text" id="lab-eval-prompt" class="input-text" placeholder="Ej: Implementa un debounce concurrente en TypeScript con tipado genérico estricto">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <span class="panel-title" style="margin-bottom: 0;">🧪 Nimphys Laboratory Matrix Studio</span>
+                <div class="text-dim text-xs" style="margin-top: 0.2rem;">Compara simultáneamente cómo convergen modelos, métodos (QLoRA vs RAFT vs AFT) y augmentaciones.</div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openLabMatrixModal()">🧪 Configurar & Lanzar Matriz</button>
             </div>
 
             <div id="lab-matrix-results">
@@ -826,6 +821,62 @@
     </div>
   </div>
 
-  <script src="app.js?v=4.2.0"></script>
+  <!-- NIMPHYS LABORATORY MATRIX STUDIO MODAL -->
+  <div id="lab-matrix-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 840px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <h3>🧪 Nimphys Laboratory Matrix Studio</h3>
+          <p class="text-dim text-xs">Diseña tu matriz comparativa multirama para encontrar la configuración óptima de entrenamiento.</p>
+        </div>
+        <button class="btn-close" onclick="closeLabMatrixModal()">✕</button>
+      </div>
+
+      <!-- Presets Selector -->
+      <div class="form-group mb-3" style="background: rgba(16,185,129,0.06); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
+        <label style="color: var(--emerald-light); font-weight: 700;">🎯 Cargar Preset de Comparativa Rápida:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.4rem;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('methods')" style="font-size: 0.72rem; text-align: left;">🏆 QLoRA vs RAFT vs AFT</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('sub3b')" style="font-size: 0.72rem; text-align: left;">🏎️ Sub-3B Shootout (Qwen vs Llama vs SmolLM2)</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('rag_memory')" style="font-size: 0.72rem; text-align: left;">🧠 Impacto RAG vs Memoria Ecdysis</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('providers')" style="font-size: 0.72rem; text-align: left;">🌐 Runner Local vs Termes vs BYOK</button>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-3">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Nombre del Benchmark / Experimento:</label>
+          <input type="text" id="lab-input-name" class="input-text" placeholder="Ej: PostgreSQL Optimizer Convergence Matrix">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Tarea / Prompt de Evaluación:</label>
+          <input type="text" id="lab-input-prompt" class="input-text" placeholder="Ej: Implementa un debounce concurrente en TypeScript con tipado genérico estricto">
+        </div>
+      </div>
+
+      <div class="form-group mb-3">
+        <label>Contexto o Documentación Semilla (Opcional):</label>
+        <textarea id="lab-input-context" class="input-textarea" rows="2" placeholder="Fragmento de documentación técnica o dataset de prueba para evaluar la precisión..."></textarea>
+      </div>
+
+      <!-- Matrix Candidate Branches -->
+      <div class="form-group mb-3">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+          <label style="color: #fff; font-weight: 700;">Configuraciones Candidatas a Comparar (Ramas de la Matriz):</label>
+          <button type="button" class="btn btn-outline btn-sm" onclick="addLabCandidateRow()" style="font-size: 0.75rem;">➕ Añadir Candidato</button>
+        </div>
+        <div id="lab-candidates-container" style="display: flex; flex-direction: column; gap: 0.6rem;">
+          <!-- Dynamically populated candidate rows -->
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem;">
+        <button class="btn btn-secondary btn-sm" onclick="closeLabMatrixModal()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" id="btn-run-matrix-eval" onclick="executeLaboratoryMatrix()">🚀 Ejecutar Matriz en Laboratorio</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=4.3.0"></script>
 </body>
 </html>
