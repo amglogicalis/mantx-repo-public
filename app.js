@@ -1844,10 +1844,6 @@ function setForgeMode(mode) {
       docsContainer.classList.add('hidden');
     }
   }
-
-  if (mode === 'external') {
-    openSeedsGuideModal();
-  }
 }
 
 let currentGeneratedDataset = null;
