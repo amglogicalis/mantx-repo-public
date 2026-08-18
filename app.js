@@ -1883,7 +1883,10 @@ function renderNimphysCatalog() {
                   <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem;">${n.name}</h4>
                   <div style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-code);">ID: ${n.nimphyId}</div>
                 </div>
-                ${provBadge}
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                  ${provBadge}
+                  <button type="button" class="btn btn-outline btn-sm" onclick="deleteNimphy('${n.nimphyId}', '${n.name}')" style="padding: 0.15rem 0.4rem; font-size: 0.72rem; color: #f87171; border-color: rgba(239,68,68,0.25);" title="Eliminar Niphy">🗑️</button>
+                </div>
               </div>
 
               <div style="background: rgba(0,0,0,0.35); border-radius: 6px; padding: 0.6rem; font-size: 0.76rem; margin-bottom: 0.8rem; border: 1px solid rgba(255,255,255,0.05);">
@@ -1912,15 +1915,30 @@ function renderNimphysCatalog() {
               </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.7rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.4rem; margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.7rem;">
               <button class="btn btn-secondary btn-sm" onclick="openReTrainNimphyModal('${n.nimphyId}')" style="font-size: 0.75rem;">🔄 Reentrenar</button>
               <button class="btn btn-primary btn-sm" onclick="showLaunchApiModal('${n.nimphyId}')" style="font-size: 0.75rem;">⚡ Servir API</button>
+              <button class="btn btn-outline btn-sm" onclick="deleteNimphy('${n.nimphyId}', '${n.name}')" style="font-size: 0.75rem; color: #f87171; border-color: rgba(239,68,68,0.3); padding: 0.3rem 0.6rem;" title="Eliminar Niphy">🗑️</button>
             </div>
           </div>
         `;
       }).join('')}
     </div>
   `;
+}
+
+async function deleteNimphy(nimphyId, name) {
+  const confirmed = confirm(`¿Estás seguro de que deseas eliminar el Niphy "${name || nimphyId}"?\n\nEsta acción eliminará el registro del catálogo y todas sus versiones asociadas.`);
+  if (!confirmed) return;
+
+  const idx = nimphysList.findIndex(item => item.nimphyId === nimphyId);
+  if (idx !== -1) {
+    nimphysList.splice(idx, 1);
+    renderNimphysCatalog();
+    renderDashboardStats();
+    await saveNimphysToVault();
+    showCustomModal('🗑️ Niphy Eliminado', `El Niphy "${name || nimphyId}" ha sido eliminado exitosamente del catálogo y de la memoria.`);
+  }
 }
 
 function showLaunchApiModal(nimphyId) {
@@ -1988,13 +2006,6 @@ curl -X POST http://127.0.0.1:7430/v1/chat/completions \\
 function closeNimphyApiModal() {
   const modal = document.getElementById('nimphy-api-modal');
   if (modal) modal.classList.add('hidden');
-}
-
-async function deleteNimphy(nimphyId) {
-  nimphysList = nimphysList.filter(n => n.nimphyId !== nimphyId);
-  renderNimphysCatalog();
-  renderDashboardStats();
-  await saveNimphysToVault();
 }
 
 async function saveNimphysToVault() {
