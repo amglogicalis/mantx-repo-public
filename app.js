@@ -1243,7 +1243,7 @@ function setTermesEndpointPreset(preset) {
   if (!endpointInput) return;
 
   if (preset === 'public') {
-    endpointInput.value = 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_flash.json';
+    endpointInput.value = 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json';
   } else if (preset === 'local') {
     endpointInput.value = 'http://127.0.0.1:7420/v1';
   }
@@ -1394,7 +1394,7 @@ async function detectTermesModels(forceToast = false) {
         return;
       }
 
-      const defaultModel = payload.defaultModel || 'gemini-2.5-flash';
+      const defaultModel = payload.defaultModel || 'gemini-3.7-flash';
       const providerName = payload.fallbackChain?.[0]?.provider || payload.providerChain?.[0] || 'Google Gemini Web';
       const dynamicModels = [
         {
