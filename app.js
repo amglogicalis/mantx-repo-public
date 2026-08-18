@@ -2688,6 +2688,397 @@ function auditDriftHealth() {
   ` + list.innerHTML.replace('No hay auditorías registradas en este momento. Haz clic en "Auditar Calidad de Producción".', '');
 }
 
+// ─── AFT VISUAL STUDIO (ADAPTIVE FRACTAL TUNING) ─────────────
+let aftExampleCounter = 0;
+
+function openAftStudioModal() {
+  const modal = document.getElementById('aft-studio-modal');
+  if (!modal) return;
+
+  switchAftLayer('instructions');
+  const container = document.getElementById('aft-examples-container');
+  if (container && container.children.length === 0) {
+    aftExampleCounter = 0;
+    // Add default template examples if empty
+    for (let i = 1; i <= 10; i++) {
+      addAftExampleRow({
+        input: `Consulta técnica o caso de uso #${i}`,
+        output: `Respuesta detallada y especializada con justificación de arquitectura y análisis de riesgos para el caso #${i}.`,
+        reasoning: `Se demuestra criterio senior resolviendo el problema con rigor y sin dependencias superfluas.`
+      });
+    }
+  }
+
+  updateAftValidation();
+  modal.classList.remove('hidden');
+}
+
+function closeAftStudioModal() {
+  const modal = document.getElementById('aft-studio-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function switchAftLayer(layerName) {
+  const layers = ['instructions', 'examples', 'style', 'domain', 'rag'];
+  layers.forEach(l => {
+    const el = document.getElementById(`aft-layer-${l}`);
+    const btn = document.getElementById(`aft-tab-btn-${l}`);
+    if (el) {
+      if (l === layerName) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    }
+    if (btn) {
+      if (l === layerName) {
+        btn.classList.add('active');
+        btn.style.borderColor = 'var(--emerald-main)';
+        btn.style.color = 'var(--emerald-light)';
+      } else {
+        btn.classList.remove('active');
+        btn.style.borderColor = 'var(--border-subtle)';
+        btn.style.color = 'var(--text-dim)';
+      }
+    }
+  });
+}
+
+function addAftExampleRow(data = {}) {
+  const container = document.getElementById('aft-examples-container');
+  if (!container) return;
+
+  aftExampleCounter++;
+  const rowId = `aft_ex_row_${aftExampleCounter}`;
+
+  const rowDiv = document.createElement('div');
+  rowDiv.id = rowId;
+  rowDiv.className = 'aft-example-card';
+  rowDiv.style.cssText = 'background: #020704; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;';
+
+  const defaultInput = data.input || `Pregunta o caso de uso #${aftExampleCounter}`;
+  const defaultOutput = data.output || `Respuesta experta del agente demostrando análisis de impacto, arquitectura y escalabilidad.`;
+  const defaultReasoning = data.reasoning || `Criterio técnico que fundamenta la solución.`;
+
+  rowDiv.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <strong style="color: var(--emerald-light); font-size: 0.82rem;">Ejemplo Few-Shot #${aftExampleCounter}:</strong>
+      <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; padding: 0.1rem 0.4rem; font-size: 0.7rem;" onclick="removeAftExampleRow('${rowId}')">✕ Eliminar</button>
+    </div>
+    <div class="form-group mb-2">
+      <label style="font-size: 0.72rem;">Input / Pregunta del Usuario (mínimo 5 caracteres):</label>
+      <input type="text" class="input-text aft-ex-input" value="${defaultInput.replace(/"/g, '&quot;')}" oninput="updateAftValidation()">
+    </div>
+    <div class="form-group mb-2">
+      <label style="font-size: 0.72rem;">Output / Respuesta Experta del Agente (mínimo 20 caracteres):</label>
+      <textarea class="input-textarea aft-ex-output" rows="2" oninput="updateAftValidation()">${defaultOutput}</textarea>
+    </div>
+    <div class="form-group mb-0">
+      <label style="font-size: 0.72rem;">Reasoning / Justificación Interna (Opcional):</label>
+      <input type="text" class="input-text aft-ex-reasoning" value="${defaultReasoning.replace(/"/g, '&quot;')}" oninput="updateAftValidation()">
+    </div>
+  `;
+
+  container.appendChild(rowDiv);
+  updateAftExampleBadge();
+  updateAftValidation();
+}
+
+function removeAftExampleRow(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) row.remove();
+  updateAftExampleBadge();
+  updateAftValidation();
+}
+
+function updateAftExampleBadge() {
+  const container = document.getElementById('aft-examples-container');
+  const count = container ? container.querySelectorAll('.aft-example-card').length : 0;
+  const badge = document.getElementById('aft-examples-badge');
+  if (badge) badge.textContent = count;
+}
+
+function collectAftStudioProfile() {
+  const instructions = document.getElementById('aft-input-instructions')?.value?.trim() || '';
+  const tone = document.getElementById('aft-input-tone')?.value?.trim() || 'Técnico y riguroso';
+  const format = document.getElementById('aft-input-format')?.value?.trim() || 'Markdown estructurado';
+  const verbosity = document.getElementById('aft-input-verbosity')?.value || 'detallado';
+  const codestyle = document.getElementById('aft-input-codestyle')?.value?.trim() || '';
+  const customRulesRaw = document.getElementById('aft-input-customrules')?.value || '';
+  const custom_rules = customRulesRaw.split('\n').map(r => r.trim()).filter(Boolean);
+
+  const allowedRaw = document.getElementById('aft-input-allowed')?.value || '';
+  const allowed_topics = allowedRaw.split('\n').map(t => t.trim()).filter(Boolean);
+  const forbiddenRaw = document.getElementById('aft-input-forbidden')?.value || '';
+  const forbidden_topics = forbiddenRaw.split('\n').map(t => t.trim()).filter(Boolean);
+  const expertise = document.getElementById('aft-input-expertise')?.value || 'senior';
+  const lang = document.getElementById('aft-input-lang')?.value?.trim() || 'español';
+  const sourcesRaw = document.getElementById('aft-input-sources')?.value || '';
+  const preferred_sources = sourcesRaw.split(',').map(s => s.trim()).filter(Boolean);
+  const outOfScope = document.getElementById('aft-input-outofscope')?.value?.trim() || 'Consulta fuera del dominio de especialización de este agente.';
+
+  const keywordsRaw = document.getElementById('aft-input-rag-keywords')?.value || '';
+  const trigger_keywords = keywordsRaw.split('\n').map(k => k.trim().toLowerCase()).filter(Boolean);
+  const alwaysRetrieve = Boolean(document.getElementById('aft-input-rag-always')?.checked);
+  const topK = parseInt(document.getElementById('aft-input-rag-topk')?.value || '5', 10);
+  const injection = document.getElementById('aft-input-rag-injection')?.value || 'prefix';
+  const threshold = parseFloat(document.getElementById('aft-input-rag-threshold')?.value || '0.6');
+
+  const container = document.getElementById('aft-examples-container');
+  const exampleCards = container ? Array.from(container.querySelectorAll('.aft-example-card')) : [];
+  const behavior_examples = exampleCards.map(card => {
+    return {
+      input: card.querySelector('.aft-ex-input')?.value?.trim() || '',
+      output: card.querySelector('.aft-ex-output')?.value?.trim() || '',
+      reasoning: card.querySelector('.aft-ex-reasoning')?.value?.trim() || undefined
+    };
+  });
+
+  return {
+    aft_version: '1.0',
+    compiled_at: new Date().toISOString(),
+    system_instructions: instructions,
+    behavior_examples,
+    style_rules: {
+      tone,
+      response_format: format,
+      verbosity,
+      code_style: codestyle || undefined,
+      custom_rules
+    },
+    domain_constraints: {
+      allowed_topics,
+      forbidden_topics,
+      expertise_level: expertise,
+      preferred_sources,
+      language: lang,
+      out_of_scope_response: outOfScope
+    },
+    retrieval_profile: {
+      trigger_keywords,
+      always_retrieve: alwaysRetrieve,
+      top_k: topK,
+      context_injection: injection,
+      relevance_threshold: threshold
+    }
+  };
+}
+
+function updateAftValidation() {
+  const profile = collectAftStudioProfile();
+  const errors = [];
+  const warnings = [];
+
+  const charCountEl = document.getElementById('aft-instructions-charcount');
+  const len = profile.system_instructions.length;
+  if (charCountEl) {
+    charCountEl.textContent = `${len} / 300 min chars`;
+    charCountEl.style.color = len >= 300 ? 'var(--emerald-light)' : '#f87171';
+  }
+
+  if (len < 300) errors.push(`"system_instructions" debe tener al menos 300 caracteres (actual: ${len}).`);
+  
+  const placeholders = ['[input]', '[output]', '[ejemplo]', '[aquí]', '...', 'placeholder'];
+  placeholders.forEach(p => {
+    if (profile.system_instructions.toLowerCase().includes(p)) {
+      errors.push(`"system_instructions" contiene placeholders sin rellenar ("${p}").`);
+    }
+  });
+
+  const exCount = profile.behavior_examples.length;
+  if (exCount < 10) {
+    errors.push(`Se requieren al menos 10 ejemplos few-shot (actual: ${exCount}).`);
+  } else if (exCount > 15) {
+    warnings.push(`Se recomienda un máximo de 15 ejemplos para no saturar el contexto inicial (actual: ${exCount}).`);
+  }
+
+  const seen = new Set();
+  profile.behavior_examples.forEach((ex, idx) => {
+    if (ex.input.length < 5) errors.push(`Ejemplo #${idx + 1}: input demasiado corto (< 5 chars).`);
+    if (ex.output.length < 20) errors.push(`Ejemplo #${idx + 1}: output demasiado corto (< 20 chars).`);
+    placeholders.forEach(p => {
+      if (ex.input.toLowerCase().includes(p) || ex.output.toLowerCase().includes(p)) {
+        errors.push(`Ejemplo #${idx + 1}: contiene placeholders ("${p}").`);
+      }
+    });
+    const fp = ex.input.toLowerCase().slice(0, 40);
+    if (fp && seen.has(fp)) errors.push(`Ejemplo #${idx + 1}: input duplicado o idéntico a otro previo.`);
+    if (fp) seen.add(fp);
+  });
+
+  if (!profile.style_rules.tone || profile.style_rules.tone.length < 4) errors.push('Define un tono claro en style_rules (mínimo 4 chars).');
+  if (profile.domain_constraints.allowed_topics.length < 2) errors.push('Define al menos 2 temas permitidos en domain_constraints.');
+  if (profile.domain_constraints.out_of_scope_response.length < 20) errors.push('Respuesta fuera de dominio debe tener al menos 20 caracteres.');
+  if (profile.retrieval_profile.trigger_keywords.length < 3) errors.push('Define al menos 3 keywords en retrieval_profile.');
+
+  const banner = document.getElementById('aft-validation-banner');
+  if (banner) {
+    if (errors.length === 0) {
+      banner.style.borderLeft = '4px solid var(--emerald-main)';
+      banner.style.background = 'rgba(16,185,129,0.08)';
+      banner.innerHTML = `
+        <div style="color: #34d399; font-weight: 700; display: flex; align-items: center; gap: 0.4rem;">
+          <span>✔</span> Perfil AFT 100% Canónico y Válido
+        </div>
+        <div class="text-dim text-xs" style="margin-top: 0.2rem;">
+          Instrucciones: ${len} chars | Ejemplos Few-Shot: ${exCount} | Temas: ${profile.domain_constraints.allowed_topics.length} | Keywords: ${profile.retrieval_profile.trigger_keywords.length}
+        </div>
+        ${warnings.map(w => `<div style="color: #fbbf24; font-size: 0.72rem; margin-top: 0.2rem;">⚠️ ${w}</div>`).join('')}
+      `;
+    } else {
+      banner.style.borderLeft = '4px solid #ef4444';
+      banner.style.background = 'rgba(239,68,68,0.08)';
+      banner.innerHTML = `
+        <div style="color: #f87171; font-weight: 700; display: flex; align-items: center; gap: 0.4rem;">
+          <span>⚠️</span> ${errors.length} requisitos pendientes para ser canónico:
+        </div>
+        <ul style="color: var(--text-dim); font-size: 0.72rem; margin: 0.3rem 0 0 1rem; padding: 0;">
+          ${errors.slice(0, 4).map(e => `<li>${e}</li>`).join('')}
+          ${errors.length > 4 ? `<li>... y ${errors.length - 4} más</li>` : ''}
+        </ul>
+      `;
+    }
+  }
+
+  return { valid: errors.length === 0, errors, profile };
+}
+
+function exportAftStudioAsJson() {
+  const { valid, errors, profile } = updateAftValidation();
+  if (!valid) {
+    showCustomModal('⚠️ Perfil Incompleto', `El perfil AFT contiene ${errors.length} errores de validación:\n\n• ${errors.slice(0, 5).join('\n• ')}\n\nCorrige los campos marcados para exportar un JSON canónico limpio.`);
+    return;
+  }
+
+  const jsonStr = JSON.stringify(profile, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `aft-profile-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showCustomModal('💾 Perfil AFT Exportado', `Se ha descargado el archivo "${a.download}".\n\nPuedes subirlo directamente a cualquier Niphy, dataset o laboratorio.`);
+}
+
+function exportAftStudioAsYaml() {
+  const { valid, errors, profile } = updateAftValidation();
+  if (!valid) {
+    showCustomModal('⚠️ Perfil Incompleto', `El perfil AFT contiene ${errors.length} errores de validación:\n\n• ${errors.slice(0, 5).join('\n• ')}`);
+    return;
+  }
+
+  const lines = [];
+  lines.push(`aft_version: "1.0"`);
+  lines.push(`compiled_at: "${profile.compiled_at}"`);
+  lines.push(`system_instructions: |`);
+  profile.system_instructions.split('\n').forEach(l => lines.push(`  ${l}`));
+  lines.push(`style_rules:`);
+  lines.push(`  tone: "${profile.style_rules.tone}"`);
+  lines.push(`  response_format: "${profile.style_rules.response_format}"`);
+  lines.push(`  verbosity: "${profile.style_rules.verbosity}"`);
+  if (profile.style_rules.code_style) lines.push(`  code_style: "${profile.style_rules.code_style}"`);
+  lines.push(`  custom_rules:`);
+  profile.style_rules.custom_rules.forEach(r => lines.push(`    - "${r}"`));
+  lines.push(`domain_constraints:`);
+  lines.push(`  language: "${profile.domain_constraints.language}"`);
+  lines.push(`  expertise_level: "${profile.domain_constraints.expertise_level}"`);
+  lines.push(`  out_of_scope_response: "${profile.domain_constraints.out_of_scope_response}"`);
+  lines.push(`  allowed_topics:`);
+  profile.domain_constraints.allowed_topics.forEach(t => lines.push(`    - "${t}"`));
+  lines.push(`  forbidden_topics:`);
+  profile.domain_constraints.forbidden_topics.forEach(t => lines.push(`    - "${t}"`));
+  lines.push(`retrieval_profile:`);
+  lines.push(`  always_retrieve: ${profile.retrieval_profile.always_retrieve}`);
+  lines.push(`  top_k: ${profile.retrieval_profile.top_k}`);
+  lines.push(`  context_injection: "${profile.retrieval_profile.context_injection}"`);
+  lines.push(`  relevance_threshold: ${profile.retrieval_profile.relevance_threshold}`);
+  lines.push(`  trigger_keywords:`);
+  profile.retrieval_profile.trigger_keywords.forEach(k => lines.push(`    - "${k}"`));
+  lines.push(`behavior_examples:`);
+  profile.behavior_examples.forEach(ex => {
+    lines.push(`  - input: "${ex.input.replace(/"/g, '\\"')}"`);
+    lines.push(`    output: "${ex.output.replace(/"/g, '\\"')}"`);
+    if (ex.reasoning) lines.push(`    reasoning: "${ex.reasoning.replace(/"/g, '\\"')}"`);
+  });
+
+  const yamlStr = lines.join('\n');
+  const blob = new Blob([yamlStr], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `aft-profile-${Date.now()}.yaml`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showCustomModal('📋 Perfil AFT Exportado como YAML', `Se ha descargado el archivo "${a.download}".`);
+}
+
+function handleAftFileImport(files) {
+  if (!files || files.length === 0) return;
+  const file = files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const content = e.target.result;
+      let data;
+      if (file.name.endsWith('.json')) {
+        data = JSON.parse(content);
+      } else {
+        // Basic YAML parser fallback or JSON
+        data = JSON.parse(content);
+      }
+
+      if (data.system_instructions) {
+        document.getElementById('aft-input-instructions').value = data.system_instructions;
+      }
+      if (data.style_rules) {
+        if (data.style_rules.tone) document.getElementById('aft-input-tone').value = data.style_rules.tone;
+        if (data.style_rules.response_format) document.getElementById('aft-input-format').value = data.style_rules.response_format;
+        if (data.style_rules.verbosity) document.getElementById('aft-input-verbosity').value = data.style_rules.verbosity;
+        if (data.style_rules.code_style) document.getElementById('aft-input-codestyle').value = data.style_rules.code_style;
+        if (Array.isArray(data.style_rules.custom_rules)) {
+          document.getElementById('aft-input-customrules').value = data.style_rules.custom_rules.join('\n');
+        }
+      }
+      if (data.domain_constraints) {
+        if (Array.isArray(data.domain_constraints.allowed_topics)) {
+          document.getElementById('aft-input-allowed').value = data.domain_constraints.allowed_topics.join('\n');
+        }
+        if (Array.isArray(data.domain_constraints.forbidden_topics)) {
+          document.getElementById('aft-input-forbidden').value = data.domain_constraints.forbidden_topics.join('\n');
+        }
+        if (data.domain_constraints.expertise_level) {
+          document.getElementById('aft-input-expertise').value = data.domain_constraints.expertise_level;
+        }
+        if (data.domain_constraints.language) {
+          document.getElementById('aft-input-lang').value = data.domain_constraints.language;
+        }
+        if (data.domain_constraints.out_of_scope_response) {
+          document.getElementById('aft-input-outofscope').value = data.domain_constraints.out_of_scope_response;
+        }
+      }
+      if (data.retrieval_profile) {
+        if (Array.isArray(data.retrieval_profile.trigger_keywords)) {
+          document.getElementById('aft-input-rag-keywords').value = data.retrieval_profile.trigger_keywords.join('\n');
+        }
+        if (data.retrieval_profile.top_k) document.getElementById('aft-input-rag-topk').value = data.retrieval_profile.top_k;
+        if (data.retrieval_profile.context_injection) document.getElementById('aft-input-rag-injection').value = data.retrieval_profile.context_injection;
+        if (data.retrieval_profile.relevance_threshold !== undefined) document.getElementById('aft-input-rag-threshold').value = data.retrieval_profile.relevance_threshold;
+        document.getElementById('aft-input-rag-always').checked = Boolean(data.retrieval_profile.always_retrieve);
+      }
+      if (Array.isArray(data.behavior_examples)) {
+        const container = document.getElementById('aft-examples-container');
+        if (container) container.innerHTML = '';
+        aftExampleCounter = 0;
+        data.behavior_examples.forEach(ex => addAftExampleRow(ex));
+      }
+
+      updateAftValidation();
+      showCustomModal('📥 Perfil AFT Importado', `Se ha cargado con éxito el archivo "${file.name}".`);
+    } catch (err) {
+      showCustomModal('⚠️ Error al Importar', `No se pudo parsear el archivo "${file.name}". Asegúrate de que sea un JSON canónico válido.\n\nDetalle: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ─── STARTUP ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   checkAuthOnStartup();

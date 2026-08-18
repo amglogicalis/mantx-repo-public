@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.6.0">
+  <link rel="stylesheet" href="style.css?v=4.7.0">
 </head>
 <body>
 
@@ -258,12 +258,12 @@
             <!-- AFT -->
             <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <strong style="color: #fff; font-size: 0.9rem;">4. AFT (Attention Feature Transfer)</strong>
-                <span class="badge" style="font-size: 0.65rem; background: rgba(234,179,8,0.15); color: #fde047;">Destilación de Atención</span>
+                <strong style="color: #fff; font-size: 0.9rem;">4. AFT (Adaptive Fractal Tuning)</strong>
+                <span class="badge" style="font-size: 0.65rem; background: rgba(234,179,8,0.15); color: #fde047;">Especialización Fractal $0</span>
               </div>
               <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
-                • <strong style="color: #fff;">Mínimo Requerido:</strong> <strong>Corpus de texto o tokens de dominio</strong> + Modelo Maestro.<br>
-                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Gran volumen de texto plano representativo del dominio para que el modelo estudiante reproduzca los mapas de atención del modelo de mayor tamaño.
+                • <strong style="color: #fff;">Mínimo Requerido:</strong> Un <strong>Perfil Canónico AFT (.json o .yaml)</strong> diseñado y exportado desde el <em>AFT Visual Studio</em>.<br>
+                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Las 5 capas fractales completas: <em>system_instructions</em> (&ge;300 caracteres de arquitecto sénior), entre 10 y 15 ejemplos <em>few-shot</em> con razonamiento interno (<em>reasoning</em>), reglas de estilo estrictas, límites de dominio y palabras clave RAG. No modifica pesos: especializa operativamente con coste $0.
               </div>
             </div>
 
@@ -397,7 +397,8 @@
             <h2>🧬 Nimphys Models, Synthetic Forge & Laboratory</h2>
             <p class="text-dim">Entrena y personaliza modelos especializados (Nimphys) a coste $0, sintetiza datasets con Constitutional AI y compara métodos en el laboratorio.</p>
           </div>
-          <div style="display: flex; gap: 0.6rem;">
+          <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="openAftStudioModal()" style="border-color: var(--emerald-main); color: var(--emerald-light); font-weight: 600;">🧬 AFT Visual Studio (Editor Canónico)</button>
             <button class="btn btn-secondary btn-sm" onclick="openSeedsGuideModal()">📋 Guía Semillas con IA Externa</button>
             <button class="btn btn-primary" onclick="openCreateNimphyModal()">+ Producir / Entrenar Niphy</button>
           </div>
@@ -988,6 +989,187 @@
     </div>
   </div>
 
-  <script src="app.js?v=4.6.0"></script>
+  <!-- AFT VISUAL STUDIO MODAL -->
+  <div id="aft-studio-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 920px; max-height: 92vh; overflow-y: auto;">
+      
+      <div class="modal-header" style="flex-wrap: wrap; gap: 0.6rem;">
+        <div>
+          <h3>🧬 AFT Visual Studio — Adaptive Fractal Tuning</h3>
+          <p class="text-dim text-xs">Diseña, valida y exporta perfiles canónicos AFT limpios en 5 capas fractales para subirlos como dataset o documento.</p>
+        </div>
+        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+          <input type="file" id="aft-import-file" accept=".json,.yaml,.yml" style="display: none;" onchange="handleAftFileImport(this.files)">
+          <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('aft-import-file').click()" style="font-size: 0.72rem;">📥 Importar</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="exportAftStudioAsYaml()" style="font-size: 0.72rem;">📋 Exportar YAML</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="exportAftStudioAsJson()" style="font-size: 0.72rem;">💾 Exportar JSON</button>
+          <button class="btn-close" onclick="closeAftStudioModal()">✕</button>
+        </div>
+      </div>
+
+      <!-- Live Validation Status Banner -->
+      <div id="aft-validation-banner" class="mb-3" style="background: rgba(16,185,129,0.06); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem; font-size: 0.78rem;">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- 5 Fractal Subtabs Navigation -->
+      <div style="display: flex; gap: 0.3rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1rem; overflow-x: auto; padding-bottom: 0.4rem;">
+        <button type="button" class="btn btn-outline btn-sm aft-layer-tab active" id="aft-tab-btn-instructions" onclick="switchAftLayer('instructions')" style="font-size: 0.75rem;">📝 1. Instrucciones</button>
+        <button type="button" class="btn btn-outline btn-sm aft-layer-tab" id="aft-tab-btn-examples" onclick="switchAftLayer('examples')" style="font-size: 0.75rem;">💡 2. Few-Shot (<span id="aft-examples-badge">0</span>)</button>
+        <button type="button" class="btn btn-outline btn-sm aft-layer-tab" id="aft-tab-btn-style" onclick="switchAftLayer('style')" style="font-size: 0.75rem;">🎨 3. Estilo</button>
+        <button type="button" class="btn btn-outline btn-sm aft-layer-tab" id="aft-tab-btn-domain" onclick="switchAftLayer('domain')" style="font-size: 0.75rem;">🛡️ 4. Dominio</button>
+        <button type="button" class="btn btn-outline btn-sm aft-layer-tab" id="aft-tab-btn-rag" onclick="switchAftLayer('rag')" style="font-size: 0.75rem;">🕸️ 5. RAG Strategy</button>
+      </div>
+
+      <!-- Layer 1: System Instructions -->
+      <div id="aft-layer-instructions" class="aft-layer-content">
+        <div class="form-group mb-3">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+            <label style="margin-bottom: 0;">Prompt Maestro / Instrucciones del Sistema (Mínimo 300 caracteres):</label>
+            <span class="text-dim text-xs" id="aft-instructions-charcount">0 / 300 min chars</span>
+          </div>
+          <textarea id="aft-input-instructions" class="input-textarea" rows="8" placeholder="Define la identidad exacta del agente, su mentalidad de arquitecto sénior, los límites de escalabilidad, justificaciones técnicas y resolución de casos borde..." oninput="updateAftValidation()"></textarea>
+        </div>
+        <div style="background: rgba(0,0,0,0.25); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.75rem; color: var(--text-dim); line-height: 1.5;">
+          💡 <strong>Directrices recomendadas:</strong> Evita frases genéricas como "eres un asistente útil". Exige al modelo justificar decisiones de arquitectura, evaluar riesgos de producción y explicar por qué descarta alternativas.
+        </div>
+      </div>
+
+      <!-- Layer 2: Behavior Examples (Few-Shot) -->
+      <div id="aft-layer-examples" class="aft-layer-content hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+          <div>
+            <strong style="color: #fff; font-size: 0.88rem;">Ejemplos Few-Shot Reales (10 a 15 requeridos):</strong>
+            <p class="text-dim text-xs" style="margin-top: 0.1rem; margin-bottom: 0;">Cada ejemplo enseña al modelo la profundidad y formato de respuesta que debe entregar en producción.</p>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="addAftExampleRow()" style="font-size: 0.75rem;">➕ Añadir Ejemplo</button>
+        </div>
+
+        <div id="aft-examples-container" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 50vh; overflow-y: auto; padding-right: 0.3rem;">
+          <!-- Dynamically populated example cards -->
+        </div>
+      </div>
+
+      <!-- Layer 3: Style Rules -->
+      <div id="aft-layer-style" class="aft-layer-content hidden">
+        <div class="grid-2 mb-3">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Tono del Agente:</label>
+            <input type="text" id="aft-input-tone" class="input-text" placeholder="Ej: Técnico, riguroso, directo y altamente especializado" oninput="updateAftValidation()">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Formato de Respuesta:</label>
+            <input type="text" id="aft-input-format" class="input-text" placeholder="Ej: Markdown estructurado con bloques de código tipados" oninput="updateAftValidation()">
+          </div>
+        </div>
+
+        <div class="grid-2 mb-3">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Nivel de Verbosidad:</label>
+            <select id="aft-input-verbosity" class="input-select" onchange="updateAftValidation()">
+              <option value="conciso">Conciso (Directo al grano, sin rodeos)</option>
+              <option value="detallado" selected>Detallado (Explicaciones exhaustivas y completas)</option>
+              <option value="adaptativo">Adaptativo (Varía según la complejidad de la consulta)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Convenciones de Código (Opcional):</label>
+            <input type="text" id="aft-input-codestyle" class="input-text" placeholder="Ej: TypeScript estricto, interfaces explícitas, zero any" oninput="updateAftValidation()">
+          </div>
+        </div>
+
+        <div class="form-group mb-0">
+          <label>Reglas de Estilo Personalizadas (1 regla por línea):</label>
+          <textarea id="aft-input-customrules" class="input-textarea" rows="3" placeholder="Ej:\nNo utilizar dependencias externas innecesarias\nIncluir manejo explícito de errores con Result types\nComentar los casos borde complejos" oninput="updateAftValidation()"></textarea>
+        </div>
+      </div>
+
+      <!-- Layer 4: Domain Constraints -->
+      <div id="aft-layer-domain" class="aft-layer-content hidden">
+        <div class="grid-2 mb-3">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Temas Permitidos / Especialidad (Mínimo 2, uno por línea):</label>
+            <textarea id="aft-input-allowed" class="input-textarea" rows="3" placeholder="Ej:\nOptimización de consultas SQL\nDiseño de índices compuestos\nAnálisis de planes EXPLAIN ANALYZE" oninput="updateAftValidation()"></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Temas Prohibidos / Fuera de Alcance (Uno por línea):</label>
+            <textarea id="aft-input-forbidden" class="input-textarea" rows="3" placeholder="Ej:\nDesarrollo web frontend\nConsultas legales o médicas\nProgramación en lenguajes no relacionados" oninput="updateAftValidation()"></textarea>
+          </div>
+        </div>
+
+        <div class="grid-3 mb-3">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Nivel de Expertise Asumido:</label>
+            <select id="aft-input-expertise" class="input-select" onchange="updateAftValidation()">
+              <option value="junior">Junior</option>
+              <option value="mid">Mid-Level</option>
+              <option value="senior" selected>Senior</option>
+              <option value="experto">Experto / Arquitecto</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Idioma Principal:</label>
+            <input type="text" id="aft-input-lang" class="input-text" value="español" oninput="updateAftValidation()">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Fuentes Preferidas (Opcional):</label>
+            <input type="text" id="aft-input-sources" class="input-text" placeholder="Ej: Documentación oficial PostgreSQL, RFCs" oninput="updateAftValidation()">
+          </div>
+        </div>
+
+        <div class="form-group mb-0">
+          <label>Respuesta Exacta Fuera de Dominio (Mínimo 20 caracteres):</label>
+          <input type="text" id="aft-input-outofscope" class="input-text" placeholder="Ej: Mi especialización está estrictamente limitada a este dominio. No puedo responder consultas externas." oninput="updateAftValidation()">
+        </div>
+      </div>
+
+      <!-- Layer 5: Retrieval Profile (RAG Strategy) -->
+      <div id="aft-layer-rag" class="aft-layer-content hidden">
+        <div class="grid-2 mb-3">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Palabras Clave Disparadoras de Búsqueda (Mínimo 3, una por línea):</label>
+            <textarea id="aft-input-rag-keywords" class="input-textarea" rows="4" placeholder="Ej:\nexplain\nindice\nquery\nperformance\npostgresql" oninput="updateAftValidation()"></textarea>
+          </div>
+          <div>
+            <div class="form-group mb-2">
+              <label>Top K Chunks a Recuperar (1 a 20):</label>
+              <input type="number" id="aft-input-rag-topk" class="input-text" value="5" min="1" max="20" oninput="updateAftValidation()">
+            </div>
+            <div class="form-group mb-2">
+              <label>Inyección de Contexto:</label>
+              <select id="aft-input-rag-injection" class="input-select" onchange="updateAftValidation()">
+                <option value="prefix" selected>Prefix (Antes de la pregunta del usuario)</option>
+                <option value="inline">Inline (Dentro del bloque de razonamiento)</option>
+                <option value="suffix">Suffix (Al final como apéndice de fuentes)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>Umbral Mínimo de Relevancia (0.0 a 1.0):</label>
+              <input type="number" id="aft-input-rag-threshold" class="input-text" value="0.6" step="0.05" min="0" max="1" oninput="updateAftValidation()">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group mb-0" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #fff; font-weight: 600; margin-bottom: 0;">
+            <input type="checkbox" id="aft-input-rag-always">
+            <span>🔍 Activar Búsqueda RAG Siempre (Always Retrieve antes de responder)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div style="display: flex; gap: 0.8rem; justify-content: space-between; align-items: center; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem; flex-wrap: wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="closeAftStudioModal()">Cerrar</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="exportAftStudioAsYaml()">📋 Exportar YAML</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="exportAftStudioAsJson()">💾 Exportar JSON Canónico</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js?v=4.7.0"></script>
 </body>
 </html>
