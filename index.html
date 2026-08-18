@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.8.0">
+  <link rel="stylesheet" href="style.css?v=4.9.0">
 </head>
 <body>
 
@@ -804,18 +804,21 @@
       <div id="nimphy-termes-container" class="form-group mb-3 hidden" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
         <label style="color: var(--emerald-light); font-weight: 700;">🌐 Endpoint de Termes Symbiont (Local o Público en Internet):</label>
         <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-          <input type="text" id="nimphy-termes-endpoint" class="input-text" placeholder="http://127.0.0.1:7420/v1 o https://tu-termes-publico.com/v1" value="http://127.0.0.1:7420/v1" oninput="detectTermesModels()">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="detectTermesModels()">🔍 Detectar</button>
+          <input type="text" id="nimphy-termes-endpoint" class="input-text" placeholder="http://127.0.0.1:7420/v1 o https://tu-termes-publico.com/v1" value="http://127.0.0.1:7420/v1" oninput="onTermesEndpointInput()">
+          <button type="button" id="btn-detect-termes" class="btn btn-secondary btn-sm" onclick="detectTermesModels(true)">🔍 Detectar</button>
         </div>
-        <div class="grid-2" style="font-size: 0.8rem;">
+        <div class="grid-2 mb-2" style="font-size: 0.8rem;">
           <div class="form-group" style="margin-bottom: 0;">
             <label style="font-size: 0.75rem;">Auth Token de Termes (Opcional):</label>
-            <input type="password" id="nimphy-termes-key" class="input-text" placeholder="termes-sk-...">
+            <input type="password" id="nimphy-termes-key" class="input-text" placeholder="termes-sk-..." oninput="onTermesEndpointInput()">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label style="font-size: 0.75rem;">Proveedor Detectado:</label>
-            <input type="text" id="nimphy-termes-detected-provider" class="input-text" value="Google Gemini Web Bridge (1M Context)" readonly style="background: #020704; color: var(--emerald-light);">
+            <input type="text" id="nimphy-termes-detected-provider" class="input-text" value="Consultando endpoint..." readonly style="background: #020704; color: var(--emerald-light);">
           </div>
+        </div>
+        <div id="nimphy-termes-status-alert" class="hidden" style="border-radius: 6px; padding: 0.5rem 0.7rem; font-size: 0.74rem; line-height: 1.4;">
+          <!-- Dynamically populated status or error -->
         </div>
       </div>
 
@@ -1200,6 +1203,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=4.8.0"></script>
+  <script src="app.js?v=4.9.0"></script>
 </body>
 </html>

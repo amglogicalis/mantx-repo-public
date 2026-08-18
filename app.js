@@ -1236,30 +1236,154 @@ function populateBaseModelSelect(modelsList, selectedValue = '') {
   `).join('');
 }
 
-function detectTermesModels() {
-  const endpoint = document.getElementById('nimphy-termes-endpoint')?.value?.trim() || 'http://127.0.0.1:7420/v1';
+let termesDebounceTimer = null;
+
+function onTermesEndpointInput() {
+  clearTimeout(termesDebounceTimer);
+  termesDebounceTimer = setTimeout(() => {
+    detectTermesModels(false);
+  }, 600);
+}
+
+async function detectTermesModels(forceToast = false) {
+  const endpointInput = document.getElementById('nimphy-termes-endpoint');
+  const keyInput = document.getElementById('nimphy-termes-key');
   const detectedInput = document.getElementById('nimphy-termes-detected-provider');
-  const epLower = endpoint.toLowerCase();
+  const alertEl = document.getElementById('nimphy-termes-status-alert');
 
-  let detectedName = 'Google Gemini Web Bridge (1M Context, $0)';
-  let models = TERMES_DEFAULT_MODELS;
+  const endpoint = endpointInput?.value?.trim() || 'http://127.0.0.1:7420/v1';
+  const apiKey = keyInput?.value?.trim() || '';
 
-  if (epLower.includes('claude') || epLower.includes('anthropic')) {
-    detectedName = 'Anthropic Claude Web Bridge (Synthetic API)';
-    models = [
-      { id: 'termes-claude-3-5-sonnet', name: 'Claude 3.5 Sonnet Web Bridge (Arzor Proxy)' },
-      { id: 'termes-claude-3-5-haiku', name: 'Claude 3.5 Haiku Web Bridge' }
-    ];
-  } else if (epLower.includes('deepseek')) {
-    detectedName = 'DeepSeek Web Bridge (Synthetic API)';
-    models = [
-      { id: 'termes-deepseek-v3', name: 'DeepSeek V3 Web Bridge (Zero Cost)' },
-      { id: 'termes-deepseek-r1', name: 'DeepSeek R1 Reasoning Web Bridge' }
-    ];
+  const cleanEp = endpoint.replace(/\/+$/, '');
+  const baseUrl = cleanEp.endsWith('/v1') ? cleanEp : `${cleanEp}/v1`;
+  const rootUrl = cleanEp.replace(/\/v1$/, '');
+
+  if (detectedInput) {
+    detectedInput.value = '⏳ Conectando con Termes...';
+    detectedInput.style.color = '#fde047';
   }
 
-  if (detectedInput) detectedInput.value = detectedName;
-  populateBaseModelSelect(models);
+  const headers = { 'Accept': 'application/json' };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    let modelsRes;
+    try {
+      modelsRes = await fetch(`${baseUrl}/models`, {
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      });
+    } catch (e) {
+      modelsRes = await fetch(`${rootUrl}/models`, {
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      });
+    }
+    clearTimeout(timeoutId);
+
+    // 1. Auth required / forbidden
+    if (modelsRes.status === 401 || modelsRes.status === 403) {
+      if (detectedInput) {
+        detectedInput.value = '🔒 Requiere Auth Token';
+        detectedInput.style.color = '#f87171';
+      }
+      if (alertEl) {
+        alertEl.classList.remove('hidden');
+        alertEl.style.background = 'rgba(239,68,68,0.12)';
+        alertEl.style.border = '1px solid #ef4444';
+        alertEl.style.color = '#fca5a5';
+        alertEl.innerHTML = `
+          <strong>🔒 Error de Autenticación (${modelsRes.status}):</strong> El endpoint de Termes requiere una clave de acceso (Auth Token) o la clave introducida es incorrecta. Introduce el token en el campo de arriba para verificar los modelos.
+        `;
+      }
+      if (forceToast) {
+        showCustomModal('🔒 Termes Requiere Autenticación', `El endpoint en "${endpoint}" respondió con HTTP ${modelsRes.status}.\n\nPor favor, introduce el token de acceso de Termes en el campo "Auth Token de Termes".`);
+      }
+      return;
+    }
+
+    if (!modelsRes.ok) {
+      throw new Error(`HTTP ${modelsRes.status}: ${modelsRes.statusText}`);
+    }
+
+    const modelsData = await modelsRes.json();
+    const rawList = Array.isArray(modelsData.data) ? modelsData.data : (Array.isArray(modelsData) ? modelsData : []);
+
+    const dynamicModels = rawList.map(m => {
+      const id = typeof m === 'string' ? m : (m.id || m.name || 'unknown-model');
+      const owned = typeof m === 'object' && m.owned_by ? m.owned_by : 'Termes';
+      return {
+        id,
+        name: `${id} (${owned})`
+      };
+    });
+
+    // Detect active providers
+    const providersSet = new Set();
+    dynamicModels.forEach(m => {
+      const idLower = m.id.toLowerCase();
+      if (idLower.includes('gemini')) providersSet.add('Gemini');
+      else if (idLower.includes('claude') || idLower.includes('anthropic')) providersSet.add('Claude');
+      else if (idLower.includes('deepseek')) providersSet.add('DeepSeek');
+      else if (idLower.includes('gpt') || idLower.includes('openai')) providersSet.add('OpenAI');
+      else if (idLower.includes('llama') || idLower.includes('groq')) providersSet.add('LLaMA');
+      else if (idLower.includes('mistral') || idLower.includes('codestral')) providersSet.add('Mistral');
+      else providersSet.add('Termes Web');
+    });
+
+    const providersSummary = Array.from(providersSet).join(', ') || 'Web-AI Bridge';
+    const modelsCount = dynamicModels.length;
+
+    if (detectedInput) {
+      detectedInput.value = `🟢 Termes Online (${providersSummary})`;
+      detectedInput.style.color = 'var(--emerald-light)';
+    }
+
+    if (alertEl) {
+      alertEl.classList.remove('hidden');
+      alertEl.style.background = 'rgba(16,185,129,0.08)';
+      alertEl.style.border = '1px solid var(--emerald-main)';
+      alertEl.style.color = '#a7f3d0';
+      alertEl.innerHTML = `
+        <strong>✔ Termes Symbiont Detectado:</strong> ${modelsCount} modelos vivos encontrados en <code>${endpoint}</code> (${providersSummary}).
+      `;
+    }
+
+    populateBaseModelSelect(dynamicModels.length > 0 ? dynamicModels : TERMES_DEFAULT_MODELS);
+
+    if (forceToast) {
+      showCustomModal('🟢 Termes Symbiont Conectado', `Se detectó correctamente el endpoint en "${endpoint}".\n\n• Modelos disponibles: ${modelsCount}\n• Proveedores: ${providersSummary}`);
+    }
+
+  } catch (err) {
+    if (detectedInput) {
+      detectedInput.value = '⚠️ Termes Offline / Sin Conexión';
+      detectedInput.style.color = '#fde047';
+    }
+
+    if (alertEl) {
+      alertEl.classList.remove('hidden');
+      alertEl.style.background = 'rgba(234,179,8,0.08)';
+      alertEl.style.border = '1px solid rgba(234,179,8,0.3)';
+      alertEl.style.color = '#fef08a';
+      alertEl.innerHTML = `
+        <strong>⚠️ No se pudo conectar a Termes en ${endpoint}:</strong> ${err.message || 'Servidor offline'}. Verifica que Termes esté corriendo (<code>termes symbiont start</code>). Se han cargado los modelos estándar de respaldo.
+      `;
+    }
+
+    populateBaseModelSelect(TERMES_DEFAULT_MODELS);
+
+    if (forceToast) {
+      showCustomModal('⚠️ Termes No Disponible', `No se pudo establecer conexión con "${endpoint}".\n\nError: ${err.message}\n\nAsegúrate de que el servidor Termes esté en ejecución.`);
+    }
+  }
 }
 
 function detectByokProviderAndModels() {
