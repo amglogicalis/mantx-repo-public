@@ -1269,27 +1269,48 @@ async function detectTermesModels(forceToast = false) {
   }
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-    let modelsRes;
-    try {
-      modelsRes = await fetch(`${baseUrl}/models`, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
-    } catch (e) {
-      modelsRes = await fetch(`${rootUrl}/models`, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
+    const candidateUrls = [];
+    if (cleanEp.endsWith('.json')) {
+      candidateUrls.push(cleanEp);
+    } else {
+      candidateUrls.push(`${baseUrl}/models`);
+      candidateUrls.push(`${cleanEp}/models.json`);
+      candidateUrls.push(`${cleanEp}/api/v1/symbiont/models.json`);
+      candidateUrls.push(`${baseUrl}/models.json`);
+      candidateUrls.push(`${rootUrl}/models`);
     }
-    clearTimeout(timeoutId);
+
+    let modelsRes = null;
+    let authError = null;
+    let authStatus = null;
+
+    for (const testUrl of candidateUrls) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(testUrl, {
+          method: 'GET',
+          headers,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.status === 401 || res.status === 403) {
+          authError = `El endpoint de Termes requiere una clave de acceso (Auth Token).`;
+          authStatus = res.status;
+          continue;
+        }
+        if (res.ok) {
+          modelsRes = res;
+          break;
+        }
+      } catch {
+        // Continue to next candidate URL
+      }
+    }
 
     // 1. Auth required / forbidden
-    if (modelsRes.status === 401 || modelsRes.status === 403) {
+    if (authError && !modelsRes) {
       if (detectedInput) {
         detectedInput.value = '🔒 Requiere Auth Token';
         detectedInput.style.color = '#f87171';
@@ -1300,17 +1321,17 @@ async function detectTermesModels(forceToast = false) {
         alertEl.style.border = '1px solid #ef4444';
         alertEl.style.color = '#fca5a5';
         alertEl.innerHTML = `
-          <strong>🔒 Error de Autenticación (${modelsRes.status}):</strong> El endpoint de Termes requiere una clave de acceso (Auth Token) o la clave introducida es incorrecta. Introduce el token en el campo de arriba para verificar los modelos.
+          <strong>🔒 Error de Autenticación (${authStatus || 401}):</strong> El endpoint de Termes requiere una clave de acceso (Auth Token) o la clave introducida es incorrecta. Introduce el token en el campo de arriba para verificar los modelos.
         `;
       }
       if (forceToast) {
-        showCustomModal('🔒 Termes Requiere Autenticación', `El endpoint en "${endpoint}" respondió con HTTP ${modelsRes.status}.\n\nPor favor, introduce el token de acceso de Termes en el campo "Auth Token de Termes".`);
+        showCustomModal('🔒 Termes Requiere Autenticación', `El endpoint en "${endpoint}" requiere autenticación.\n\nPor favor, introduce el token de acceso de Termes en el campo "Auth Token de Termes".`);
       }
       return;
     }
 
-    if (!modelsRes.ok) {
-      throw new Error(`HTTP ${modelsRes.status}: ${modelsRes.statusText}`);
+    if (!modelsRes || !modelsRes.ok) {
+      throw new Error(`No se pudo resolver el catálogo de modelos en ${cleanEp}`);
     }
 
     const modelsData = await modelsRes.json();
