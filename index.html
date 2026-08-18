@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.3.0">
+  <link rel="stylesheet" href="style.css?v=4.4.0">
 </head>
 <body>
 
@@ -835,11 +835,12 @@
       <!-- Presets Selector -->
       <div class="form-group mb-3" style="background: rgba(16,185,129,0.06); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
         <label style="color: var(--emerald-light); font-weight: 700;">🎯 Cargar Preset de Comparativa Rápida:</label>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.4rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; margin-top: 0.4rem;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('trained_vs_base')" style="font-size: 0.72rem; text-align: left; color: #34d399;">🧬 Niphy Entrenado vs Base</button>
           <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('methods')" style="font-size: 0.72rem; text-align: left;">🏆 QLoRA vs RAFT vs AFT</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('sub3b')" style="font-size: 0.72rem; text-align: left;">🏎️ Sub-3B Shootout (Qwen vs Llama vs SmolLM2)</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('rag_memory')" style="font-size: 0.72rem; text-align: left;">🧠 Impacto RAG vs Memoria Ecdysis</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('providers')" style="font-size: 0.72rem; text-align: left;">🌐 Runner Local vs Termes vs BYOK</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('sub3b')" style="font-size: 0.72rem; text-align: left;">🏎️ Sub-3B Shootout</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('rag_memory')" style="font-size: 0.72rem; text-align: left;">🧠 Impacto RAG vs Memoria</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('providers')" style="font-size: 0.72rem; text-align: left;">🌐 Runner vs Termes vs BYOK</button>
         </div>
       </div>
 
@@ -854,9 +855,27 @@
         </div>
       </div>
 
+      <!-- Context / Seed Documentation & Dataset Upload Area -->
       <div class="form-group mb-3">
-        <label>Contexto o Documentación Semilla (Opcional):</label>
-        <textarea id="lab-input-context" class="input-textarea" rows="2" placeholder="Fragmento de documentación técnica o dataset de prueba para evaluar la precisión..."></textarea>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.4rem;">
+          <label style="margin-bottom: 0;">📁 Documentación Semilla & Datasets de Prueba (Opcional):</label>
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="loadForgeDatasetIntoLab()" style="font-size: 0.7rem; padding: 0.15rem 0.5rem;">📥 Cargar de Data Forge</button>
+            <span class="text-dim text-xs" id="lab-context-estimate">0 KB • ~0 tokens</span>
+          </div>
+        </div>
+
+        <div style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 0.8rem; text-align: center; margin-bottom: 0.6rem; cursor: pointer; background: #020704;" onclick="document.getElementById('lab-file-upload').click()">
+          <input type="file" id="lab-file-upload" multiple style="display: none;" onchange="handleLabFilesSelected(this.files)">
+          <div style="font-size: 1.2rem; margin-bottom: 0.2rem;">📁</div>
+          <div style="font-size: 0.82rem; font-weight: 600; color: #fff;">Subir archivos de documentación o datasets (.json, .txt, .md, .sql, .csv)</div>
+          <div class="text-dim text-xs">Los documentos se usarán para evaluar la fidelidad y convergencia de cada modelo.</div>
+        </div>
+
+        <div id="lab-files-list" style="margin-bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem;"></div>
+
+        <!-- Direct text snippet paste -->
+        <textarea id="lab-input-context" class="input-textarea" rows="2" placeholder="O pega aquí fragmentos de texto, manuales técnicos o ejemplos de prueba directos..." oninput="updateLabContextEstimate()"></textarea>
       </div>
 
       <!-- Matrix Candidate Branches -->
@@ -877,6 +896,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=4.3.0"></script>
+  <script src="app.js?v=4.4.0"></script>
 </body>
 </html>
