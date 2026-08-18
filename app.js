@@ -1238,6 +1238,18 @@ function populateBaseModelSelect(modelsList, selectedValue = '') {
 
 let termesDebounceTimer = null;
 
+function setTermesEndpointPreset(preset) {
+  const endpointInput = document.getElementById('nimphy-termes-endpoint');
+  if (!endpointInput) return;
+
+  if (preset === 'public') {
+    endpointInput.value = 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont';
+  } else if (preset === 'local') {
+    endpointInput.value = 'http://127.0.0.1:7420/v1';
+  }
+  detectTermesModels(true);
+}
+
 function onTermesEndpointInput() {
   clearTimeout(termesDebounceTimer);
   termesDebounceTimer = setTimeout(() => {
@@ -1251,8 +1263,27 @@ async function detectTermesModels(forceToast = false) {
   const detectedInput = document.getElementById('nimphy-termes-detected-provider');
   const alertEl = document.getElementById('nimphy-termes-status-alert');
 
-  const endpoint = endpointInput?.value?.trim() || 'http://127.0.0.1:7420/v1';
+  const endpoint = endpointInput?.value?.trim() || '';
   const apiKey = keyInput?.value?.trim() || '';
+
+  // If no endpoint is typed yet, show prompt without error
+  if (!endpoint) {
+    if (detectedInput) {
+      detectedInput.value = 'Introduce la URL del endpoint';
+      detectedInput.style.color = 'var(--text-dim)';
+    }
+    if (alertEl) {
+      alertEl.classList.remove('hidden');
+      alertEl.style.background = 'rgba(255,255,255,0.03)';
+      alertEl.style.border = '1px solid var(--border-subtle)';
+      alertEl.style.color = 'var(--text-dim)';
+      alertEl.innerHTML = `
+        ℹ️ Introduce la URL de tu instancia de Termes (ej: <code>http://127.0.0.1:7420/v1</code> o <code>https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont</code>) o haz clic en los botones superiores para cargar un preset.
+      `;
+    }
+    populateBaseModelSelect(TERMES_DEFAULT_MODELS);
+    return;
+  }
 
   const cleanEp = endpoint.replace(/\/+$/, '');
   const baseUrl = cleanEp.endsWith('/v1') ? cleanEp : `${cleanEp}/v1`;
@@ -1395,14 +1426,14 @@ async function detectTermesModels(forceToast = false) {
       alertEl.style.border = '1px solid rgba(234,179,8,0.3)';
       alertEl.style.color = '#fef08a';
       alertEl.innerHTML = `
-        <strong>⚠️ No se pudo conectar a Termes en ${endpoint}:</strong> ${err.message || 'Servidor offline'}. Verifica que Termes esté corriendo (<code>termes symbiont start</code>). Se han cargado los modelos estándar de respaldo.
+        <strong>⚠️ No se pudo conectar a Termes en ${endpoint}:</strong> ${err.message || 'Servidor offline'}. Si es local, verifica que Termes esté corriendo (<code>termes symbiont start</code>). Si es público, comprueba la URL. Se han cargado los modelos estándar de respaldo.
       `;
     }
 
     populateBaseModelSelect(TERMES_DEFAULT_MODELS);
 
     if (forceToast) {
-      showCustomModal('⚠️ Termes No Disponible', `No se pudo establecer conexión con "${endpoint}".\n\nError: ${err.message}\n\nAsegúrate de que el servidor Termes esté en ejecución.`);
+      showCustomModal('⚠️ Termes No Disponible', `No se pudo establecer conexión con "${endpoint}".\n\nError: ${err.message}\n\nAsegúrate de que el servidor Termes esté en ejecución o la URL sea accesible.`);
     }
   }
 }
