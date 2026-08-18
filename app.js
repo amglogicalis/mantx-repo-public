@@ -1243,7 +1243,7 @@ function setTermesEndpointPreset(preset) {
   if (!endpointInput) return;
 
   if (preset === 'public') {
-    endpointInput.value = 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont';
+    endpointInput.value = 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_flash.json';
   } else if (preset === 'local') {
     endpointInput.value = 'http://127.0.0.1:7420/v1';
   }
@@ -1278,7 +1278,7 @@ async function detectTermesModels(forceToast = false) {
       alertEl.style.border = '1px solid var(--border-subtle)';
       alertEl.style.color = 'var(--text-dim)';
       alertEl.innerHTML = `
-        ℹ️ Introduce la URL de tu instancia de Termes (ej: <code>http://127.0.0.1:7420/v1</code> o <code>https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont</code>) o haz clic en los botones superiores para cargar un preset.
+        ℹ️ Introduce la URL de tu endpoint de Termes (ej: <code>https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_flash.json</code> o <code>http://127.0.0.1:7420/v1</code>) o pulsa en los botones superiores para cargar un preset.
       `;
     }
     populateBaseModelSelect(TERMES_DEFAULT_MODELS);
@@ -1303,10 +1303,16 @@ async function detectTermesModels(forceToast = false) {
     const candidateUrls = [];
     if (cleanEp.endsWith('.json')) {
       candidateUrls.push(cleanEp);
+      if (cleanEp.includes('github.io')) {
+        const match = cleanEp.match(/https:\/\/([^.]+)\.github\.io\/([^/]+)\/(.+)/);
+        if (match) {
+          const [, owner, repo, pathPart] = match;
+          candidateUrls.push(`https://raw.githubusercontent.com/${owner}/${repo}/gh-pages/${pathPart}`);
+        }
+      }
     } else {
       candidateUrls.push(`${baseUrl}/models`);
       candidateUrls.push(`${cleanEp}/models.json`);
-      candidateUrls.push(`${cleanEp}/api/v1/symbiont/models.json`);
       candidateUrls.push(`${baseUrl}/models.json`);
       candidateUrls.push(`${rootUrl}/models`);
     }
@@ -1362,11 +1368,66 @@ async function detectTermesModels(forceToast = false) {
     }
 
     if (!modelsRes || !modelsRes.ok) {
-      throw new Error(`No se pudo resolver el catálogo de modelos en ${cleanEp}`);
+      throw new Error(`No se pudo resolver el catálogo o archivo JSON de configuración en ${cleanEp}`);
     }
 
-    const modelsData = await modelsRes.json();
-    const rawList = Array.isArray(modelsData.data) ? modelsData.data : (Array.isArray(modelsData) ? modelsData : []);
+    const payload = await modelsRes.json();
+
+    // ── CASE A: DEDICATED TERMES PUBLIC ENDPOINT JSON (Mono-Provider / Mono-Model) ──
+    if (payload.endpointId || (payload.defaultModel && (payload.providerChain || payload.fallbackChain))) {
+      const isAuthRequired = payload.authRequired || payload.apiKeyRequired || false;
+      if (isAuthRequired && (!apiKey || (payload.apiKey && apiKey !== payload.apiKey))) {
+        if (detectedInput) {
+          detectedInput.value = '🔒 Requiere Auth Token';
+          detectedInput.style.color = '#f87171';
+        }
+        if (alertEl) {
+          alertEl.classList.remove('hidden');
+          alertEl.style.background = 'rgba(239,68,68,0.12)';
+          alertEl.style.border = '1px solid #ef4444';
+          alertEl.style.color = '#fca5a5';
+          alertEl.innerHTML = `<strong>🔒 Error de Autenticación:</strong> Este endpoint dedicado de Termes (${payload.name || payload.endpointId}) requiere un Auth Token válido.`;
+        }
+        if (forceToast) {
+          showCustomModal('🔒 Auth Token Requerido', `El endpoint "${payload.name || payload.endpointId}" tiene autenticación obligatoria. Introduce la clave en el campo correspondiente.`);
+        }
+        return;
+      }
+
+      const defaultModel = payload.defaultModel || 'gemini-2.5-flash';
+      const providerName = payload.fallbackChain?.[0]?.provider || payload.providerChain?.[0] || 'Google Gemini Web';
+      const dynamicModels = [
+        {
+          id: defaultModel,
+          name: `${defaultModel} (${providerName} — Mono-Modelo)`
+        }
+      ];
+
+      if (detectedInput) {
+        detectedInput.value = `🟢 Termes Online (${providerName} — Mono-Modelo)`;
+        detectedInput.style.color = 'var(--emerald-light)';
+      }
+
+      if (alertEl) {
+        alertEl.classList.remove('hidden');
+        alertEl.style.background = 'rgba(16,185,129,0.08)';
+        alertEl.style.border = '1px solid var(--emerald-main)';
+        alertEl.style.color = '#a7f3d0';
+        alertEl.innerHTML = `
+          <strong>✔ Endpoint Dedicado Mono-Modelo:</strong> Modelo base <code>${defaultModel}</code> vinculado al proveedor <code>${providerName}</code>.
+        `;
+      }
+
+      populateBaseModelSelect(dynamicModels, defaultModel);
+
+      if (forceToast) {
+        showCustomModal('🟢 Termes Endpoint Conectado', `Se detectó correctamente el endpoint dedicado:\n\n• Nombre: ${payload.name || payload.endpointId}\n• Modelo Base: ${defaultModel}\n• Proveedor: ${providerName}\n• Modo: Mono-Modelo Estricto`);
+      }
+      return;
+    }
+
+    // ── CASE B: MULTI-MODEL OR STANDARD OPENAI-COMPATIBLE GATEWAY ──
+    const rawList = Array.isArray(payload.data) ? payload.data : (Array.isArray(payload) ? payload : []);
 
     const dynamicModels = rawList.map(m => {
       const id = typeof m === 'string' ? m : (m.id || m.name || 'unknown-model');

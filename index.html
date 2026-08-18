@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5.1.0">
+  <link rel="stylesheet" href="style.css?v=5.2.0">
 </head>
 <body>
 
@@ -805,12 +805,12 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.4rem;">
           <label style="color: var(--emerald-light); font-weight: 700; margin-bottom: 0;">🌐 Endpoint de Termes Symbiont (Local o Público en Internet):</label>
           <div style="display: flex; gap: 0.3rem;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="setTermesEndpointPreset('public')" style="font-size: 0.68rem; padding: 0.15rem 0.4rem;">🌐 Usar Termes Público CDN</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="setTermesEndpointPreset('public')" style="font-size: 0.68rem; padding: 0.15rem 0.4rem;">🌐 Usar Termes Público CDN (Mono-Modelo)</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="setTermesEndpointPreset('local')" style="font-size: 0.68rem; padding: 0.15rem 0.4rem;">🖥️ Usar Local</button>
           </div>
         </div>
         <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-          <input type="text" id="nimphy-termes-endpoint" class="input-text" placeholder="Ej: https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont o http://127.0.0.1:7420/v1" value="" oninput="onTermesEndpointInput()">
+          <input type="text" id="nimphy-termes-endpoint" class="input-text" placeholder="Ej: https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_flash.json o http://127.0.0.1:7420/v1" value="" oninput="onTermesEndpointInput()">
           <button type="button" id="btn-detect-termes" class="btn btn-secondary btn-sm" onclick="detectTermesModels(true)">🔍 Detectar</button>
         </div>
         <div class="grid-2 mb-2" style="font-size: 0.8rem;">
@@ -1209,6 +1209,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=5.1.0"></script>
+  <script src="app.js?v=5.2.0"></script>
 </body>
 </html>
