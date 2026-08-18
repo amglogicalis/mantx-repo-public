@@ -2121,26 +2121,6 @@ function updateLabContextEstimate() {
   }
 }
 
-function loadForgeDatasetIntoLab() {
-  if (!currentGeneratedDataset || !currentGeneratedDataset.samples) {
-    showCustomModal('⚠️ Sin Dataset en Forge', 'Genera primero un dataset en la pestaña Synthetic Data Forge para poder inyectarlo en el laboratorio.');
-    return;
-  }
-
-  const jsonContent = JSON.stringify(currentGeneratedDataset.samples, null, 2);
-  const fileName = `${currentGeneratedDataset.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}.json`;
-  
-  uploadedLabFiles.push({
-    name: fileName,
-    size: jsonContent.length,
-    content: jsonContent
-  });
-
-  renderLabFilesList();
-  updateLabContextEstimate();
-  showCustomModal('📥 Dataset Cargado en Laboratorio', `Se ha inyectado el dataset "${currentGeneratedDataset.name}" (${currentGeneratedDataset.count} muestras) en la matriz de evaluación.`);
-}
-
 function applyLabPreset(type) {
   const container = document.getElementById('lab-candidates-container');
   const nameInput = document.getElementById('lab-input-name');
