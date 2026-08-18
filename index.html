@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.5.0">
+  <link rel="stylesheet" href="style.css?v=4.6.0">
 </head>
 <body>
 
@@ -188,7 +188,7 @@
           </div>
         </div>
 
-        <div class="panel-card">
+        <div class="panel-card mb-4">
           <div class="panel-title">🚀 Flujo Rápido Recomendado para Principiantes</div>
           <div class="grid-3" style="font-size: 0.82rem; color: var(--text-dim);">
             <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px;">
@@ -203,6 +203,101 @@
               <strong style="color: #fff;">Paso 3: Enfrenta Modelos</strong><br>
               En <strong>Deimatic Battles</strong>, lanza un enfrentamiento entre tu modelo favorito y un rival para verificar la calidad antes del despliegue.
             </div>
+          </div>
+        </div>
+
+        <!-- GUÍA DE ENTRENAMIENTO & BUENAS PRÁCTICAS -->
+        <div class="panel-card mb-4" style="border-left: 4px solid var(--emerald-main);">
+          <div class="panel-title" style="font-size: 1.15rem; color: #fff; margin-bottom: 0.4rem;">
+            📚 Guía de Entrenamiento: Archivos, Requisitos y Buenas Prácticas
+          </div>
+          <p class="text-dim text-sm mb-4">
+            Cada método de entrenamiento persigue un objetivo distinto. Conoce qué archivos necesitas como mínimo, cuál es la combinación óptima para lograr la máxima precisión y qué errores comunes debes evitar.
+          </p>
+
+          <!-- 1. REQUISITOS POR MÉTODO -->
+          <h4 style="color: var(--emerald-light); font-size: 0.92rem; margin-bottom: 0.8rem;">📦 Requisitos de Entrada por Tipo de Entrenamiento:</h4>
+          <div class="grid-2 mb-4" style="gap: 0.8rem;">
+            
+            <!-- LoRA / QLoRA -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <strong style="color: #fff; font-size: 0.9rem;">1. QLoRA / LoRA (PEFT Clásico)</strong>
+                <span class="badge badge-emerald" style="font-size: 0.65rem;">Instrucciones / SFT</span>
+              </div>
+              <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
+                • <strong style="color: #fff;">Mínimo Requerido:</strong> Un <strong>Dataset estructurado</strong> (.json) con pares de <code>instruction</code> / <code>output</code> (formato Alpaca o ShareGPT).<br>
+                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Entre 500 y 3.000 ejemplos de alta diversidad con razonamiento paso a paso (Chain of Thought). Si subes documentos, se procesarán como adaptación de dominio continua, pero la capacidad dialógica la aportará el dataset.
+              </div>
+            </div>
+
+            <!-- RAFT -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <strong style="color: #fff; font-size: 0.9rem;">2. RAFT (Retrieval-Augmented Fine-Tuning)</strong>
+                <span class="badge" style="font-size: 0.65rem; background: rgba(6,182,212,0.15); color: #38bdf8;">Lectura de Documentos</span>
+              </div>
+              <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
+                • <strong style="color: #fff;">Mínimo Requerido:</strong> <strong>Dataset (.json) + Documentos (.md, .txt, .pdf, .sql)</strong>. Ambos son indispensables.<br>
+                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Documentos técnicos bien estructurados por secciones, acompañados de preguntas del dataset que requieran consultar y citar fragmentos de esos documentos para responder correctamente.
+              </div>
+            </div>
+
+            <!-- Graph RAG / Ecdysis Memory -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <strong style="color: #fff; font-size: 0.9rem;">3. Graph RAG (Arzor) & Memoria Ecdysis</strong>
+                <span class="badge" style="font-size: 0.65rem; background: rgba(168,85,247,0.15); color: #c084fc;">Cero Alucinaciones</span>
+              </div>
+              <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
+                • <strong style="color: #fff;">Mínimo Requerido:</strong> <strong>Documentos crudos, especificaciones, código o manuales</strong>. No requiere dataset de QA.<br>
+                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Archivos ricos en entidades técnicas, tablas, esquemas y relaciones lógicas. El motor extrae el grafo semántico y genera embeddings para consulta viva en inferencia.
+              </div>
+            </div>
+
+            <!-- AFT -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <strong style="color: #fff; font-size: 0.9rem;">4. AFT (Attention Feature Transfer)</strong>
+                <span class="badge" style="font-size: 0.65rem; background: rgba(234,179,8,0.15); color: #fde047;">Destilación de Atención</span>
+              </div>
+              <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
+                • <strong style="color: #fff;">Mínimo Requerido:</strong> <strong>Corpus de texto o tokens de dominio</strong> + Modelo Maestro.<br>
+                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Gran volumen de texto plano representativo del dominio para que el modelo estudiante reproduzca los mapas de atención del modelo de mayor tamaño.
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 2. BUENAS Y MALAS PRÁCTICAS -->
+          <div class="grid-2" style="gap: 1rem;">
+            
+            <!-- BUENAS PRÁCTICAS -->
+            <div style="background: rgba(16,185,129,0.04); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 1rem;">
+              <h4 style="color: var(--emerald-light); font-size: 0.88rem; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                <span>✔</span> Buenas Prácticas Recomendadas
+              </h4>
+              <ul style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); padding-left: 1.1rem; margin-bottom: 0;">
+                <li><strong style="color: #fff;">Calidad sobre Cantidad:</strong> 500 ejemplos limpios con explicaciones detalladas superan a 20.000 ejemplos breves, ruidosos o repetitivos.</li>
+                <li><strong style="color: #fff;">Estructura de Salida Homogénea:</strong> Si entrenas un modelo para programar, asegúrate de que todos los outputs del dataset sigan el mismo formato de markdown y comentarios.</li>
+                <li><strong style="color: #fff;">Habilitar Graph RAG para Datos Exactos:</strong> Si tu modelo debe manejar esquemas SQL, números de versión o sintaxis estricta, activa siempre Graph RAG para evitar alucinaciones.</li>
+                <li><strong style="color: #fff;">Validar en el Laboratorio:</strong> Antes de desplegar, pasa tu configuración por <em>Nimphys Laboratory Matrix</em> para certificar que el Loss converge por debajo de 0.50 y el score supera 90/100.</li>
+              </ul>
+            </div>
+
+            <!-- MALAS PRÁCTICAS -->
+            <div style="background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 1rem;">
+              <h4 style="color: #f87171; font-size: 0.88rem; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                <span>✘</span> Malas Prácticas a Evitar
+              </h4>
+              <ul style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); padding-left: 1.1rem; margin-bottom: 0;">
+                <li><strong style="color: #fff;">Entrenar LoRA solo con Documentos Crudos:</strong> Pasar PDFs o texto plano sin dataset de preguntas/respuestas creará un modelo que memoriza frases pero no sabe responder preguntas ni seguir instrucciones.</li>
+                <li><strong style="color: #fff;">Respuestas Telegráficas o Vacías:</strong> Evita datasets con respuestas como "OK", "Sí" o código sin contexto, ya que dañan la coherencia del modelo.</li>
+                <li><strong style="color: #fff;">Sobreajuste (Overfitting):</strong> Entrenar demasiados pasos sobre datasets muy pequeños provocará que el modelo solo memorice de memoria y falle ante preguntas nuevas.</li>
+                <li><strong style="color: #fff;">Confiar en PEFT Puro para Datos Numéricos Críticos:</strong> La memoria paramétrica es difusa; para constantes, endpoints o documentación cambiante, usa siempre RAG o Memoria Ecdysis.</li>
+              </ul>
+            </div>
+
           </div>
         </div>
       </section>
@@ -893,6 +988,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=4.5.0"></script>
+  <script src="app.js?v=4.6.0"></script>
 </body>
 </html>
