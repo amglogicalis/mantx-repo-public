@@ -327,7 +327,7 @@ async function loadVaultData() {
   renderIntelligenceHistory();
 }
 
-// ─── CUSTOM STYLED MODALS (REEMPLAZO DE ALERT / PROMPT) ────────
+// ─── CUSTOM STYLED MODALS (REEMPLAZO DE ALERT / PROMPT / CONFIRM) ────────
 function showCustomModal(title, content) {
   const modal = document.getElementById('info-modal');
   const titleEl = document.getElementById('info-modal-title');
@@ -341,6 +341,55 @@ function showCustomModal(title, content) {
 function closeCustomModal() {
   const modal = document.getElementById('info-modal');
   if (modal) modal.classList.add('hidden');
+}
+
+let customConfirmResolver = null;
+
+function showCustomConfirm(options = {}) {
+  const {
+    title = '🗑️ Confirmar Eliminación',
+    message = '¿Estás seguro de que deseas realizar esta acción? Esta operación no se puede deshacer.',
+    confirmText = 'Eliminar',
+    cancelText = 'Cancelar',
+    isDanger = true
+  } = options;
+
+  const modal = document.getElementById('confirm-modal');
+  const titleEl = document.getElementById('confirm-modal-title');
+  const bodyEl = document.getElementById('confirm-modal-body');
+  const btnOk = document.getElementById('confirm-modal-btn-ok');
+  const btnCancel = document.getElementById('confirm-modal-btn-cancel');
+
+  if (titleEl) {
+    titleEl.textContent = title;
+    titleEl.style.color = isDanger ? '#f87171' : 'var(--emerald-light)';
+  }
+  if (bodyEl) {
+    bodyEl.innerHTML = message;
+  }
+  if (btnOk) {
+    btnOk.textContent = confirmText;
+    btnOk.style.background = isDanger ? '#ef4444' : 'var(--emerald-main)';
+    btnOk.style.borderColor = isDanger ? '#dc2626' : 'var(--emerald-dark)';
+  }
+  if (btnCancel) {
+    btnCancel.textContent = cancelText;
+  }
+
+  if (modal) modal.classList.remove('hidden');
+
+  return new Promise((resolve) => {
+    customConfirmResolver = resolve;
+  });
+}
+
+function closeCustomConfirm(result) {
+  const modal = document.getElementById('confirm-modal');
+  if (modal) modal.classList.add('hidden');
+  if (customConfirmResolver) {
+    customConfirmResolver(Boolean(result));
+    customConfirmResolver = null;
+  }
 }
 
 function copyInfoContent() {
@@ -714,6 +763,16 @@ async function deleteAkgKey(poolId, keyId) {
   const pool = akgPools.find(p => p.poolId === poolId);
   if (!pool || !pool.keys) return;
 
+  const key = pool.keys.find(k => k.keyId === keyId);
+  const confirmed = await showCustomConfirm({
+    title: `🗑️ Eliminar Clave API`,
+    message: `<p style="color: #fff;">¿Deseas eliminar la clave <strong>"${key?.alias || keyId}"</strong> del pool "${pool.name}"?</p>`,
+    confirmText: '🗑️ Eliminar Clave',
+    cancelText: 'Cancelar',
+    isDanger: true
+  });
+  if (!confirmed) return;
+
   pool.keys = pool.keys.filter(k => k.keyId !== keyId);
   renderAkgPools();
   await saveAkgPoolsToVault();
@@ -734,6 +793,20 @@ async function toggleAkgKeyActive(poolId, keyId) {
 async function deleteAkgPool(poolId) {
   const pool = akgPools.find(p => p.poolId === poolId);
   if (!pool) return;
+
+  const confirmed = await showCustomConfirm({
+    title: `🗑️ Eliminar Pool: ${pool.name}`,
+    message: `
+      <p style="margin-bottom: 0.8rem; color: #fff;">¿Estás seguro de que deseas eliminar el pool <strong>"${pool.name}"</strong>?</p>
+      <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: #fca5a5;">
+        ⚠️ Esta acción eliminará el pool y todas sus ${pool.keys?.length || 0} API keys asociadas.
+      </div>
+    `,
+    confirmText: '🗑️ Sí, Eliminar Pool',
+    cancelText: 'Cancelar',
+    isDanger: true
+  });
+  if (!confirmed) return;
 
   akgPools = akgPools.filter(p => p.poolId !== poolId);
   renderAkgPools();
@@ -1928,7 +2001,19 @@ function renderNimphysCatalog() {
 }
 
 async function deleteNimphy(nimphyId, name) {
-  const confirmed = confirm(`¿Estás seguro de que deseas eliminar el Niphy "${name || nimphyId}"?\n\nEsta acción eliminará el registro del catálogo y todas sus versiones asociadas.`);
+  const confirmed = await showCustomConfirm({
+    title: `🗑️ Eliminar Niphy: ${name || nimphyId}`,
+    message: `
+      <p style="margin-bottom: 0.8rem; color: #fff;">¿Estás seguro de que deseas eliminar el Niphy <strong>"${name || nimphyId}"</strong>?</p>
+      <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: #fca5a5;">
+        ⚠️ Esta acción eliminará permanentemente el registro del catálogo y todas sus versiones de pesos y memoria asociadas en <code>.mantx-storage</code>.
+      </div>
+    `,
+    confirmText: '🗑️ Sí, Eliminar Niphy',
+    cancelText: 'Cancelar',
+    isDanger: true
+  });
+
   if (!confirmed) return;
 
   const idx = nimphysList.findIndex(item => item.nimphyId === nimphyId);
@@ -1937,7 +2022,7 @@ async function deleteNimphy(nimphyId, name) {
     renderNimphysCatalog();
     renderDashboardStats();
     await saveNimphysToVault();
-    showCustomModal('🗑️ Niphy Eliminado', `El Niphy "${name || nimphyId}" ha sido eliminado exitosamente del catálogo y de la memoria.`);
+    showCustomModal('🗑️ Niphy Eliminado', `El Niphy "${name || nimphyId}" ha sido eliminado exitosamente del catálogo.`);
   }
 }
 
