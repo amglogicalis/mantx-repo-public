@@ -855,43 +855,7 @@ async function verifyHfToken() {
   }
 }
 
-// ─── SEEDS PROMPT GUIDE MODAL ─────────────────────────────────
-function openSeedsGuideModal() {
-  const modal = document.getElementById('seeds-guide-modal');
-  const promptArea = document.getElementById('seeds-guide-prompt');
-  const rawObj = document.getElementById('forge-obj')?.value?.trim();
-  const obj = rawObj || 'Optimización de índices B-Tree y consultas EXPLAIN en PostgreSQL';
 
-  if (promptArea) {
-    promptArea.value = `Actúa como un sintetizador experto de datasets de IA para fine-tuning.
-Mi objetivo de entrenamiento es: "${obj}".
-
-Genera 5 ejemplos de alta calidad, diversos y con casos frontera en formato JSON estricto con el siguiente esquema:
-[
-  {
-    "instruction": "Instrucción clara y directa para el modelo",
-    "input": "Contexto opcional o dejar vacío",
-    "output": "Respuesta detallada, precisa y formateada con buenas prácticas"
-  }
-]`;
-  }
-
-  if (modal) modal.classList.remove('hidden');
-}
-
-function closeSeedsGuideModal() {
-  const modal = document.getElementById('seeds-guide-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-function copySeedsPrompt() {
-  const promptArea = document.getElementById('seeds-guide-prompt');
-  if (promptArea) {
-    navigator.clipboard.writeText(promptArea.value);
-    showCustomModal('📋 Copiado al Portapapeles', 'Pega este prompt en ChatGPT o Claude, y copia la salida JSON de vuelta en MANTX Synthetic Data Forge.');
-    closeSeedsGuideModal();
-  }
-}
 
 // ─── TAB NAVIGATION ───────────────────────────────────────────
 function switchTab(tabId) {
@@ -3077,6 +3041,137 @@ function handleAftFileImport(files) {
     }
   };
   reader.readAsText(file);
+}
+
+// ─── SEEDS GUIDE MODAL (DATASET & AFT PROMPTS) ───────────────
+const SEEDS_DATASET_PROMPT = `Actúa como un Ingeniero Líder de Datos Sintéticos para Fine-Tuning de LLMs (QLoRA / SFT / RAFT).
+Tu objetivo es generar un dataset de entrenamiento de máxima calidad técnica y libre de ruido para especializar un modelo.
+
+DOMINIO / TEMA DE ESPECIALIZACIÓN:
+[Escribe aquí tu dominio, p. ej.: Optimización de consultas SQL, análisis de planes EXPLAIN ANALYZE y tuning en PostgreSQL]
+
+REGLAS OBLIGATORIAS:
+1. Devuelve ÚNICAMENTE un array JSON válido, sin bloques de markdown adicionales ni explicaciones previas/posteriores.
+2. Genera entre 15 y 30 ejemplos técnicos profundos, heterogéneos y realistas.
+3. Cada ejemplo debe seguir esta estructura exacta:
+[
+  {
+    "instruction": "Pregunta técnica compleja, caso de uso real o problema de arquitectura",
+    "input": "Código, consulta SQL, logs o contexto adicional relevante (o cadena vacía si no aplica)",
+    "output": "Respuesta exhaustiva de nivel Senior/Staff Engineer, explicando el por qué de la solución, los riesgos de producción y justificaciones arquitectónicas",
+    "reasoning": "Cadena de razonamiento interno (Chain-of-Thought) que fundamenta la solución"
+  }
+]
+4. Prohibido usar placeholders ("[aquí]", "...", "TODO"), respuestas cortas o ejemplos triviales.`;
+
+const SEEDS_AFT_PROMPT = `Eres el Compilador Canónico AFT (Adaptive Fractal Tuning) para la plataforma Mantx.
+Tu objetivo exclusivo es transformar la descripción de un agente en un Perfil AFT estructurado en 5 capas fractales de máxima calidad técnica.
+
+DATOS DEL AGENTE:
+- Nombre: [Nombre del Agente]
+- Especialidad / Dominio: [Describe aquí la especialidad y funciones del agente]
+- Idioma: español
+
+REGLAS ABSOLUTAS:
+1. Responde ÚNICAMENTE con un objeto JSON válido (sin texto extra ni markdown).
+2. El JSON debe seguir estrictamente este schema canónico:
+{
+  "aft_version": "1.0",
+  "system_instructions": "Prompt maestro completo (mínimo 400 caracteres). Define la identidad del agente, mentalidad de arquitecto sénior, resolución de casos borde, justificación técnica obligatoria y evaluación de riesgos de producción.",
+  "behavior_examples": [
+    {
+      "input": "Pregunta real y específica del dominio (mínimo 10 caracteres)",
+      "output": "Respuesta experta y completa demostrando análisis de impacto, arquitectura y buenas prácticas (mínimo 40 caracteres)",
+      "reasoning": "Justificación interna de por qué esta solución es la idónea"
+    }
+    // EXACTAMENTE 12 ejemplos reales, variados y sin duplicados ni placeholders
+  ],
+  "style_rules": {
+    "tone": "Técnico, riguroso, analítico y preciso",
+    "response_format": "Markdown estructurado con bloques de código tipados",
+    "verbosity": "detallado",
+    "code_style": "Convenciones estrictas del lenguaje con tipado y manejo de errores",
+    "custom_rules": [
+      "Justificar siempre las decisiones a nivel de arquitectura",
+      "Evaluar riesgos de concurrencia y límites de escalabilidad",
+      "Explicar por qué fallarían las alternativas descartadas"
+    ]
+  },
+  "domain_constraints": {
+    "allowed_topics": ["Tema 1", "Tema 2", "Tema 3"],
+    "forbidden_topics": ["Tema fuera de alcance 1", "Tema fuera de alcance 2"],
+    "expertise_level": "senior",
+    "preferred_sources": ["Documentación oficial", "RFCs", "Código fuente del kernel/framework"],
+    "language": "español",
+    "out_of_scope_response": "Mi especialización está estrictamente limitada a este dominio técnico. No puedo responder consultas fuera de este alcance."
+  },
+  "retrieval_profile": {
+    "trigger_keywords": ["palabra1", "palabra2", "palabra3", "palabra4", "palabra5"],
+    "always_retrieve": false,
+    "top_k": 5,
+    "context_injection": "prefix",
+    "relevance_threshold": 0.6
+  }
+}
+3. No uses ningún placeholder ("...", "[aquí]", "<tag>"). Cada campo debe contener texto técnico real y pulido.`;
+
+function openSeedsGuideModal() {
+  const modal = document.getElementById('seeds-guide-modal');
+  if (!modal) return;
+
+  const datasetEl = document.getElementById('seeds-guide-prompt-dataset');
+  if (datasetEl) datasetEl.value = SEEDS_DATASET_PROMPT;
+
+  const aftEl = document.getElementById('seeds-guide-prompt-aft');
+  if (aftEl) aftEl.value = SEEDS_AFT_PROMPT;
+
+  switchSeedsTab('dataset');
+  modal.classList.remove('hidden');
+}
+
+function closeSeedsGuideModal() {
+  const modal = document.getElementById('seeds-guide-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function switchSeedsTab(tabName) {
+  const isDataset = tabName === 'dataset';
+  const panelDataset = document.getElementById('seeds-content-dataset');
+  const panelAft = document.getElementById('seeds-content-aft');
+  const btnDataset = document.getElementById('seeds-tab-btn-dataset');
+  const btnAft = document.getElementById('seeds-tab-btn-aft');
+
+  if (panelDataset) panelDataset.classList.toggle('hidden', !isDataset);
+  if (panelAft) panelAft.classList.toggle('hidden', isDataset);
+
+  if (btnDataset) {
+    btnDataset.classList.toggle('active', isDataset);
+    btnDataset.style.borderColor = isDataset ? 'var(--emerald-main)' : 'var(--border-subtle)';
+    btnDataset.style.color = isDataset ? 'var(--emerald-light)' : 'var(--text-dim)';
+  }
+  if (btnAft) {
+    btnAft.classList.toggle('active', !isDataset);
+    btnAft.style.borderColor = !isDataset ? '#fde047' : 'var(--border-subtle)';
+    btnAft.style.color = !isDataset ? '#fde047' : 'var(--text-dim)';
+  }
+}
+
+function copyDatasetPrompt() {
+  const promptText = document.getElementById('seeds-guide-prompt-dataset')?.value || SEEDS_DATASET_PROMPT;
+  navigator.clipboard.writeText(promptText).then(() => {
+    showCustomModal('📋 Prompt de Dataset Copiado', 'Pégalo en ChatGPT, Claude o Gemini para generar tu archivo .json de entrenamiento.');
+  }).catch(() => {
+    showCustomModal('📋 Prompt de Dataset', 'Selecciona el texto y usa Ctrl+C para copiar.');
+  });
+}
+
+function copyAftPrompt() {
+  const promptText = document.getElementById('seeds-guide-prompt-aft')?.value || SEEDS_AFT_PROMPT;
+  navigator.clipboard.writeText(promptText).then(() => {
+    showCustomModal('🧬 Prompt Canónico AFT Copiado', 'Pégalo en cualquier IA externa para generar tu perfil AFT en 5 capas fractales listo para importar.');
+  }).catch(() => {
+    showCustomModal('🧬 Prompt Canónico AFT', 'Selecciona el texto y usa Ctrl+C para copiar.');
+  });
 }
 
 // ─── STARTUP ──────────────────────────────────────────────────

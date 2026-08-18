@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4.7.0">
+  <link rel="stylesheet" href="style.css?v=4.8.0">
 </head>
 <body>
 
@@ -719,20 +719,50 @@
 
   <!-- CUSTOM SEEDS GUIDE MODAL -->
   <div id="seeds-guide-modal" class="modal-backdrop hidden">
-    <div class="modal-card" style="max-width: 650px;">
+    <div class="modal-card" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
       <div class="modal-header">
-        <h3>📋 Guía de Semillas para IAs Externas (ChatGPT / Claude / Gemini)</h3>
+        <div>
+          <h3>📋 Guía de Semillas con IA Externa (ChatGPT / Claude / Gemini / DeepSeek)</h3>
+          <p class="text-dim text-xs">Copia y pega estos meta-prompts estructurados para obtener datasets o perfiles AFT con calidad de producción.</p>
+        </div>
         <button class="btn-close" onclick="closeSeedsGuideModal()">✕</button>
       </div>
-      <p class="text-dim text-sm mb-3">
-        Usa estos prompts listos para copiar y pegarlos en ChatGPT o Claude para obtener tus primeras 5 muestras de alta fidelidad:
-      </p>
-      <div class="form-group mb-2">
-        <label>Prompt para ChatGPT / Gemini / Claude:</label>
-        <textarea id="seeds-guide-prompt" class="input-textarea" rows="5" readonly></textarea>
+
+      <!-- Seeds Guide Navigation Tabs -->
+      <div style="display: flex; gap: 0.4rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1rem; padding-bottom: 0.4rem;">
+        <button type="button" class="btn btn-outline btn-sm seeds-tab-btn active" id="seeds-tab-btn-dataset" onclick="switchSeedsTab('dataset')" style="font-size: 0.78rem;">📂 1. Prompt para Crear Dataset QA (.json)</button>
+        <button type="button" class="btn btn-outline btn-sm seeds-tab-btn" id="seeds-tab-btn-aft" onclick="switchSeedsTab('aft')" style="font-size: 0.78rem;">🧬 2. Prompt para Crear Perfil AFT JSON</button>
       </div>
-      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
-        <button class="btn btn-secondary btn-sm" onclick="copySeedsPrompt()">📋 Copiar Prompt</button>
+
+      <!-- Tab 1: Dataset Prompt -->
+      <div id="seeds-content-dataset" class="seeds-content-panel">
+        <div class="form-group mb-2">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+            <label style="color: var(--emerald-light); font-weight: 600; margin-bottom: 0;">Prompt para Generar Dataset QA de Alta Fidelidad (Alpaca / CoT):</label>
+            <button class="btn btn-outline btn-sm" onclick="copyDatasetPrompt()" style="font-size: 0.72rem;">📋 Copiar Prompt</button>
+          </div>
+          <textarea id="seeds-guide-prompt-dataset" class="input-textarea" rows="12" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: #020704;"></textarea>
+        </div>
+        <div style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.74rem; color: var(--text-dim);">
+          💡 <strong>Cómo usarlo:</strong> Copia este prompt, sustituye la sección <code>[DOMINIO / TEMA]</code> con tu caso de uso y pégalo en ChatGPT o Claude. Guarda la respuesta como archivo <code>.json</code> y súbelo a Mantx.
+        </div>
+      </div>
+
+      <!-- Tab 2: AFT JSON Prompt -->
+      <div id="seeds-content-aft" class="seeds-content-panel hidden">
+        <div class="form-group mb-2">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+            <label style="color: #fde047; font-weight: 600; margin-bottom: 0;">Prompt Compilador para Generar Perfil Canónico AFT (5 Capas Fractales):</label>
+            <button class="btn btn-outline btn-sm" onclick="copyAftPrompt()" style="font-size: 0.72rem;">📋 Copiar Prompt AFT</button>
+          </div>
+          <textarea id="seeds-guide-prompt-aft" class="input-textarea" rows="12" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: #020704;"></textarea>
+        </div>
+        <div style="background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.2); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.74rem; color: var(--text-dim);">
+          💡 <strong>Cómo usarlo:</strong> Pega este meta-prompt en cualquier IA avanzada indicando el nombre y dominio de tu agente. La IA te entregará el JSON canónico con las 5 capas que podrás importar en el <em>AFT Visual Studio</em> o subir directamente como documento.
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem;">
         <button class="btn btn-primary btn-sm" onclick="closeSeedsGuideModal()">Entendido</button>
       </div>
     </div>
@@ -1170,6 +1200,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=4.7.0"></script>
+  <script src="app.js?v=4.8.0"></script>
 </body>
 </html>
