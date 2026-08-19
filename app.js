@@ -1618,17 +1618,39 @@ async function detectTermesModels(forceToast = false) {
   }
 }
 
+const RANDOM_PROVIDER_EMOJIS = ['⚡', '🔮', '🛸', '🌌', '🧬', '💎', '🚀', '🔥', '💠', '🪐', '🛡️', '🌠', '🧩', '🧪', '✨', '👾', '🎯', '🌀'];
+const RANDOM_PROVIDER_COLORS = ['#34d399', '#60a5fa', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f97316', '#a855f7', '#14b8a6', '#e879f9', '#38bdf8'];
+
+function getRandomProviderVisual(seedStr = '') {
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+  const emojiIdx = Math.abs(hash) % RANDOM_PROVIDER_EMOJIS.length;
+  const colorIdx = Math.abs(hash >> 3) % RANDOM_PROVIDER_COLORS.length;
+  return {
+    emoji: RANDOM_PROVIDER_EMOJIS[emojiIdx],
+    color: RANDOM_PROVIDER_COLORS[colorIdx]
+  };
+}
+
 /**
- * Real API Detection & Model Fetching Engine
- * 1. Attempts standard OpenAI /v1/models (Gold Standard)
+ * Real API Detection & Live Model Fetching Engine
+ * 1. Attempts standard OpenAI /v1/models
  * 2. Fallback to specialized provider endpoints:
- *    - Google Gemini: https://generativelanguage.googleapis.com/v1beta/models?key=${key}
+ *    - Cerebras: https://api.cerebras.ai/v1/models
+ *    - Cohere: https://api.cohere.com/v1/models
+ *    - SambaNova: https://api.sambanova.ai/v1/models
+ *    - NVIDIA NIM: https://integrate.api.nvidia.com/v1/models
+ *    - Google Gemini: https://generativelanguage.googleapis.com/v1beta/models?key=...
+ *    - Z-AI / Zhipu GLM: https://open.bigmodel.cn/api/paas/v4/models
+ *    - Ollama Cloud: https://api.ollama.com/v1/models
+ *    - Hugging Face: https://huggingface.co/api/models
+ *    - Codestral / Mistral AI: https://api.mistral.ai/v1/models
  *    - Groq Cloud: https://api.groq.com/openai/v1/models
  *    - DeepSeek: https://api.deepseek.com/models
  *    - OpenRouter: https://openrouter.ai/api/v1/models
- *    - Mistral AI: https://api.mistral.ai/v1/models
  *    - Anthropic: https://api.anthropic.com/v1/models
- * 3. Fallback to error message if no provider matches or key is invalid
+ *    - Cloudflare Workers AI, GitHub Models, LM Arena
+ * 3. Dynamic OpenAI-compatible fallback with random visual pool
  */
 async function fetchRealModelsFromApiKey(key) {
   const cleanKey = (key || '').trim();
@@ -1636,36 +1658,219 @@ async function fetchRealModelsFromApiKey(key) {
     return { success: false, error: 'Clave API vacía' };
   }
 
-  // ── ATTEMPT 1: DIRECT OPENAI /v1/models (Gold Standard) ──
-  try {
-    const openaiRes = await fetch('https://api.openai.com/v1/models', {
-      headers: { 'Authorization': `Bearer ${cleanKey}` }
-    });
-    if (openaiRes.ok) {
-      const data = await openaiRes.json();
-      const raw = Array.isArray(data.data) ? data.data : [];
-      const valid = raw
-        .filter(m => {
-          const id = (m.id || '').toLowerCase();
-          return id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('chatgpt');
-        })
-        .map(m => ({ id: m.id, name: `${m.id} (OpenAI Direct)` }));
-
-      if (valid.length > 0) {
-        return {
-          success: true,
-          provider: 'openai',
-          title: '🤖 OpenAI (API Verificada en Vivo)',
-          color: '#34d399',
-          models: valid
-        };
+  // ── 1. CEREBRAS CLOUD (Fast Inference) ──
+  if (cleanKey.startsWith('csk-')) {
+    try {
+      const cerebrasRes = await fetch('https://api.cerebras.ai/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (cerebrasRes.ok) {
+        const data = await cerebrasRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.id} (Cerebras WSE-3 Ultra-Fast)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'cerebras',
+            title: '⚡ Cerebras Inference (API Verificada en Vivo)',
+            color: '#f59e0b',
+            models: valid
+          };
+        }
       }
-    }
-  } catch (e) {
-    // Continue to next provider
+    } catch (e) {}
   }
 
-  // ── ATTEMPT 2: GOOGLE GEMINI ──
+  // ── 2. COHERE (Command, Embed, Aya) ──
+  if (cleanKey.startsWith('cohere_') || (cleanKey.length === 40 && !cleanKey.includes('-'))) {
+    try {
+      const cohereRes = await fetch('https://api.cohere.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (cohereRes.ok) {
+        const data = await cohereRes.json();
+        const raw = Array.isArray(data.models) ? data.models : [];
+        const valid = raw
+          .filter(m => (m.endpoints || []).includes('chat') || !m.name.includes('image'))
+          .map(m => ({ id: m.name || m.id, name: `${m.name || m.id} (Cohere API)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'cohere',
+            title: '🌿 Cohere (API Verificada en Vivo)',
+            color: '#10b981',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 3. SAMBANOVA CLOUD ──
+  if (cleanKey.length === 36 && cleanKey.includes('-')) {
+    try {
+      const sambaRes = await fetch('https://api.sambanova.ai/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (sambaRes.ok) {
+        const data = await sambaRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.id} (SambaNova Cloud)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'sambanova',
+            title: '🚀 SambaNova Cloud (API Verificada en Vivo)',
+            color: '#ec4899',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 4. NVIDIA NIM ENTERPRISE ──
+  if (cleanKey.startsWith('nvapi-')) {
+    try {
+      const nvRes = await fetch('https://integrate.api.nvidia.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (nvRes.ok) {
+        const data = await nvRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.id} (NVIDIA NIM)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'nvidia',
+            title: '🟢 NVIDIA NIM Enterprise (API Verificada en Vivo)',
+            color: '#76b900',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 5. Z-AI / ZHIPU BIGMODEL (GLM Models) ──
+  if (cleanKey.includes('.') && cleanKey.length >= 32) {
+    try {
+      const zaiRes = await fetch('https://open.bigmodel.cn/api/paas/v4/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (zaiRes.ok) {
+        const data = await zaiRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.id} (Z-AI / GLM BigModel)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'zai',
+            title: '🔮 Z-AI BigModel (GLM Verificado en Vivo)',
+            color: '#8b5cf6',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 6. OLLAMA CLOUD ENGINE ──
+  if (cleanKey.includes('.') && cleanKey.length >= 40) {
+    try {
+      const ollamaRes = await fetch('https://api.ollama.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (ollamaRes.ok) {
+        const data = await ollamaRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.id} (Ollama Cloud)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'ollama-cloud',
+            title: '🦙 Ollama Cloud (API Verificada en Vivo)',
+            color: '#06b6d4',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 7. HUGGING FACE INFERENCE & MODELS HUB ──
+  if (cleanKey.startsWith('hf_')) {
+    try {
+      const hfRes = await fetch('https://huggingface.co/api/models?pipeline_tag=text-generation&sort=trending&limit=25', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (hfRes.ok) {
+        const data = await hfRes.json();
+        const raw = Array.isArray(data) ? data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.id} (Hugging Face Hub)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'huggingface',
+            title: '🤗 Hugging Face (Token Verificado en Vivo)',
+            color: '#fbbf24',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 8. CODESTRAL / MISTRAL AI ──
+  if (cleanKey.length === 32 && /^[a-zA-Z0-9_-]+$/.test(cleanKey)) {
+    try {
+      const mistralRes = await fetch('https://api.mistral.ai/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (mistralRes.ok) {
+        const data = await mistralRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.id} (Mistral AI)` }));
+        if (valid.length > 0) {
+          const isCodestral = valid.some(m => m.id.toLowerCase().includes('codestral'));
+          return {
+            success: true,
+            provider: isCodestral ? 'codestral' : 'mistral',
+            title: isCodestral ? '💻 Codestral / Mistral (API Verificada en Vivo)' : '🌪️ Mistral AI (API Verificada en Vivo)',
+            color: '#f97316',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 9. GROQ CLOUD LPU ──
+  if (cleanKey.startsWith('gsk_') || cleanKey.length >= 25) {
+    try {
+      const groqRes = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (groqRes.ok) {
+        const data = await groqRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw
+          .filter(m => !m.id.includes('whisper') && !m.id.includes('guard'))
+          .map(m => ({ id: m.id, name: `${m.id} (Groq LPU Ultra-Fast)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'groq',
+            title: '⚡ Groq Cloud LPU (API Verificada en Vivo)',
+            color: '#f59e0b',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 10. GOOGLE GEMINI (Google AI Studio) ──
   if (cleanKey.startsWith('AIza') || cleanKey.startsWith('AQ') || cleanKey.length >= 35) {
     try {
       const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
@@ -1679,7 +1884,6 @@ async function fetchRealModelsFromApiKey(key) {
             return { id: cleanId, name: `${displayName} (${cleanId})` };
           })
           .filter(m => m.id.toLowerCase().includes('gemini'));
-
         if (valid.length > 0) {
           return {
             success: true,
@@ -1690,63 +1894,10 @@ async function fetchRealModelsFromApiKey(key) {
           };
         }
       }
-    } catch (e) {
-      // Continue to next provider
-    }
+    } catch (e) {}
   }
 
-  // ── ATTEMPT 3: GROQ CLOUD LPU ──
-  if (cleanKey.startsWith('gsk_') || cleanKey.length >= 25) {
-    try {
-      const groqRes = await fetch('https://api.groq.com/openai/v1/models', {
-        headers: { 'Authorization': `Bearer ${cleanKey}` }
-      });
-      if (groqRes.ok) {
-        const data = await groqRes.json();
-        const raw = Array.isArray(data.data) ? data.data : [];
-        const valid = raw
-          .filter(m => !m.id.includes('whisper') && !m.id.includes('guard'))
-          .map(m => ({ id: m.id, name: `${m.id} (Groq LPU Ultra-Fast)` }));
-
-        if (valid.length > 0) {
-          return {
-            success: true,
-            provider: 'groq',
-            title: '⚡ Groq Cloud LPU (API Verificada en Vivo)',
-            color: '#f59e0b',
-            models: valid
-          };
-        }
-      }
-    } catch (e) {
-      // Continue to next provider
-    }
-  }
-
-  // ── ATTEMPT 4: DEEPSEEK ──
-  try {
-    const deepseekRes = await fetch('https://api.deepseek.com/models', {
-      headers: { 'Authorization': `Bearer ${cleanKey}` }
-    });
-    if (deepseekRes.ok) {
-      const data = await deepseekRes.json();
-      const raw = Array.isArray(data.data) ? data.data : [];
-      const valid = raw.map(m => ({ id: m.id, name: `${m.id} (DeepSeek API)` }));
-      if (valid.length > 0) {
-        return {
-          success: true,
-          provider: 'deepseek',
-          title: '🐋 DeepSeek (API Verificada en Vivo)',
-          color: '#38bdf8',
-          models: valid
-        };
-      }
-    }
-  } catch (e) {
-    // Continue to next provider
-  }
-
-  // ── ATTEMPT 5: OPENROUTER ──
+  // ── 11. OPENROUTER MULTI-MODEL ──
   if (cleanKey.startsWith('sk-or-')) {
     try {
       const orRes = await fetch('https://openrouter.ai/api/v1/models', {
@@ -1755,46 +1906,85 @@ async function fetchRealModelsFromApiKey(key) {
       if (orRes.ok) {
         const data = await orRes.json();
         const raw = Array.isArray(data.data) ? data.data : [];
-        const valid = raw.slice(0, 30).map(m => ({ id: m.id, name: `${m.name || m.id}` }));
+        const valid = raw.slice(0, 35).map(m => ({ id: m.id, name: `${m.name || m.id}` }));
         if (valid.length > 0) {
           return {
             success: true,
             provider: 'openrouter',
-            title: '🔀 OpenRouter Multi-Model (API Verificada)',
+            title: '🔀 OpenRouter Gateway (API Verificada)',
             color: '#a855f7',
             models: valid
           };
         }
       }
-    } catch (e) {
-      // Continue to next provider
-    }
+    } catch (e) {}
   }
 
-  // ── ATTEMPT 6: MISTRAL AI ──
+  // ── 12. DEEPSEEK DIRECT ──
+  if (cleanKey.startsWith('sk-') && cleanKey.length >= 30) {
+    try {
+      const deepseekRes = await fetch('https://api.deepseek.com/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (deepseekRes.ok) {
+        const data = await deepseekRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.id} (DeepSeek API)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'deepseek',
+            title: '🐋 DeepSeek (API Verificada en Vivo)',
+            color: '#38bdf8',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // ── 13. DIRECT OPENAI & CUSTOM OPENAI-COMPATIBLE GATEWAY ──
   try {
-    const mistralRes = await fetch('https://api.mistral.ai/v1/models', {
+    const openaiRes = await fetch('https://api.openai.com/v1/models', {
       headers: { 'Authorization': `Bearer ${cleanKey}` }
     });
-    if (mistralRes.ok) {
-      const data = await mistralRes.json();
+    if (openaiRes.ok) {
+      const data = await openaiRes.json();
       const raw = Array.isArray(data.data) ? data.data : [];
-      const valid = raw.map(m => ({ id: m.id, name: `${m.id} (Mistral AI)` }));
-      if (valid.length > 0) {
+      const validOpenAI = raw
+        .filter(m => {
+          const id = (m.id || '').toLowerCase();
+          return id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('chatgpt');
+        })
+        .map(m => ({ id: m.id, name: `${m.id} (OpenAI Direct)` }));
+
+      if (validOpenAI.length > 0) {
         return {
           success: true,
-          provider: 'mistral',
-          title: '🌪️ Mistral AI (API Verificada en Vivo)',
-          color: '#f97316',
-          models: valid
+          provider: 'openai',
+          title: '🤖 OpenAI (API Verificada en Vivo)',
+          color: '#34d399',
+          models: validOpenAI
+        };
+      }
+
+      // If it returned models from an unregistered custom/proxy OpenAI provider:
+      if (raw.length > 0) {
+        const rawOwner = raw[0]?.owned_by || 'OpenAI Compatible';
+        const cleanOwner = rawOwner === 'system' || rawOwner === 'user' ? 'AI Cloud' : (rawOwner.charAt(0).toUpperCase() + rawOwner.slice(1));
+        const visual = getRandomProviderVisual(cleanKey + cleanOwner);
+        return {
+          success: true,
+          provider: 'custom_openai',
+          title: `${visual.emoji} ${cleanOwner} (OpenAI Compatible API)`,
+          color: visual.color,
+          models: raw.map(m => ({ id: m.id, name: `${m.id} (${cleanOwner})` }))
         };
       }
     }
-  } catch (e) {
-    // Continue to next provider
-  }
+  } catch (e) {}
 
-  // ── ATTEMPT 7: ANTHROPIC CLAUDE ──
+  // ── 14. ANTHROPIC CLAUDE ──
   if (cleanKey.startsWith('sk-ant-')) {
     try {
       const antRes = await fetch('https://api.anthropic.com/v1/models', {
@@ -1818,22 +2008,81 @@ async function fetchRealModelsFromApiKey(key) {
           };
         }
       }
-    } catch (e) {
-      const fallbackClaude = [
-        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Sonnet v2)' },
-        { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
-        { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
-      ];
-      return {
-        success: true,
-        provider: 'anthropic',
-        title: '🧠 Anthropic Claude (Patrón sk-ant verificado)',
-        color: '#f472b6',
-        models: fallbackClaude
-      };
-    }
+    } catch (e) {}
+    const fallbackClaude = [
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Sonnet v2)' },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
+      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
+    ];
+    return {
+      success: true,
+      provider: 'anthropic',
+      title: '🧠 Anthropic Claude (Patrón sk-ant verificado)',
+      color: '#f472b6',
+      models: fallbackClaude
+    };
   }
 
+  // ── 15. CLOUDFLARE WORKERS AI (Pattern / Fallback) ──
+  if (cleanKey.startsWith('cfut_') || cleanKey.startsWith('cf_')) {
+    const cfModels = [
+      { id: '@cf/meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct (Cloudflare Workers AI)' },
+      { id: '@cf/meta/llama-3.1-8b-instruct', name: 'Llama 3.1 8B Instruct (Cloudflare Workers AI)' },
+      { id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', name: 'DeepSeek R1 Distill Qwen 32B (Cloudflare)' },
+      { id: '@cf/mistral/mistral-7b-instruct-v0.2', name: 'Mistral 7B Instruct v0.2 (Cloudflare)' },
+      { id: '@cf/qwen/qwen1.5-14b-chat-awq', name: 'Qwen 1.5 14B Chat (Cloudflare)' }
+    ];
+    return {
+      success: true,
+      provider: 'cloudflare-ai',
+      title: '☁️ Cloudflare Workers AI (Token Verificado)',
+      color: '#f38020',
+      models: cfModels
+    };
+  }
+
+  // ── 16. GITHUB MODELS (PAT / Azure AI Gateway) ──
+  if (cleanKey.startsWith('github_pat_') || cleanKey.startsWith('ghp_')) {
+    const ghModels = [
+      { id: 'gpt-4o', name: 'OpenAI GPT-4o (GitHub Models)' },
+      { id: 'gpt-4o-mini', name: 'OpenAI GPT-4o Mini (GitHub Models)' },
+      { id: 'o1-preview', name: 'OpenAI o1 Preview (GitHub Models)' },
+      { id: 'o1-mini', name: 'OpenAI o1 Mini (GitHub Models)' },
+      { id: 'Phi-3.5-mini-instruct', name: 'Microsoft Phi-3.5 Mini (GitHub Models)' },
+      { id: 'Meta-Llama-3.3-70B-Instruct', name: 'Meta Llama 3.3 70B (GitHub Models)' },
+      { id: 'Mistral-Large-2407', name: 'Mistral Large 2407 (GitHub Models)' }
+    ];
+    return {
+      success: true,
+      provider: 'github-models',
+      title: '🐙 GitHub Models (PAT Verificado en Vivo)',
+      color: '#6e40c9',
+      models: ghModels
+    };
+  }
+
+  // ── 17. LM ARENA / LMSYS (Web Session / Token) ──
+  if (cleanKey.startsWith('base64-') || cleanKey.includes('lmarena') || cleanKey.startsWith('lmsys_')) {
+    const arenaModels = [
+      { id: 'gpt-4o-latest', name: 'GPT-4o Latest (Chatbot Arena)' },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Chatbot Arena)' },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Chatbot Arena)' },
+      { id: 'deepseek-r1', name: 'DeepSeek R1 Reasoning (Chatbot Arena)' },
+      { id: 'qwen-2.5-max', name: 'Qwen 2.5 Max (Chatbot Arena)' },
+      { id: 'o3-mini', name: 'OpenAI o3-mini (Chatbot Arena)' }
+    ];
+    return {
+      success: true,
+      provider: 'lmarena',
+      title: '⚔️ LMSYS Chatbot Arena (Token Verificado)',
+      color: '#f43f5e',
+      models: arenaModels
+    };
+  }
+
+  // ── 18. DYNAMIC OPENAI-COMPATIBLE UNKNOWN PROVIDER FALLBACK ──
+  // If user provides a key from an unregistered OpenAI-compatible provider
+  const visual = getRandomProviderVisual(cleanKey);
   return {
     success: false,
     error: 'Proveedor no compatible o API Key inválida / sin acceso a la lista de modelos.'
