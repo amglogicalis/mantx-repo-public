@@ -2862,9 +2862,20 @@ function applyLabPreset(type) {
     if (nameInput) nameInput.value = 'Multi-Proveedor Shootout (Runner Local $0 vs Termes vs BYOK)';
     if (promptInput) promptInput.value = 'Explica la arquitectura interna de un motor de búsqueda vectorial';
     addLabCandidateRow({ name: 'Runner Local CPU ($0): Qwen 3B RAFT', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Termes Symbiont: Gemini Flash + Ecdysis', provider: 'termes', model: 'termes-gemini-2.0-flash', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'BYOK Cloud API: Groq Llama 3.3 70B', provider: 'byok', model: 'groq-llama-3.3-70b', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'byok_api' });
+    addLabCandidateRow({ name: 'Termes Symbiont: Gemini 3.7 Flash', provider: 'termes', model: 'gemini-3.7-flash', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'action_cpu' });
+    addLabCandidateRow({ name: 'BYOK Cloud API: Groq Llama 3.3 70B', provider: 'byok', model: 'llama-3.3-70b-versatile', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'byok_api' });
   }
+}
+
+function getTrainedNimphysOptions(selectedId) {
+  if (!nimphysList || nimphysList.length === 0) {
+    return `<option value="">⚠️ Sin Nimphys producidos en el catálogo (Crea uno o usa Runner Local)</option>`;
+  }
+  return nimphysList.map(n => `
+    <option value="${n.nimphyId}" ${n.nimphyId === selectedId ? 'selected' : ''}>
+      🧬 ${n.name} (${n.currentVersion || 'v1.0.0'}) — [${n.baseModel}] (${(n.method || 'qlora').toUpperCase()})
+    </option>
+  `).join('');
 }
 
 function addLabCandidateRow(data = {}) {
@@ -2877,71 +2888,143 @@ function addLabCandidateRow(data = {}) {
   const rowDiv = document.createElement('div');
   rowDiv.id = rowId;
   rowDiv.className = 'panel-card lab-candidate-row';
-  rowDiv.style.cssText = 'background: #020704; border: 1px solid var(--border-subtle); padding: 0.7rem; margin-bottom: 0;';
+  rowDiv.style.cssText = 'background: #020704; border: 1px solid var(--border-subtle); padding: 0.75rem; margin-bottom: 0; border-radius: 8px;';
 
-  const defaultName = data.name || `Candidato ${labCandidateCounter}`;
+  const defaultName = data.name || `Candidato #${labCandidateCounter}`;
   const defaultProv = data.provider || 'local_runner';
-  const defaultMethod = data.method || 'raft';
-  const defaultModel = data.model || (defaultProv === 'termes' ? 'termes-gemini-2.0-flash' : defaultProv === 'byok' ? 'groq-llama-3.3-70b' : 'qwen-2.5-coder-3b');
+  const defaultMethod = data.method || 'qlora';
+  const defaultModel = data.model || 'qwen-2.5-coder-3b';
   const defaultGraphRag = data.graphRag !== undefined ? data.graphRag : true;
   const defaultEcdysis = data.ecdysis !== undefined ? data.ecdysis : true;
+  const defaultEnv = data.env || 'action_cpu';
+  const defaultTermesEndpoint = data.termesEndpoint || 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json';
+  const defaultTermesKey = data.termesKey || '';
+  const defaultByokKey = data.byokKey || '';
 
   rowDiv.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-      <strong style="color: var(--emerald-light); font-size: 0.85rem;">Rama #${labCandidateCounter}:</strong>
-      <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; padding: 0.1rem 0.4rem; font-size: 0.7rem;" onclick="removeLabCandidateRow('${rowId}')">✕ Eliminar</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.4rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span class="badge badge-mint" style="font-size: 0.65rem;">Rama #${labCandidateCounter}</span>
+        <input type="text" class="input-text lab-cand-name" value="${defaultName}" placeholder="Nombre / Alias de la Rama" style="padding: 0.15rem 0.4rem; font-size: 0.78rem; font-weight: 700; max-width: 280px; height: auto;">
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; padding: 0.15rem 0.45rem; font-size: 0.7rem; border-color: rgba(239,68,68,0.3);" onclick="removeLabCandidateRow('${rowId}')">🗑️ Quitar</button>
     </div>
 
-    <div class="grid-3 mb-2">
+    <!-- Provider Selector Tabs / Dropdown -->
+    <div class="grid-2 mb-2">
       <div class="form-group" style="margin-bottom: 0;">
-        <label style="font-size: 0.72rem;">Nombre Rama:</label>
-        <input type="text" class="input-text lab-cand-name" value="${defaultName}" placeholder="Alias del candidato">
-      </div>
-      <div class="form-group" style="margin-bottom: 0;">
-        <label style="font-size: 0.72rem;">Tipo / Proveedor:</label>
-        <select class="input-select lab-cand-provider" onchange="onLabCandidateProviderChange('${rowId}')">
-          <option value="local_runner" ${defaultProv === 'local_runner' ? 'selected' : ''}>🖥️ Runner Local ($0)</option>
+        <label style="font-size: 0.72rem; color: var(--text-dim);">Origen / Tipo de Proveedor:</label>
+        <select class="input-select lab-cand-provider" onchange="onLabCandidateProviderChange('${rowId}')" style="font-size: 0.78rem; padding: 0.35rem 0.6rem;">
           <option value="trained_nimphy" ${defaultProv === 'trained_nimphy' ? 'selected' : ''}>🧬 Niphy Ya Entrenado (Catálogo)</option>
-          <option value="termes" ${defaultProv === 'termes' ? 'selected' : ''}>🌐 Termes Symbiont</option>
-          <option value="byok" ${defaultProv === 'byok' ? 'selected' : ''}>🔑 BYOK Cloud API</option>
+          <option value="local_runner" ${defaultProv === 'local_runner' ? 'selected' : ''}>🖥️ Runner Local ($0 - Nuevo Modelo)</option>
+          <option value="termes" ${defaultProv === 'termes' ? 'selected' : ''}>🌐 Termes Symbiont (Endpoint URL)</option>
+          <option value="byok" ${defaultProv === 'byok' ? 'selected' : ''}>🔑 BYOK Cloud API (Groq/Gemini/OpenAI/Claude)</option>
         </select>
       </div>
+
       <div class="form-group" style="margin-bottom: 0;">
-        <label style="font-size: 0.72rem;">Modelo / Niphy Seleccionado:</label>
-        <select class="input-select lab-cand-model" onchange="onLabCandidateModelChange('${rowId}')">
-          ${getModelsForLabProvider(defaultProv, defaultModel)}
+        <label style="font-size: 0.72rem; color: var(--text-dim);">Método / Inferencia:</label>
+        <select class="input-select lab-cand-method" style="font-size: 0.78rem; padding: 0.35rem 0.6rem;">
+          <option value="qlora" ${defaultMethod === 'qlora' ? 'selected' : ''}>LoRA / QLoRA 4-bit (Unsloth)</option>
+          <option value="raft" ${defaultMethod === 'raft' ? 'selected' : ''}>RAFT (Retrieval Augmented FT)</option>
+          <option value="aft" ${defaultMethod === 'aft' ? 'selected' : ''}>AFT Compiler (Adaptive Tuning)</option>
+          <option value="full_peft" ${defaultMethod === 'full_peft' ? 'selected' : ''}>Full Fine-Tuning (PEFT)</option>
+          <option value="ecdysis_memory" ${defaultMethod === 'ecdysis_memory' ? 'selected' : ''}>Ecdysis Semantic Memory Proxy</option>
         </select>
       </div>
     </div>
 
-    <div class="grid-3">
-      <div class="form-group" style="margin-bottom: 0;">
-        <label style="font-size: 0.72rem;">Método:</label>
-        <select class="input-select lab-cand-method">
-          <option value="raft" ${defaultMethod === 'raft' ? 'selected' : ''}>RAFT (Docs + QA)</option>
-          <option value="qlora" ${defaultMethod === 'qlora' ? 'selected' : ''}>QLoRA (4-bit)</option>
-          <option value="lora" ${defaultMethod === 'lora' ? 'selected' : ''}>LoRA (PEFT)</option>
-          <option value="aft" ${defaultMethod === 'aft' ? 'selected' : ''}>AFT (Attention Transfer)</option>
-          <option value="ecdysis_memory" ${defaultMethod === 'ecdysis_memory' ? 'selected' : ''}>Ecdysis Memory Proxy</option>
+    <!-- DYNAMIC SUB-PANELS ACCORDING TO PROVIDER TYPE -->
+    
+    <!-- 1. TRAINED NIMPHY PANEL -->
+    <div class="lab-cand-panel-trained ${defaultProv === 'trained_nimphy' ? '' : 'hidden'}" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem;">
+      <label style="font-size: 0.72rem; color: var(--emerald-light);">🧬 Selecciona Niphy del Catálogo:</label>
+      <select class="input-select lab-cand-nimphy-select" onchange="onLabCandidateNimphySelectChange('${rowId}')" style="font-size: 0.78rem;">
+        ${getTrainedNimphysOptions(defaultModel)}
+      </select>
+    </div>
+
+    <!-- 2. LOCAL RUNNER PANEL -->
+    <div class="lab-cand-panel-local ${defaultProv === 'local_runner' ? '' : 'hidden'}" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem;">
+      <div class="grid-2">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.72rem; color: var(--emerald-light);">Modelo Base GGUF:</label>
+          <select class="input-select lab-cand-local-model" style="font-size: 0.78rem;">
+            ${DEFAULT_MODELS.map(m => `<option value="${m.id}" ${m.id === defaultModel ? 'selected' : ''}>${m.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.72rem; color: var(--emerald-light);">Hardware Target ($0):</label>
+          <select class="input-select lab-cand-env" style="font-size: 0.78rem;">
+            <option value="action_cpu" ${defaultEnv === 'action_cpu' ? 'selected' : ''}>Actions Runner CPU ($0, 6h)</option>
+            <option value="hf_zerogpu" ${defaultEnv === 'hf_zerogpu' ? 'selected' : ''}>HuggingFace ZeroGPU (A100)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. TERMES SYMBIONT PANEL -->
+    <div class="lab-cand-panel-termes ${defaultProv === 'termes' ? '' : 'hidden'}" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(6,182,212,0.3); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem;">
+      <div class="grid-2 mb-1">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.72rem; color: #22d3ee;">URL Endpoint Termes:</label>
+          <input type="text" class="input-text lab-cand-termes-endpoint" value="${defaultTermesEndpoint}" placeholder="http://127.0.0.1:7420/v1 o URL .json" oninput="detectLabCandidateTermes('${rowId}')" style="font-size: 0.78rem;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.72rem; color: #22d3ee;">Auth Token (Opcional):</label>
+          <input type="password" class="input-text lab-cand-termes-key" value="${defaultTermesKey}" placeholder="Token si el endpoint es privado" oninput="detectLabCandidateTermes('${rowId}')" style="font-size: 0.78rem;">
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem;">
+        <span class="text-dim lab-cand-termes-status" style="color: #22d3ee;">🟢 Termes Auto-Detectado</span>
+        <select class="input-select lab-cand-termes-model" style="max-width: 250px; font-size: 0.72rem; padding: 0.2rem 0.4rem; height: auto;">
+          <option value="gemini-3.7-flash" ${defaultModel === 'gemini-3.7-flash' ? 'selected' : ''}>gemini-3.7-flash (Google Gemini Web)</option>
+          <option value="gemini-3.1-pro" ${defaultModel === 'gemini-3.1-pro' ? 'selected' : ''}>gemini-3.1-pro (Google Gemini Web)</option>
+          <option value="gemini-3.5-flash-lite" ${defaultModel === 'gemini-3.5-flash-lite' ? 'selected' : ''}>gemini-3.5-flash-lite (Google Gemini Web)</option>
+          <option value="deepseek-chat" ${defaultModel === 'deepseek-chat' ? 'selected' : ''}>deepseek-chat (DeepSeek V3 Web)</option>
+          <option value="claude-3-5-sonnet" ${defaultModel === 'claude-3-5-sonnet' ? 'selected' : ''}>claude-3-5-sonnet (Anthropic Claude Web)</option>
         </select>
       </div>
-      <div style="display: flex; align-items: center; gap: 0.8rem; font-size: 0.75rem; color: #fff; padding-top: 1.2rem;">
-        <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer;">
+    </div>
+
+    <!-- 4. BYOK CLOUD API PANEL -->
+    <div class="lab-cand-panel-byok ${defaultProv === 'byok' ? '' : 'hidden'}" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(168,85,247,0.3); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem;">
+      <div class="grid-2 mb-1">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.72rem; color: #c084fc;">BYOK API Key:</label>
+          <input type="password" class="input-text lab-cand-byok-key" value="${defaultByokKey}" placeholder="gsk_..., AIza..., sk-..., nvapi-..." oninput="detectLabCandidateByok('${rowId}')" style="font-size: 0.78rem;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.72rem; color: #c084fc;">Modelo Cloud Seleccionado:</label>
+          <select class="input-select lab-cand-byok-model" style="font-size: 0.78rem;">
+            <option value="llama-3.3-70b-versatile" ${defaultModel === 'llama-3.3-70b-versatile' ? 'selected' : ''}>Groq — Llama 3.3 70B Versatile</option>
+            <option value="llama-3.1-8b-instant" ${defaultModel === 'llama-3.1-8b-instant' ? 'selected' : ''}>Groq — Llama 3.1 8B Instant</option>
+            <option value="gemini-2.0-flash" ${defaultModel === 'gemini-2.0-flash' ? 'selected' : ''}>Gemini — 2.0 Flash</option>
+            <option value="gemini-1.5-pro" ${defaultModel === 'gemini-1.5-pro' ? 'selected' : ''}>Gemini — 1.5 Pro</option>
+            <option value="gpt-4o-mini" ${defaultModel === 'gpt-4o-mini' ? 'selected' : ''}>OpenAI — GPT-4o Mini</option>
+            <option value="claude-3-5-sonnet-20241022" ${defaultModel === 'claude-3-5-sonnet-20241022' ? 'selected' : ''}>Claude — 3.5 Sonnet</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size: 0.72rem; color: var(--text-dim);">
+        Proveedor: <strong class="lab-cand-byok-provider-label" style="color: #c084fc;">Groq / Auto</strong>
+      </div>
+    </div>
+
+    <!-- SPECIALIZATION TOGGLES -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem; padding-top: 0.3rem; font-size: 0.75rem;">
+      <div style="display: flex; gap: 0.8rem; align-items: center;">
+        <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; color: #fff;">
           <input type="checkbox" class="lab-cand-graphrag" ${defaultGraphRag ? 'checked' : ''}>
           <span>🕸️ Graph RAG</span>
         </label>
-        <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer;">
+        <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; color: #fff;">
           <input type="checkbox" class="lab-cand-ecdysis" ${defaultEcdysis ? 'checked' : ''}>
-          <span>🧠 Ecdysis</span>
+          <span>🧠 Memoria Ecdysis</span>
         </label>
       </div>
-      <div class="form-group" style="margin-bottom: 0;">
-        <label style="font-size: 0.72rem;">Hardware Target:</label>
-        <select class="input-select lab-cand-env">
-          <option value="action_cpu">GitHub Actions CPU ($0)</option>
-          <option value="hf_zerogpu">HF ZeroGPU (A100)</option>
-          <option value="byok_api">Cloud API Direct</option>
-        </select>
+      <div class="text-dim text-xs lab-cand-summary-badge">
+        ${defaultProv === 'trained_nimphy' ? '🧬 Modelo Entrenado' : (defaultProv === 'termes' ? '🌐 Web Symbiont' : (defaultProv === 'byok' ? '🔑 Cloud API' : '🖥️ Runner $0'))}
       </div>
     </div>
   `;
@@ -2949,86 +3032,158 @@ function addLabCandidateRow(data = {}) {
   container.appendChild(rowDiv);
 }
 
-function getModelsForLabProvider(provider, selectedModel) {
-  let list = [];
-  if (provider === 'trained_nimphy') {
-    if (!nimphysList || nimphysList.length === 0) {
-      return `<option value="">No hay Nimphys producidos en el catálogo</option>`;
-    }
-    return nimphysList.map(n => `
-      <option value="${n.nimphyId}" ${n.nimphyId === selectedModel ? 'selected' : ''}>
-        🧬 ${n.name} (${n.currentVersion || 'v1.0.0'}) — [${(n.method || 'qlora').toUpperCase()}]
-      </option>
-    `).join('');
-  } else if (provider === 'termes') {
-    list = [
-      { id: 'termes-gemini-2.0-flash', name: 'Termes Gemini 2.0 Flash' },
-      { id: 'termes-claude-3-5-sonnet', name: 'Termes Claude 3.5 Sonnet' },
-      { id: 'termes-deepseek-v3', name: 'Termes DeepSeek V3' },
-      { id: 'termes-llama-3.3-70b', name: 'Termes Llama 3.3 70B' }
-    ];
-  } else if (provider === 'byok') {
-    list = [
-      { id: 'groq-llama-3.3-70b', name: 'Groq Llama 3.3 70B' },
-      { id: 'gemini-2.0-flash', name: 'Google Gemini 2.0 Flash' },
-      { id: 'deepseek-v3', name: 'DeepSeek V3' },
-      { id: 'gpt-4o-mini', name: 'OpenAI GPT-4o Mini' },
-      { id: 'claude-3-5-sonnet', name: 'Anthropic Claude 3.5 Sonnet' }
-    ];
-  } else {
-    list = DEFAULT_MODELS;
-  }
-
-  return list.map(m => `<option value="${m.id}" ${m.id === selectedModel ? 'selected' : ''}>${m.name}</option>`).join('');
-}
-
 function onLabCandidateProviderChange(rowId) {
   const row = document.getElementById(rowId);
   if (!row) return;
 
   const prov = row.querySelector('.lab-cand-provider')?.value || 'local_runner';
-  const modelSelect = row.querySelector('.lab-cand-model');
+  const panelTrained = row.querySelector('.lab-cand-panel-trained');
+  const panelLocal = row.querySelector('.lab-cand-panel-local');
+  const panelTermes = row.querySelector('.lab-cand-panel-termes');
+  const panelByok = row.querySelector('.lab-cand-panel-byok');
   const methodSelect = row.querySelector('.lab-cand-method');
-  const nameInput = row.querySelector('.lab-cand-name');
+  const summaryBadge = row.querySelector('.lab-cand-summary-badge');
 
-  if (modelSelect) {
-    modelSelect.innerHTML = getModelsForLabProvider(prov);
-  }
+  if (panelTrained) panelTrained.classList.toggle('hidden', prov !== 'trained_nimphy');
+  if (panelLocal) panelLocal.classList.toggle('hidden', prov !== 'local_runner');
+  if (panelTermes) panelTermes.classList.toggle('hidden', prov !== 'termes');
+  if (panelByok) panelByok.classList.toggle('hidden', prov !== 'byok');
 
   if (prov === 'trained_nimphy') {
-    const firstNimphy = nimphysList[0];
-    if (firstNimphy) {
-      if (nameInput) nameInput.value = `${firstNimphy.name} (${firstNimphy.currentVersion})`;
-      if (methodSelect) methodSelect.value = firstNimphy.method || 'qlora';
-      const graphCheck = row.querySelector('.lab-cand-graphrag');
-      const ecdysisCheck = row.querySelector('.lab-cand-ecdysis');
-      if (graphCheck) graphCheck.checked = Boolean(firstNimphy.graphRagEnabled);
-      if (ecdysisCheck) ecdysisCheck.checked = Boolean(firstNimphy.ecdysisMemoryEnabled);
-    }
-  } else if (prov === 'termes' || prov === 'byok') {
+    onLabCandidateNimphySelectChange(rowId);
+    if (summaryBadge) summaryBadge.textContent = '🧬 Modelo Entrenado';
+  } else if (prov === 'termes') {
     if (methodSelect) methodSelect.value = 'ecdysis_memory';
+    if (summaryBadge) summaryBadge.textContent = '🌐 Web Symbiont';
+    detectLabCandidateTermes(rowId);
+  } else if (prov === 'byok') {
+    if (methodSelect) methodSelect.value = 'ecdysis_memory';
+    if (summaryBadge) summaryBadge.textContent = '🔑 Cloud API';
+    detectLabCandidateByok(rowId);
   } else {
-    if (methodSelect) methodSelect.value = 'raft';
+    if (methodSelect) methodSelect.value = 'qlora';
+    if (summaryBadge) summaryBadge.textContent = '🖥️ Runner $0';
   }
 }
 
-function onLabCandidateModelChange(rowId) {
+function onLabCandidateNimphySelectChange(rowId) {
   const row = document.getElementById(rowId);
   if (!row) return;
-  const prov = row.querySelector('.lab-cand-provider')?.value;
-  if (prov === 'trained_nimphy') {
-    const selectedId = row.querySelector('.lab-cand-model')?.value;
-    const n = nimphysList.find(item => item.nimphyId === selectedId);
-    if (n) {
-      const nameInput = row.querySelector('.lab-cand-name');
-      const methodSelect = row.querySelector('.lab-cand-method');
-      const graphCheck = row.querySelector('.lab-cand-graphrag');
-      const ecdysisCheck = row.querySelector('.lab-cand-ecdysis');
-      if (nameInput) nameInput.value = `${n.name} (${n.currentVersion})`;
-      if (methodSelect) methodSelect.value = n.method || 'qlora';
-      if (graphCheck) graphCheck.checked = Boolean(n.graphRagEnabled);
-      if (ecdysisCheck) ecdysisCheck.checked = Boolean(n.ecdysisMemoryEnabled);
+  const nimphyId = row.querySelector('.lab-cand-nimphy-select')?.value;
+  const n = nimphysList.find(item => item.nimphyId === nimphyId);
+  if (n) {
+    const nameInput = row.querySelector('.lab-cand-name');
+    const methodSelect = row.querySelector('.lab-cand-method');
+    const graphCheck = row.querySelector('.lab-cand-graphrag');
+    const ecdysisCheck = row.querySelector('.lab-cand-ecdysis');
+    if (nameInput) nameInput.value = `${n.name} (${n.currentVersion || 'v1.0.0'})`;
+    if (methodSelect) methodSelect.value = n.method || 'qlora';
+    if (graphCheck) graphCheck.checked = Boolean(n.graphRagEnabled);
+    if (ecdysisCheck) ecdysisCheck.checked = Boolean(n.ecdysisMemoryEnabled);
+  }
+}
+
+let labTermesDebounceTimers = {};
+function detectLabCandidateTermes(rowId) {
+  clearTimeout(labTermesDebounceTimers[rowId]);
+  labTermesDebounceTimers[rowId] = setTimeout(async () => {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+
+    const endpointInput = row.querySelector('.lab-cand-termes-endpoint');
+    const keyInput = row.querySelector('.lab-cand-termes-key');
+    const statusEl = row.querySelector('.lab-cand-termes-status');
+    const modelSelect = row.querySelector('.lab-cand-termes-model');
+
+    const endpoint = endpointInput?.value?.trim() || 'http://127.0.0.1:7420/v1';
+    const apiKey = keyInput?.value?.trim() || '';
+
+    if (!endpoint) return;
+
+    try {
+      let isDedicatedJson = endpoint.endsWith('.json') || endpoint.includes('/ep_pub_') || endpoint.includes('/ep_priv_');
+      let targetUrl = endpoint;
+      let headers = {};
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+      if (!isDedicatedJson && !targetUrl.endsWith('/models') && !targetUrl.endsWith('/v1')) {
+        targetUrl = targetUrl.replace(/\/+$/, '') + '/models';
+      }
+
+      const res = await fetch(targetUrl, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const payload = await res.json();
+
+      if (payload.endpointId || (payload.defaultModel && (payload.providerChain || payload.fallbackChain))) {
+        const defaultModel = payload.defaultModel || 'gemini-3.7-flash';
+        const providerName = payload.fallbackChain?.[0]?.provider || payload.providerChain?.[0] || 'Google Gemini Web';
+        if (modelSelect) {
+          modelSelect.innerHTML = `<option value="${defaultModel}">${defaultModel} (${providerName} — Mono-Modelo)</option>`;
+        }
+        if (statusEl) {
+          statusEl.textContent = `✔ Conectado a ${payload.name || payload.endpointId}`;
+          statusEl.style.color = '#34d399';
+        }
+      } else {
+        const rawList = Array.isArray(payload.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+        if (modelSelect && rawList.length > 0) {
+          modelSelect.innerHTML = rawList.map(m => {
+            const id = typeof m === 'string' ? m : (m.id || m.name || 'model');
+            return `<option value="${id}">${id}</option>`;
+          }).join('');
+        }
+        if (statusEl) {
+          statusEl.textContent = `✔ ${rawList.length} modelos detectados`;
+          statusEl.style.color = '#34d399';
+        }
+      }
+    } catch (err) {
+      if (statusEl) {
+        statusEl.textContent = `⚠️ Offline (${err.message})`;
+        statusEl.style.color = '#fde047';
+      }
     }
+  }, 400);
+}
+
+function detectLabCandidateByok(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+
+  const keyInput = row.querySelector('.lab-cand-byok-key');
+  const labelEl = row.querySelector('.lab-cand-byok-provider-label');
+  const modelSelect = row.querySelector('.lab-cand-byok-model');
+
+  const key = keyInput?.value?.trim() || '';
+
+  let provider = 'Groq (Auto-Detección)';
+  let color = '#c084fc';
+  let defaultModel = 'llama-3.3-70b-versatile';
+
+  if (key.startsWith('AIza')) {
+    provider = 'Google Gemini (BYOK)';
+    color = '#60a5fa';
+    defaultModel = 'gemini-2.0-flash';
+  } else if (key.startsWith('sk-ant-')) {
+    provider = 'Anthropic Claude (BYOK)';
+    color = '#f472b6';
+    defaultModel = 'claude-3-5-sonnet-20241022';
+  } else if (key.startsWith('sk-')) {
+    provider = 'OpenAI (BYOK)';
+    color = '#34d399';
+    defaultModel = 'gpt-4o-mini';
+  } else if (key.startsWith('gsk_')) {
+    provider = 'Groq Cloud (BYOK)';
+    color = '#f59e0b';
+    defaultModel = 'llama-3.3-70b-versatile';
+  }
+
+  if (labelEl) {
+    labelEl.textContent = provider;
+    labelEl.style.color = color;
+  }
+  if (modelSelect && defaultModel) {
+    modelSelect.value = defaultModel;
   }
 }
 
@@ -3058,11 +3213,35 @@ async function executeLaboratoryMatrix() {
   const candidateConfigs = rows.map((row, idx) => {
     const candName = row.querySelector('.lab-cand-name')?.value?.trim() || `Candidato ${idx + 1}`;
     const providerType = row.querySelector('.lab-cand-provider')?.value || 'local_runner';
-    const baseModel = row.querySelector('.lab-cand-model')?.value || 'qwen-2.5-coder-3b';
-    const method = row.querySelector('.lab-cand-method')?.value || 'raft';
+    const method = row.querySelector('.lab-cand-method')?.value || 'qlora';
     const graphRag = Boolean(row.querySelector('.lab-cand-graphrag')?.checked);
     const ecdysis = Boolean(row.querySelector('.lab-cand-ecdysis')?.checked);
     const env = row.querySelector('.lab-cand-env')?.value || 'action_cpu';
+
+    let baseModel = 'qwen-2.5-coder-3b';
+    let termesConfig = undefined;
+    let byokConfig = undefined;
+    let nimphyId = undefined;
+
+    if (providerType === 'trained_nimphy') {
+      nimphyId = row.querySelector('.lab-cand-nimphy-select')?.value;
+      const n = nimphysList.find(item => item.nimphyId === nimphyId);
+      baseModel = n ? n.baseModel : (nimphyId || 'nimphy_model');
+    } else if (providerType === 'local_runner') {
+      baseModel = row.querySelector('.lab-cand-local-model')?.value || 'qwen-2.5-coder-3b';
+    } else if (providerType === 'termes') {
+      baseModel = row.querySelector('.lab-cand-termes-model')?.value || 'gemini-3.7-flash';
+      termesConfig = {
+        endpoint: row.querySelector('.lab-cand-termes-endpoint')?.value?.trim() || 'http://127.0.0.1:7420/v1',
+        apiKey: row.querySelector('.lab-cand-termes-key')?.value?.trim() || undefined
+      };
+    } else if (providerType === 'byok') {
+      baseModel = row.querySelector('.lab-cand-byok-model')?.value || 'llama-3.3-70b-versatile';
+      byokConfig = {
+        apiKey: row.querySelector('.lab-cand-byok-key')?.value?.trim() || '',
+        provider: 'groq'
+      };
+    }
 
     return {
       candidateId: `cand_${idx + 1}`,
@@ -3070,6 +3249,9 @@ async function executeLaboratoryMatrix() {
       providerType,
       baseModel,
       method,
+      nimphyId,
+      termesConfig,
+      byokConfig,
       graphRagEnabled: graphRag,
       ecdysisMemoryEnabled: ecdysis,
       targetEnv: env
