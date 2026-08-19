@@ -1271,9 +1271,9 @@ function onNimphyProviderChange() {
     detectTermesModels();
     if (methodSelect) {
       methodSelect.innerHTML = `
-        <option value="ecdysis_memory">🧠 Mantx Ecdysis Memory (Vector Store + Graph RAG — $0)</option>
-        <option value="raft">RAFT / In-Context Knowledge Tuning (Docs + Q&A)</option>
-        <option value="aft">System Directives & Few-Shot Ingestion</option>
+        <option value="raft">🧬 RAFT (Retrieval-Augmented FT & Reasoning Digestion)</option>
+        <option value="aft">🔬 AFT Compiler (Adaptive Fractal Tuning Arzor)</option>
+        <option value="few_shot_distill">📜 System Directive & Few-Shot Digestion (In-Context Distillation)</option>
       `;
     }
   } else if (provider === 'byok') {
@@ -1281,9 +1281,9 @@ function onNimphyProviderChange() {
     detectByokProviderAndModels();
     if (methodSelect) {
       methodSelect.innerHTML = `
-        <option value="ecdysis_memory">🧠 Mantx Ecdysis Memory (Rate-Limit Aware Proxy — Recomendado)</option>
-        <option value="raft">RAFT / In-Context Knowledge Tuning (Docs + Q&A)</option>
-        <option value="aft">System Directives & Few-Shot Ingestion</option>
+        <option value="raft">🧬 RAFT (Retrieval-Augmented FT & Reasoning Digestion)</option>
+        <option value="aft">🔬 AFT Compiler (Adaptive Fractal Tuning Arzor)</option>
+        <option value="few_shot_distill">📜 System Directive & Few-Shot Digestion (In-Context Distillation)</option>
       `;
     }
   } else {
@@ -1291,10 +1291,11 @@ function onNimphyProviderChange() {
     populateBaseModelSelect(RUNNER_LOCAL_MODELS);
     if (methodSelect) {
       methodSelect.innerHTML = `
-        <option value="qlora">LoRA / QLoRA 4-bit (Unsloth — Rápido y Eficiente)</option>
-        <option value="raft">RAFT (Retrieval-Augmented Fine-Tuning con Docs)</option>
-        <option value="aft">AFT Compiler (Adaptive Fine-Tuning Arzor)</option>
-        <option value="full_peft">PEFT / Full Fine-Tuning</option>
+        <option value="qlora">⚡ LoRA / QLoRA 4-bit (Unsloth Tensor Update)</option>
+        <option value="full_peft">🎯 PEFT / Full Fine-Tuning (Gradient Weights)</option>
+        <option value="raft">🧬 RAFT (Retrieval-Augmented Fine-Tuning con Docs)</option>
+        <option value="aft">🔬 AFT Compiler (Adaptive Fractal Tuning Arzor)</option>
+        <option value="few_shot_distill">📜 System Directive & Few-Shot Digestion (In-Context Distillation)</option>
       `;
     }
   }

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6.1.0">
+  <link rel="stylesheet" href="style.css?v=6.2.0">
 </head>
 <body>
 
@@ -895,10 +895,11 @@
         <div class="form-group" style="margin-bottom: 0;">
           <label>Método de Especialización / Entrenamiento:</label>
           <select id="nimphy-method" class="input-select" onchange="onNimphyMethodChange()">
-            <option value="qlora">LoRA / QLoRA 4-bit (Unsloth — Rápido y Eficiente)</option>
+            <option value="qlora">LoRA / QLoRA 4-bit (Unsloth Tensor Update)</option>
+            <option value="full_peft">PEFT / Full Fine-Tuning (Gradient Weights)</option>
             <option value="raft">RAFT (Retrieval-Augmented Fine-Tuning con Docs)</option>
-            <option value="aft">AFT Compiler (Adaptive Fine-Tuning Arzor)</option>
-            <option value="full_peft">PEFT / Full Fine-Tuning</option>
+            <option value="aft">AFT Compiler (Adaptive Fractal Tuning Arzor)</option>
+            <option value="few_shot_distill">System Directive & Few-Shot Digestion (In-Context Distillation)</option>
           </select>
         </div>
       </div>
@@ -1358,6 +1359,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=6.1.0"></script>
+  <script src="app.js?v=6.2.0"></script>
 </body>
 </html>
