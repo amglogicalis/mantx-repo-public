@@ -3497,20 +3497,53 @@ async function togglePublicServerPower(nimphyId) {
         throw new Error(`No se pudo publicar el workflow en ${targetRepo} (${putRes.status}): ${putErrData.message || putRes.statusText}`);
       }
 
-      // Dispatch the workflow
-      await new Promise(r => setTimeout(r, 1500));
-      const dispatchRes = await fetch(
-        `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${encodeURIComponent(wfFilename)}/dispatches`,
-        {
-          method: 'POST',
-          headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
-          body: JSON.stringify({ ref: 'main', inputs: { relay_iteration: '1' } })
+      // Detect default branch of the vault repository
+      let defaultBranch = 'main';
+      try {
+        const repoInfo = await fetch(`https://api.github.com/repos/${owner}/${targetRepo}`, {
+          headers: { 'Authorization': `token ${token}` }
+        });
+        if (repoInfo.ok) {
+          const rData = await repoInfo.json();
+          defaultBranch = rData.default_branch || 'main';
         }
-      );
+      } catch {}
+
+      // Dispatch the workflow with retry loop (waiting for GitHub Actions to index newly committed YAML)
+      let dispatchOk = false;
+      let lastErrData = null;
+      let lastStatus = 0;
+
+      for (let attempt = 1; attempt <= 6; attempt++) {
+        await new Promise(r => setTimeout(r, attempt === 1 ? 3000 : 3500));
+        const dispatchRes = await fetch(
+          `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${encodeURIComponent(wfFilename)}/dispatches`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `token ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({ ref: defaultBranch, inputs: { relay_iteration: '1' } })
+          }
+        );
+
+        if (dispatchRes.ok || dispatchRes.status === 204) {
+          dispatchOk = true;
+          break;
+        }
+
+        lastStatus = dispatchRes.status;
+        lastErrData = await dispatchRes.json().catch(() => ({}));
+        if (dispatchRes.status !== 404 && dispatchRes.status !== 422) {
+          break;
+        }
+      }
 
       let dispatchMsg = '';
-      if (dispatchRes.ok) {
-        dispatchMsg = `✅ Workflow lanzado en ${owner}/${targetRepo}.`;
+      if (dispatchOk) {
+        dispatchMsg = `✅ Workflow lanzado con éxito en ${owner}/${targetRepo} (rama: ${defaultBranch}).`;
         // Fetch the run ID after a brief wait
         await new Promise(r => setTimeout(r, 4000));
         const runsRes = await fetch(
@@ -3527,8 +3560,7 @@ async function togglePublicServerPower(nimphyId) {
           }
         }
       } else {
-        const dispErr = await dispatchRes.json().catch(() => ({}));
-        dispatchMsg = `⚠️ Workflow publicado en ${targetRepo} pero el dispatch falló (${dispatchRes.status}): ${dispErr.message || dispatchRes.statusText}\n\nSi el token no tiene scope "workflow", actívalo manualmente en:\nhttps://github.com/${owner}/${targetRepo}/actions`;
+        dispatchMsg = `⚠️ Workflow publicado en ${targetRepo} pero el dispatch falló (${lastStatus}): ${lastErrData?.message || 'Indexer timeout'}\n\nSi el token no tiene scope "workflow", actívalo manualmente en:\nhttps://github.com/${owner}/${targetRepo}/actions`;
       }
 
       await savePublicServingToVault();
