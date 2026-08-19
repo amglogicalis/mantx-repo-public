@@ -756,46 +756,76 @@
 
   <!-- CUSTOM SEEDS GUIDE MODAL -->
   <div id="seeds-guide-modal" class="modal-backdrop hidden">
-    <div class="modal-card" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-card" style="max-width: 860px; max-height: 90vh; overflow-y: auto;">
       <div class="modal-header">
         <div>
           <h3>📋 Guía de Semillas con IA Externa (ChatGPT / Claude / Gemini / DeepSeek)</h3>
-          <p class="text-dim text-xs">Copia y pega estos meta-prompts estructurados para obtener datasets o perfiles AFT con calidad de producción.</p>
+          <p class="text-dim text-xs">Meta-prompts estructurados y calibrados para generar datasets y perfiles de entrenamiento según el método seleccionado.</p>
         </div>
         <button class="btn-close" onclick="closeSeedsGuideModal()">✕</button>
       </div>
 
       <!-- Seeds Guide Navigation Tabs -->
-      <div style="display: flex; gap: 0.4rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1rem; padding-bottom: 0.4rem;">
-        <button type="button" class="btn btn-outline btn-sm seeds-tab-btn active" id="seeds-tab-btn-dataset" onclick="switchSeedsTab('dataset')" style="font-size: 0.78rem;">📂 1. Prompt para Crear Dataset QA (.json)</button>
-        <button type="button" class="btn btn-outline btn-sm seeds-tab-btn" id="seeds-tab-btn-aft" onclick="switchSeedsTab('aft')" style="font-size: 0.78rem;">🧬 2. Prompt para Crear Perfil AFT JSON</button>
+      <div style="display: flex; gap: 0.35rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1rem; padding-bottom: 0.4rem; overflow-x: auto;">
+        <button type="button" class="btn btn-outline btn-sm seeds-tab-btn active" id="seeds-tab-btn-qlora" onclick="switchSeedsTab('qlora')" style="font-size: 0.76rem;">📂 1. LoRA / QLoRA (SFT)</button>
+        <button type="button" class="btn btn-outline btn-sm seeds-tab-btn" id="seeds-tab-btn-raft" onclick="switchSeedsTab('raft')" style="font-size: 0.76rem;">🧬 2. RAFT (Context + CoT)</button>
+        <button type="button" class="btn btn-outline btn-sm seeds-tab-btn" id="seeds-tab-btn-aft" onclick="switchSeedsTab('aft')" style="font-size: 0.76rem;">🔬 3. AFT (5 Capas)</button>
+        <button type="button" class="btn btn-outline btn-sm seeds-tab-btn" id="seeds-tab-btn-fewshot" onclick="switchSeedsTab('fewshot')" style="font-size: 0.76rem;">📜 4. Few-Shot & Directivas</button>
       </div>
 
-      <!-- Tab 1: Dataset Prompt -->
-      <div id="seeds-content-dataset" class="seeds-content-panel">
+      <!-- Tab 1: LoRA / QLoRA / PEFT Prompt -->
+      <div id="seeds-content-qlora" class="seeds-content-panel">
         <div class="form-group mb-2">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-            <label style="color: var(--emerald-light); font-weight: 600; margin-bottom: 0;">Prompt para Generar Dataset QA de Alta Fidelidad (Alpaca / CoT):</label>
-            <button class="btn btn-outline btn-sm" onclick="copyDatasetPrompt()" style="font-size: 0.72rem;">📋 Copiar Prompt</button>
+            <label style="color: var(--emerald-light); font-weight: 600; margin-bottom: 0;">Prompt para LoRA / QLoRA / PEFT (Supervised Fine-Tuning SFT):</label>
+            <button class="btn btn-outline btn-sm" onclick="copySeedPrompt('qlora')" style="font-size: 0.72rem;">📋 Copiar Prompt LoRA</button>
           </div>
-          <textarea id="seeds-guide-prompt-dataset" class="input-textarea" rows="12" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: #020704;"></textarea>
+          <textarea id="seeds-guide-prompt-qlora" class="input-textarea" rows="12" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: #020704;"></textarea>
         </div>
         <div style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.74rem; color: var(--text-dim);">
-          💡 <strong>Cómo usarlo:</strong> Copia este prompt, sustituye la sección <code>[DOMINIO / TEMA]</code> con tu caso de uso y pégalo en ChatGPT o Claude. Guarda la respuesta como archivo <code>.json</code> y súbelo a Mantx.
+          💡 <strong>Cómo usarlo:</strong> Copia este prompt, sustituye <code>[DOMINIO / TEMA]</code> con tu área técnica y pégalo en ChatGPT, Claude o DeepSeek. Guarda la respuesta como archivo <code>.json</code> o <code>.jsonl</code> y súbelo al crear tu Niphy con método LoRA/QLoRA.
         </div>
       </div>
 
-      <!-- Tab 2: AFT JSON Prompt -->
+      <!-- Tab 2: RAFT Prompt -->
+      <div id="seeds-content-raft" class="seeds-content-panel hidden">
+        <div class="form-group mb-2">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+            <label style="color: #38bdf8; font-weight: 600; margin-bottom: 0;">Prompt para RAFT (Retrieval-Augmented Fine-Tuning con CoT & Distractores):</label>
+            <button class="btn btn-outline btn-sm" onclick="copySeedPrompt('raft')" style="font-size: 0.72rem;">📋 Copiar Prompt RAFT</button>
+          </div>
+          <textarea id="seeds-guide-prompt-raft" class="input-textarea" rows="12" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: #020704;"></textarea>
+        </div>
+        <div style="background: rgba(56,189,248,0.06); border: 1px solid rgba(56,189,248,0.2); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.74rem; color: var(--text-dim);">
+          💡 <strong>Cómo usarlo:</strong> Pega este meta-prompt en tu IA externa para generar cuádruplas RAFT (contexto verificador, contextos distractores ruidosos, razonamiento Chain-of-Thought y respuesta dorada). Guarda el archivo como <code>.json</code> y súbelo para RAFT.
+        </div>
+      </div>
+
+      <!-- Tab 3: AFT 5-Layers JSON Prompt -->
       <div id="seeds-content-aft" class="seeds-content-panel hidden">
         <div class="form-group mb-2">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-            <label style="color: #fde047; font-weight: 600; margin-bottom: 0;">Prompt Compilador para Generar Perfil Canónico AFT (5 Capas Fractales):</label>
-            <button class="btn btn-outline btn-sm" onclick="copyAftPrompt()" style="font-size: 0.72rem;">📋 Copiar Prompt AFT</button>
+            <label style="color: #fde047; font-weight: 600; margin-bottom: 0;">Prompt Compilador para Perfil Canónico AFT (5 Capas Fractales L1–L5):</label>
+            <button class="btn btn-outline btn-sm" onclick="copySeedPrompt('aft')" style="font-size: 0.72rem;">📋 Copiar Prompt AFT</button>
           </div>
           <textarea id="seeds-guide-prompt-aft" class="input-textarea" rows="12" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: #020704;"></textarea>
         </div>
         <div style="background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.2); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.74rem; color: var(--text-dim);">
-          💡 <strong>Cómo usarlo:</strong> Pega este meta-prompt en cualquier IA avanzada indicando el nombre y dominio de tu agente. La IA te entregará el JSON canónico con las 5 capas que podrás importar en el <em>AFT Visual Studio</em> o subir directamente como documento.
+          💡 <strong>Cómo usarlo:</strong> La IA generará el perfil cognitivo fractal canónico de 5 capas. Guarda el archivo como <code>.aft.json</code> o <code>.yaml</code> e impórtalo directamente en el visualizador AFT o en el creador de Nimphys.
+        </div>
+      </div>
+
+      <!-- Tab 4: Few-Shot & Directives Prompt -->
+      <div id="seeds-content-fewshot" class="seeds-content-panel hidden">
+        <div class="form-group mb-2">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+            <label style="color: #a78bfa; font-weight: 600; margin-bottom: 0;">Prompt para System Directive & Few-Shot Digestion:</label>
+            <button class="btn btn-outline btn-sm" onclick="copySeedPrompt('fewshot')" style="font-size: 0.72rem;">📋 Copiar Prompt Few-Shot</button>
+          </div>
+          <textarea id="seeds-guide-prompt-fewshot" class="input-textarea" rows="12" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: #020704;"></textarea>
+        </div>
+        <div style="background: rgba(167,139,250,0.06); border: 1px solid rgba(167,139,250,0.2); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.74rem; color: var(--text-dim);">
+          💡 <strong>Cómo usarlo:</strong> Pega el prompt para obtener axiomas de comportamiento rígidos y pares usuario-asistente Few-Shot de alta calibración. Guárdalo como <code>.json</code> o <code>.md</code> para este método de ingestión.
         </div>
       </div>
 
