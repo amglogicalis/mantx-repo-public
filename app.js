@@ -2973,13 +2973,20 @@ function renderNimphysCatalog() {
           : '<span class="badge badge-emerald">🖥️ Runner Local ($0)</span>';
 
         const lastVer = (n.versions && n.versions[0]) || { version: n.currentVersion, benchmarkScore: 95, finalLoss: 0.45 };
+        const pubCfg = publicServingConfigs[n.nimphyId];
+        const isShutdown = pubCfg && pubCfg.status === 'shutdown';
+        const statusEmoji = isShutdown ? '🛑' : '🟢';
+        const statusTitle = isShutdown ? 'Servidor Apagado (Hard Shutdown)' : 'Servidor Encendido / En Línea (24/7 Auto-Wake)';
 
         return `
           <div class="panel-card" style="margin-bottom: 0; background: #030805; border: 1px solid var(--border-subtle); display: flex; flex-direction: column; justify-content: space-between;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem;">
                 <div>
-                  <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem;">${n.name}</h4>
+                  <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.4rem;">
+                    <span title="${statusTitle}" style="font-size: 0.82rem; cursor: help; display: inline-flex; align-items: center;">${statusEmoji}</span>
+                    <span>${n.name}</span>
+                  </h4>
                   <div style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-code);">ID: ${n.nimphyId}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.4rem;">
