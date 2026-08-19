@@ -898,7 +898,7 @@
       <!-- BYOK API KEY CONTAINER -->
       <div id="nimphy-byok-container" class="form-group mb-3 hidden" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
         <label style="color: var(--emerald-light); font-weight: 700;">🔑 BYOK API Key (Auto-Detección de Provider & Modelos):</label>
-        <input type="password" id="nimphy-byok-key" class="input-text mb-2" placeholder="Pega tu API Key aquí (gsk_..., AIza..., sk-..., nvapi-..., csk-..., etc.)" oninput="detectByokProviderAndModels()">
+        <input type="password" id="nimphy-byok-key" class="input-text mb-2" placeholder="Pega tu API Key aquí (OpenAI, Gemini, Groq, Anthropic, DeepSeek, Mistral, OpenRouter...)" oninput="onByokKeyInput()">
         <div class="grid-2" style="font-size: 0.78rem; background: #020704; padding: 0.5rem 0.8rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
           <div>
             <span class="text-dim">Proveedor:</span> <strong id="nimphy-byok-detected-provider" style="color: var(--emerald-light);">Pega una clave para auto-detectar</strong>

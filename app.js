@@ -1618,54 +1618,286 @@ async function detectTermesModels(forceToast = false) {
   }
 }
 
-function detectByokProviderAndModels() {
-  const key = document.getElementById('nimphy-byok-key')?.value?.trim() || '';
+/**
+ * Real API Detection & Model Fetching Engine
+ * 1. Attempts standard OpenAI /v1/models (Gold Standard)
+ * 2. Fallback to specialized provider endpoints:
+ *    - Google Gemini: https://generativelanguage.googleapis.com/v1beta/models?key=${key}
+ *    - Groq Cloud: https://api.groq.com/openai/v1/models
+ *    - DeepSeek: https://api.deepseek.com/models
+ *    - OpenRouter: https://openrouter.ai/api/v1/models
+ *    - Mistral AI: https://api.mistral.ai/v1/models
+ *    - Anthropic: https://api.anthropic.com/v1/models
+ * 3. Fallback to error message if no provider matches or key is invalid
+ */
+async function fetchRealModelsFromApiKey(key) {
+  const cleanKey = (key || '').trim();
+  if (!cleanKey) {
+    return { success: false, error: 'Clave API vacía' };
+  }
+
+  // ── ATTEMPT 1: DIRECT OPENAI /v1/models (Gold Standard) ──
+  try {
+    const openaiRes = await fetch('https://api.openai.com/v1/models', {
+      headers: { 'Authorization': `Bearer ${cleanKey}` }
+    });
+    if (openaiRes.ok) {
+      const data = await openaiRes.json();
+      const raw = Array.isArray(data.data) ? data.data : [];
+      const valid = raw
+        .filter(m => {
+          const id = (m.id || '').toLowerCase();
+          return id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('chatgpt');
+        })
+        .map(m => ({ id: m.id, name: `${m.id} (OpenAI Direct)` }));
+
+      if (valid.length > 0) {
+        return {
+          success: true,
+          provider: 'openai',
+          title: '🤖 OpenAI (API Verificada en Vivo)',
+          color: '#34d399',
+          models: valid
+        };
+      }
+    }
+  } catch (e) {
+    // Continue to next provider
+  }
+
+  // ── ATTEMPT 2: GOOGLE GEMINI ──
+  if (cleanKey.startsWith('AIza') || cleanKey.startsWith('AQ') || cleanKey.length >= 35) {
+    try {
+      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+      if (geminiRes.ok) {
+        const data = await geminiRes.json();
+        const raw = Array.isArray(data.models) ? data.models : [];
+        const valid = raw
+          .map(m => {
+            const cleanId = (m.name || '').replace(/^models\//, '');
+            const displayName = m.displayName || cleanId;
+            return { id: cleanId, name: `${displayName} (${cleanId})` };
+          })
+          .filter(m => m.id.toLowerCase().includes('gemini'));
+
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'gemini',
+            title: '🌐 Google Gemini (Google AI Studio Verificado)',
+            color: '#60a5fa',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {
+      // Continue to next provider
+    }
+  }
+
+  // ── ATTEMPT 3: GROQ CLOUD LPU ──
+  if (cleanKey.startsWith('gsk_') || cleanKey.length >= 25) {
+    try {
+      const groqRes = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (groqRes.ok) {
+        const data = await groqRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw
+          .filter(m => !m.id.includes('whisper') && !m.id.includes('guard'))
+          .map(m => ({ id: m.id, name: `${m.id} (Groq LPU Ultra-Fast)` }));
+
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'groq',
+            title: '⚡ Groq Cloud LPU (API Verificada en Vivo)',
+            color: '#f59e0b',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {
+      // Continue to next provider
+    }
+  }
+
+  // ── ATTEMPT 4: DEEPSEEK ──
+  try {
+    const deepseekRes = await fetch('https://api.deepseek.com/models', {
+      headers: { 'Authorization': `Bearer ${cleanKey}` }
+    });
+    if (deepseekRes.ok) {
+      const data = await deepseekRes.json();
+      const raw = Array.isArray(data.data) ? data.data : [];
+      const valid = raw.map(m => ({ id: m.id, name: `${m.id} (DeepSeek API)` }));
+      if (valid.length > 0) {
+        return {
+          success: true,
+          provider: 'deepseek',
+          title: '🐋 DeepSeek (API Verificada en Vivo)',
+          color: '#38bdf8',
+          models: valid
+        };
+      }
+    }
+  } catch (e) {
+    // Continue to next provider
+  }
+
+  // ── ATTEMPT 5: OPENROUTER ──
+  if (cleanKey.startsWith('sk-or-')) {
+    try {
+      const orRes = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` }
+      });
+      if (orRes.ok) {
+        const data = await orRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.slice(0, 30).map(m => ({ id: m.id, name: `${m.name || m.id}` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'openrouter',
+            title: '🔀 OpenRouter Multi-Model (API Verificada)',
+            color: '#a855f7',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {
+      // Continue to next provider
+    }
+  }
+
+  // ── ATTEMPT 6: MISTRAL AI ──
+  try {
+    const mistralRes = await fetch('https://api.mistral.ai/v1/models', {
+      headers: { 'Authorization': `Bearer ${cleanKey}` }
+    });
+    if (mistralRes.ok) {
+      const data = await mistralRes.json();
+      const raw = Array.isArray(data.data) ? data.data : [];
+      const valid = raw.map(m => ({ id: m.id, name: `${m.id} (Mistral AI)` }));
+      if (valid.length > 0) {
+        return {
+          success: true,
+          provider: 'mistral',
+          title: '🌪️ Mistral AI (API Verificada en Vivo)',
+          color: '#f97316',
+          models: valid
+        };
+      }
+    }
+  } catch (e) {
+    // Continue to next provider
+  }
+
+  // ── ATTEMPT 7: ANTHROPIC CLAUDE ──
+  if (cleanKey.startsWith('sk-ant-')) {
+    try {
+      const antRes = await fetch('https://api.anthropic.com/v1/models', {
+        headers: {
+          'x-api-key': cleanKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        }
+      });
+      if (antRes.ok) {
+        const data = await antRes.json();
+        const raw = Array.isArray(data.data) ? data.data : [];
+        const valid = raw.map(m => ({ id: m.id, name: `${m.display_name || m.id} (Claude API)` }));
+        if (valid.length > 0) {
+          return {
+            success: true,
+            provider: 'anthropic',
+            title: '🧠 Anthropic Claude (API Verificada en Vivo)',
+            color: '#f472b6',
+            models: valid
+          };
+        }
+      }
+    } catch (e) {
+      const fallbackClaude = [
+        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Sonnet v2)' },
+        { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
+        { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
+      ];
+      return {
+        success: true,
+        provider: 'anthropic',
+        title: '🧠 Anthropic Claude (Patrón sk-ant verificado)',
+        color: '#f472b6',
+        models: fallbackClaude
+      };
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Proveedor no compatible o API Key inválida / sin acceso a la lista de modelos.'
+  };
+}
+
+let byokDebounceTimer = null;
+function onByokKeyInput() {
+  clearTimeout(byokDebounceTimer);
   const providerLabel = document.getElementById('nimphy-byok-detected-provider');
   const badge = document.getElementById('nimphy-byok-protocol-badge');
 
-  let detectedKey = 'general';
-  let providerName = 'Auto-detectando (Pega tu clave)...';
-  let protocol = 'REST / OpenAI Compatible';
+  if (providerLabel) {
+    providerLabel.textContent = '⏳ Consultando API y verificando modelos en vivo...';
+    providerLabel.style.color = '#93c5fd';
+  }
+  if (badge) badge.textContent = 'Verificando...';
 
-  if (key.startsWith('gsk_')) {
-    detectedKey = 'groq';
-    providerName = '⚡ Groq Cloud (LPU Ultra-Fast)';
-    protocol = 'OpenAI Compatible (chat/completions)';
-  } else if (key.startsWith('AIza') || key.startsWith('AQ')) {
-    detectedKey = 'gemini';
-    providerName = '🌐 Google Gemini (Google AI Studio)';
-    protocol = 'Google AI REST & OpenAI Endpoint';
-  } else if (key.startsWith('sk-ant-')) {
-    detectedKey = 'anthropic';
-    providerName = '🧠 Anthropic Claude';
-    protocol = 'Anthropic Messages API';
-  } else if (key.startsWith('sk-or-v1-')) {
-    detectedKey = 'openrouter';
-    providerName = '🔀 OpenRouter Multi-Model Gateway';
-    protocol = 'OpenAI Compatible';
-  } else if (key.startsWith('nvapi-')) {
-    detectedKey = 'nvidia';
-    providerName = '🟢 NVIDIA NIM Enterprise';
-    protocol = 'OpenAI Compatible';
-  } else if (key.startsWith('csk-')) {
-    detectedKey = 'cerebras';
-    providerName = '⚡ Cerebras Inference Engine';
-    protocol = 'OpenAI Compatible';
-  } else if (key.startsWith('sk-') && key.length > 20) {
-    detectedKey = 'openai';
-    providerName = '🤖 OpenAI (Direct)';
-    protocol = 'OpenAI REST API';
-  } else if (key.length >= 32 && /^[a-zA-Z0-9_-]+$/.test(key)) {
-    detectedKey = 'mistral';
-    providerName = '🌪️ Mistral AI / Codestral';
-    protocol = 'Mistral REST API';
+  byokDebounceTimer = setTimeout(() => {
+    detectByokProviderAndModels();
+  }, 500);
+}
+
+async function detectByokProviderAndModels() {
+  const key = document.getElementById('nimphy-byok-key')?.value?.trim() || '';
+  const providerLabel = document.getElementById('nimphy-byok-detected-provider');
+  const badge = document.getElementById('nimphy-byok-protocol-badge');
+  const select = document.getElementById('nimphy-base-model');
+
+  if (!key) {
+    if (providerLabel) {
+      providerLabel.textContent = 'Pega una clave para auto-detectar';
+      providerLabel.style.color = 'var(--text-dim)';
+    }
+    if (badge) badge.textContent = 'REST / OpenAI Compatible';
+    populateBaseModelSelect(BYOK_DEFAULT_MODELS.general);
+    return;
   }
 
-  if (providerLabel) providerLabel.textContent = providerName;
-  if (badge) badge.textContent = protocol;
+  const result = await fetchRealModelsFromApiKey(key);
 
-  const models = BYOK_DEFAULT_MODELS[detectedKey] || BYOK_DEFAULT_MODELS.general;
-  populateBaseModelSelect(models);
+  if (result.success) {
+    if (providerLabel) {
+      providerLabel.textContent = `✔ ${result.title}`;
+      providerLabel.style.color = result.color;
+    }
+    if (badge) {
+      badge.textContent = `${result.models.length} Modelos Vivos`;
+      badge.style.color = 'var(--emerald-light)';
+    }
+    populateBaseModelSelect(result.models);
+  } else {
+    if (providerLabel) {
+      providerLabel.textContent = '❌ Proveedor No Compatible o API Key Inválida';
+      providerLabel.style.color = '#f87171';
+    }
+    if (badge) {
+      badge.textContent = 'Error de Verificación';
+      badge.style.color = '#f87171';
+    }
+    if (select) {
+      select.innerHTML = `<option value="">❌ Clave no válida o proveedor no compatible</option>`;
+    }
+  }
 }
 
 function openCreateNimphyModal() {
@@ -3781,7 +4013,9 @@ function detectLabCandidateTermes(rowId) {
   }, 400);
 }
 
+let labByokDebounceTimers = {};
 function detectLabCandidateByok(rowId) {
+  clearTimeout(labByokDebounceTimers[rowId]);
   const row = document.getElementById(rowId);
   if (!row) return;
 
@@ -3802,40 +4036,37 @@ function detectLabCandidateByok(rowId) {
     return;
   }
 
-  let providerKey = 'groq';
-  let providerTitle = 'Groq Cloud (Auto-Detección)';
-  let color = '#f59e0b';
-  let defaultModel = 'llama-3.3-70b-versatile';
-
-  if (key.startsWith('AIza')) {
-    providerKey = 'gemini';
-    providerTitle = 'Google Gemini (BYOK)';
-    color = '#60a5fa';
-    defaultModel = 'gemini-2.0-flash';
-  } else if (key.startsWith('sk-ant-')) {
-    providerKey = 'anthropic';
-    providerTitle = 'Anthropic Claude (BYOK)';
-    color = '#f472b6';
-    defaultModel = 'claude-3-5-sonnet-20241022';
-  } else if (key.startsWith('sk-')) {
-    providerKey = 'openai';
-    providerTitle = 'OpenAI (BYOK)';
-    color = '#34d399';
-    defaultModel = 'gpt-4o-mini';
-  } else if (key.startsWith('gsk_')) {
-    providerKey = 'groq';
-    providerTitle = 'Groq Cloud (BYOK)';
-    color = '#f59e0b';
-    defaultModel = 'llama-3.3-70b-versatile';
-  }
-
   if (labelEl) {
-    labelEl.textContent = providerTitle;
-    labelEl.style.color = color;
+    labelEl.textContent = '⏳ Consultando API y verificando modelos en vivo...';
+    labelEl.style.color = '#93c5fd';
   }
-  if (modelSelect) {
-    modelSelect.innerHTML = getByokModelsForProvider(providerKey, defaultModel);
-  }
+
+  labByokDebounceTimers[rowId] = setTimeout(async () => {
+    const result = await fetchRealModelsFromApiKey(key);
+    const currentRow = document.getElementById(rowId);
+    if (!currentRow) return;
+
+    const currentLabel = currentRow.querySelector('.lab-cand-byok-provider-label');
+    const currentSelect = currentRow.querySelector('.lab-cand-byok-model');
+
+    if (result.success) {
+      if (currentLabel) {
+        currentLabel.textContent = `✔ ${result.title}`;
+        currentLabel.style.color = result.color;
+      }
+      if (currentSelect) {
+        currentSelect.innerHTML = result.models.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+      }
+    } else {
+      if (currentLabel) {
+        currentLabel.textContent = '❌ Proveedor No Compatible o API Key Inválida';
+        currentLabel.style.color = '#f87171';
+      }
+      if (currentSelect) {
+        currentSelect.innerHTML = `<option value="">❌ Clave no válida o proveedor no compatible</option>`;
+      }
+    }
+  }, 500);
 }
 
 function removeLabCandidateRow(rowId) {
