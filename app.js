@@ -2869,8 +2869,8 @@ function applyLabPreset(type) {
     if (nameInput) nameInput.value = 'Multi-Proveedor Shootout (Runner Local $0 vs Termes vs BYOK)';
     if (promptInput) promptInput.value = 'Explica la arquitectura interna de un motor de búsqueda vectorial';
     addLabCandidateRow({ name: 'Runner Local CPU ($0): Qwen 3B RAFT', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Termes Symbiont: Gemini 3.7 Flash', provider: 'termes', termesEndpoint: 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json', model: 'gemini-3.7-flash', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'BYOK Cloud API: Llama 3.3 70B', provider: 'byok', model: 'llama-3.3-70b-versatile', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'byok_api' });
+    addLabCandidateRow({ name: 'Termes Symbiont: Gemini 3.7 Flash AFT', provider: 'termes', termesEndpoint: 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json', model: 'gemini-3.7-flash', method: 'aft', graphRag: true, ecdysis: true, env: 'action_cpu' });
+    addLabCandidateRow({ name: 'BYOK Cloud API: Llama 3.3 70B Few-Shot', provider: 'byok', model: 'llama-3.3-70b-versatile', method: 'few_shot_distill', graphRag: true, ecdysis: true, env: 'byok_api' });
   }
 }
 
@@ -2888,16 +2888,17 @@ function getTrainedNimphysOptions(selectedId) {
 function getMethodsForLabProvider(prov, selectedMethod) {
   if (prov === 'termes' || prov === 'byok') {
     return `
-      <option value="ecdysis_memory" ${selectedMethod === 'ecdysis_memory' || !selectedMethod ? 'selected' : ''}>🧠 Memoria Mantx Ecdysis (Semantic Proxy)</option>
-      <option value="graph_rag" ${selectedMethod === 'graph_rag' ? 'selected' : ''}>🕸️ Graph RAG (Inyección de Grafo Contextual)</option>
+      <option value="raft" ${selectedMethod === 'raft' || !selectedMethod ? 'selected' : ''}>🧬 RAFT (Retrieval Augmented FT & Reasoning Digestion)</option>
+      <option value="aft" ${selectedMethod === 'aft' ? 'selected' : ''}>🔬 AFT (Adaptive Fractal Tuning / Layer Compiler)</option>
+      <option value="few_shot_distill" ${selectedMethod === 'few_shot_distill' ? 'selected' : ''}>📜 System Directive & Few-Shot Digestion (In-Context Distillation)</option>
     `;
   }
   return `
-    <option value="qlora" ${selectedMethod === 'qlora' || !selectedMethod ? 'selected' : ''}>LoRA / QLoRA 4-bit (Unsloth)</option>
-    <option value="raft" ${selectedMethod === 'raft' ? 'selected' : ''}>RAFT (Retrieval Augmented Fine-Tuning)</option>
-    <option value="aft" ${selectedMethod === 'aft' ? 'selected' : ''}>AFT Compiler (Adaptive Tuning)</option>
-    <option value="full_peft" ${selectedMethod === 'full_peft' ? 'selected' : ''}>Full Fine-Tuning (PEFT)</option>
-    <option value="ecdysis_memory" ${selectedMethod === 'ecdysis_memory' ? 'selected' : ''}>Ecdysis Semantic Memory Proxy</option>
+    <option value="qlora" ${selectedMethod === 'qlora' || !selectedMethod ? 'selected' : ''}>⚡ LoRA / QLoRA 4-bit (Unsloth Tensor Update)</option>
+    <option value="full_peft" ${selectedMethod === 'full_peft' ? 'selected' : ''}>🎯 Full Fine-Tuning (PEFT Gradient Weights)</option>
+    <option value="raft" ${selectedMethod === 'raft' ? 'selected' : ''}>🧬 RAFT (Retrieval Augmented FT & Reasoning)</option>
+    <option value="aft" ${selectedMethod === 'aft' ? 'selected' : ''}>🔬 AFT (Adaptive Fractal Tuning / Compiler)</option>
+    <option value="few_shot_distill" ${selectedMethod === 'few_shot_distill' ? 'selected' : ''}>📜 System Directive & Few-Shot Digestion</option>
   `;
 }
 
@@ -2918,7 +2919,7 @@ function addLabCandidateRow(data = {}) {
 
   const defaultName = data.name || `Candidato #${labCandidateCounter}`;
   const defaultProv = data.provider || 'local_runner';
-  const defaultMethod = data.method || (defaultProv === 'termes' || defaultProv === 'byok' ? 'ecdysis_memory' : 'qlora');
+  const defaultMethod = data.method || (defaultProv === 'termes' || defaultProv === 'byok' ? 'raft' : 'qlora');
   const defaultModel = data.model || 'qwen-2.5-coder-3b';
   const defaultGraphRag = data.graphRag !== undefined ? data.graphRag : true;
   const defaultEcdysis = data.ecdysis !== undefined ? data.ecdysis : true;
@@ -3375,8 +3376,7 @@ async function executeLaboratoryMatrix() {
     else if (cand.method === 'qlora') { bonus += 3.2; lossDiff += 0.12; }
     else if (cand.method === 'aft') { bonus += 4.0; lossDiff += 0.15; }
     else if (cand.method === 'full_peft') { bonus += 4.8; lossDiff += 0.17; }
-    else if (cand.method === 'graph_rag') { bonus += 4.2; lossDiff += 0.14; }
-    else if (cand.method === 'ecdysis_memory') { bonus += 3.8; lossDiff += 0.13; }
+    else if (cand.method === 'few_shot_distill') { bonus += 3.8; lossDiff += 0.13; }
 
     if (isGraphRag) { bonus += 3.0; lossDiff += 0.08; }
     if (isEcdysis) { bonus += 2.5; lossDiff += 0.06; }
