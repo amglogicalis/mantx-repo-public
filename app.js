@@ -3251,16 +3251,18 @@ function renderPublicServeContent(nimphyId) {
   container.innerHTML = `
     <!-- 1. SERVER POWER & LIFECYCLE CONTROL -->
     <div class="panel-card mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid ${isShutdown ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}; border-radius: 8px; padding: 0.85rem 1rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 0.75rem;">
         <div>
           <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
-            <strong style="color: #fff; font-size: 0.92rem;">Control de Energía 24/7 ($0 Cloud Relay):</strong>
+            <strong style="color: #fff; font-size: 0.92rem;">Control de Energía & Auto-Apagado:</strong>
             ${statusBadge}
           </div>
           <p class="text-dim text-xs" style="margin: 0; line-height: 1.4;">
             ${isShutdown
-              ? `<span style="color: #f87171;">⚠️ Servidor en apagado forzado. Cualquier llamada externa recibirá 503 y <strong>NO auto-despertará</strong>.</span>`
-              : `Estrategia <strong>Wake-Coldstart-Warmloop-Sleep</strong> activa. Relevo automático antes de las 6h sin límite de tiempo.`
+              ? `<span style="color: #f87171;">⚠️ Servidor apagado. El runner de GitHub Actions está inactivo ($0 consumo de minutos).</span>`
+              : cfg.autoRelayEnabled && (!cfg.idleTimeoutMinutes || cfg.idleTimeoutMinutes <= 0)
+              ? `<span>♾️ <strong>Modo 24/7 Continuo</strong>: El runner permanecerá activo indefinidamente con relevos antes de 6h.</span>`
+              : `<span>⏱ <strong>Auto-Apagado Activo</strong>: Se apagará automáticamente tras <strong>${cfg.idleTimeoutMinutes || 15} min</strong> sin llamadas para ahorrar minutos.</span>`
             }
           </p>
         </div>
@@ -3268,6 +3270,25 @@ function renderPublicServeContent(nimphyId) {
         <button type="button" class="btn ${isShutdown ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="togglePublicServerPower('${nimphyId}')" style="font-size: 0.76rem; height: 32px; display: inline-flex; align-items: center; font-weight: 600; ${!isShutdown ? 'color: #f87171; border-color: rgba(248,113,113,0.4);' : ''}">
           ${isShutdown ? '⚡ Encender / Habilitar Servidor' : '🛑 Apagar Servidor (Hard Shutdown)'}
         </button>
+      </div>
+
+      <!-- Idle Timeout & 24/7 Configuration Bar -->
+      <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.6rem 0.85rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem; font-size: 0.78rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <label style="display: flex; align-items: center; gap: 0.35rem; color: #fff; cursor: pointer; margin: 0;">
+            <input type="radio" name="serving_mode_${nimphyId}" value="idle" ${(!cfg.autoRelayEnabled || (cfg.idleTimeoutMinutes && cfg.idleTimeoutMinutes > 0)) ? 'checked' : ''} onchange="setServingMode('${nimphyId}', 'idle')">
+            <span>⏱ Auto-apagar por inactividad tras:</span>
+          </label>
+          <div style="display: inline-flex; align-items: center; gap: 0.3rem;">
+            <input type="number" min="1" max="1440" class="input-text" id="idle-minutes-input-${nimphyId}" value="${cfg.idleTimeoutMinutes || 15}" onchange="updateServingIdleMinutes('${nimphyId}', this.value)" style="width: 70px; padding: 0.2rem 0.4rem; font-size: 0.76rem; text-align: center; height: 26px;">
+            <span class="text-dim text-xs">minutos sin llamadas</span>
+          </div>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 0.35rem; color: #fff; cursor: pointer; margin: 0; background: rgba(0,0,0,0.3); padding: 0.2rem 0.55rem; border-radius: 4px; border: 1px solid var(--border-subtle);">
+          <input type="radio" name="serving_mode_${nimphyId}" value="247" ${(cfg.autoRelayEnabled && (!cfg.idleTimeoutMinutes || cfg.idleTimeoutMinutes <= 0)) ? 'checked' : ''} onchange="setServingMode('${nimphyId}', '247')">
+          <span style="font-weight: 600; color: #38bdf8;">♾️ 24/7 Permanente</span>
+        </label>
       </div>
     </div>
 
@@ -3433,6 +3454,29 @@ function onSnippetKeySelectChange(keyId) {
   if (currentApiServeNimphyId) {
     renderPublicServeContent(currentApiServeNimphyId);
   }
+}
+
+function setServingMode(nimphyId, mode) {
+  if (!publicServingConfigs[nimphyId]) return;
+  if (mode === '247') {
+    publicServingConfigs[nimphyId].autoRelayEnabled = true;
+    publicServingConfigs[nimphyId].idleTimeoutMinutes = 0;
+  } else {
+    publicServingConfigs[nimphyId].autoRelayEnabled = false;
+    const inputEl = document.getElementById(`idle-minutes-input-${nimphyId}`);
+    publicServingConfigs[nimphyId].idleTimeoutMinutes = inputEl ? parseInt(inputEl.value, 10) || 15 : 15;
+  }
+  savePublicServingToVault();
+  renderPublicServeContent(nimphyId);
+}
+
+function updateServingIdleMinutes(nimphyId, val) {
+  if (!publicServingConfigs[nimphyId]) return;
+  const num = Math.max(1, parseInt(val, 10) || 15);
+  publicServingConfigs[nimphyId].idleTimeoutMinutes = num;
+  publicServingConfigs[nimphyId].autoRelayEnabled = false;
+  savePublicServingToVault();
+  renderPublicServeContent(nimphyId);
 }
 
 function copyPublicEndpointUrl(url) {
@@ -3819,6 +3863,8 @@ window.switchApiServeTab = switchApiServeTab;
 window.showLaunchApiModal = showLaunchApiModal;
 window.closeNimphyApiModal = closeNimphyApiModal;
 window.togglePublicServerPower = togglePublicServerPower;
+window.setServingMode = setServingMode;
+window.updateServingIdleMinutes = updateServingIdleMinutes;
 window.togglePublicAuthRequirement = togglePublicAuthRequirement;
 window.autoGeneratePublicApiKey = autoGeneratePublicApiKey;
 window.addCustomPublicApiKey = addCustomPublicApiKey;
@@ -4034,13 +4080,26 @@ jobs:
           }
 
           function startWarmLoop() {
-            console.log('[MANTX] Entering 24/7 warmloop. Polling for shutdown signal every 30s...');
+            const idleDesc = IDLE_TIMEOUT_MS > 0 ? ('Auto-shutdown tras ' + Math.round(IDLE_TIMEOUT_MS / 60000) + ' min sin peticiones') : 'Modo 24/7 permanente con auto-relay';
+            console.log('[MANTX] Entering warmloop. ' + idleDesc + '. Polling vault every 30s...');
             const startTime = Date.now();
             const MAX_MS = 350 * 60 * 1000;
 
             const interval = setInterval(async () => {
               const elapsed = Date.now() - startTime;
 
+              // 1. Check Idle Timeout
+              const idleElapsed = Date.now() - lastReq;
+              if (IDLE_TIMEOUT_MS > 0 && idleElapsed >= IDLE_TIMEOUT_MS) {
+                console.log('[MANTX] Inactividad de ' + Math.round(IDLE_TIMEOUT_MS / 60000) + ' min alcanzada sin peticiones. Auto-apagando servidor para ahorrar minutos de GitHub Actions...');
+                clearInterval(interval);
+                await syncStateToVault('shutdown', '');
+                cf.kill();
+                server.close();
+                process.exit(0);
+              }
+
+              // 2. Check Hard Shutdown signal from vault
               try {
                 const vaultUrl = 'https://api.github.com/repos/' + GH_REPO + '/contents/public-serving.json';
                 const res = await fetch(vaultUrl, { headers: { 'Authorization': 'token ' + GH_TOKEN } });
@@ -4061,11 +4120,13 @@ jobs:
                 console.warn('[MANTX] Polling check warning:', e.message);
               }
 
+              // 3. Auto-relay before 6h limit if in 24/7 mode
               if (elapsed >= MAX_MS) {
-                console.log('[MANTX] 5h50m limit reached. Triggering relay iteration...');
+                console.log('[MANTX] 5h50m limit reached.');
                 clearInterval(interval);
                 if (AUTO_RELAY) {
                   try {
+                    console.log('[MANTX] Triggering relay iteration...');
                     const wfFile = 'serve-public-' + NIMPHY_ID + '.yml';
                     await fetch('https://api.github.com/repos/' + GH_REPO + '/actions/workflows/' + wfFile + '/dispatches', {
                       method: 'POST',
@@ -4076,6 +4137,9 @@ jobs:
                   } catch (e) {
                     console.warn('[MANTX] Relay dispatch warning:', e.message);
                   }
+                } else {
+                  console.log('[MANTX] Auto-relay disabled. Server completing run cleanly.');
+                  await syncStateToVault('shutdown', '');
                 }
                 cf.kill();
                 server.close();
