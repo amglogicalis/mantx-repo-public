@@ -3500,8 +3500,11 @@ async function togglePublicServerPower(nimphyId) {
   }
 
   if (cfg.status === 'shutdown') {
-    // ── ENCENDER: generar YAML + push + dispatch ────────────────────
+    // ── ENCENDER: limpiar URL vieja + generar YAML + push + dispatch ──
     publicServingConfigs[nimphyId].status = 'online';
+    publicServingConfigs[nimphyId].publicUrl = '';
+    publicServingConfigs[nimphyId].currentRunnerId = null;
+    publicServingConfigs[nimphyId].actionsRunUrl = null;
     renderPublicServeContent(nimphyId);
 
     const n = nimphysList.find(item => item.nimphyId === nimphyId);
@@ -3632,7 +3635,7 @@ async function togglePublicServerPower(nimphyId) {
           if (run) {
             publicServingConfigs[nimphyId].currentRunnerId = String(run.id);
             publicServingConfigs[nimphyId].actionsRunUrl = run.html_url;
-            dispatchMsg += `\n\n🔗 Runner activo: ${run.html_url}\n\nEl runner tardará ~30-60s. La URL Cloudflare aparecerá en el log del workflow y en el campo de endpoint una vez escrita a ${STORAGE_REPO}.`;
+            dispatchMsg += `\n\n🔗 Runner activo: ${run.html_url}\n\nEl runner tardará ~30-60s. La nueva URL Cloudflare aparecerá automáticamente en cuanto arranque.`;
           }
         }
       } else {
@@ -3648,14 +3651,18 @@ async function togglePublicServerPower(nimphyId) {
     } catch (e) {
       stopPublicServingPolling();
       publicServingConfigs[nimphyId].status = 'shutdown';
+      publicServingConfigs[nimphyId].publicUrl = '';
       renderPublicServeContent(nimphyId);
       showCustomModal('❌ Error al Lanzar', `No se pudo lanzar el servidor público en ${targetRepo}:\n\n${e.message}\n\nAsegúrate de que el token tiene permisos "Contents: Write" y "Actions: Write" en ${owner}/${targetRepo}.`);
     }
 
   } else {
-    // ── APAGAR: escribir shutdown en vault + cancelar workflow ──────
+    // ── APAGAR: limpiar URL + escribir shutdown en vault + cancelar workflow ──────
     stopPublicServingPolling();
     publicServingConfigs[nimphyId].status = 'shutdown';
+    publicServingConfigs[nimphyId].publicUrl = '';
+    publicServingConfigs[nimphyId].currentRunnerId = null;
+    publicServingConfigs[nimphyId].actionsRunUrl = null;
     renderPublicServeContent(nimphyId);
 
     const owner = currentUser.login;
@@ -3685,7 +3692,7 @@ async function togglePublicServerPower(nimphyId) {
       }
 
       renderNimphysCatalog(); // Update 🛑 card status
-      showCustomModal('🛑 Servidor Apagado', `Señal de hard shutdown enviada a ${STORAGE_REPO}.\n\n${cancelledCount > 0 ? `${cancelledCount} runner(s) cancelado(s) inmediatamente.` : 'El workflow detectará el shutdown en el próximo ciclo de 30s y terminará.'}\n\nEl nimphy ya NO auto-despertará ante llamadas externas.`);
+      showCustomModal('🛑 Servidor Apagado', `Señal de hard shutdown enviada a ${STORAGE_REPO}.\n\n${cancelledCount > 0 ? `${cancelledCount} runner(s) cancelado(s) inmediatamente.` : 'El workflow detectará el shutdown en el próximo ciclo de 30s y terminará.'}\n\nLa URL del túnel anterior ha sido invalidada.`);
     } catch (e) {
       showCustomModal('🛑 Apagado (parcial)', `Señal de shutdown guardada en ${STORAGE_REPO}. El runner terminará en el próximo ciclo (≤30s).\n\nNota: ${e.message}`);
     }
