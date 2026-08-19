@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6.3.0">
+  <link rel="stylesheet" href="style.css?v=7.0.0">
 </head>
 <body>
 
@@ -479,10 +479,13 @@
               </div>
               <div class="form-group" style="margin-bottom: 0;">
                 <label>Formato:</label>
-                <select id="forge-fmt" class="input-select">
-                  <option value="alpaca">Alpaca / ChatML</option>
-                  <option value="raft">RAFT Format</option>
-                  <option value="sharegpt">ShareGPT</option>
+                <select id="forge-fmt" class="input-select" onchange="onForgeFormatChange()">
+                  <option value="alpaca">Alpaca / Instruction JSON (SFT)</option>
+                  <option value="chatml">ChatML / Messages JSON</option>
+                  <option value="sharegpt">ShareGPT Multi-Turn</option>
+                  <option value="raft">RAFT Format (Context + CoT QA)</option>
+                  <option value="aft">🔬 AFT Canonical Profile (.aft.json / .yaml)</option>
+                  <option value="few_shot">📜 System Directive & Few-Shot Digestion (.json / .md)</option>
                 </select>
               </div>
               <div class="form-group" style="margin-bottom: 0;">
@@ -903,38 +906,32 @@
         </div>
       </div>
 
-      <!-- DATASET & DOCUMENTS SOURCE -->
-      <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.9rem; margin-bottom: 1rem;">
+      <!-- 1. DATASET & TEMPLATE SOURCE (STRICT PER METHOD) -->
+      <div id="nimphy-dataset-box" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.9rem; margin-bottom: 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-          <label style="font-weight: 700; color: var(--emerald-light); margin-bottom: 0;">📄 Documentos & Datasets de Entrada:</label>
+          <label id="nimphy-dataset-label" style="font-weight: 700; color: var(--emerald-light); margin-bottom: 0;">📄 Dataset / Plantilla de Entrada:</label>
           <span id="nimphy-tokens-badge" class="badge badge-mint" style="font-size: 0.68rem;">0 Archivos | ~0 Tokens</span>
         </div>
 
-        <!-- File Drag & Drop Area -->
-        <div style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 1rem; text-align: center; margin-bottom: 0.7rem; cursor: pointer; background: #020704;" onclick="document.getElementById('nimphy-file-upload').click()">
+        <!-- Strict File Drag & Drop Area -->
+        <div id="nimphy-dropzone" style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 1rem; text-align: center; margin-bottom: 0.5rem; cursor: pointer; background: #020704;" onclick="document.getElementById('nimphy-file-upload').click()">
           <input type="file" id="nimphy-file-upload" multiple style="display: none;" onchange="handleNimphyFilesSelected(this.files)">
           <div style="font-size: 1.4rem; margin-bottom: 0.3rem;">📁</div>
-          <div style="font-size: 0.85rem; font-weight: 600; color: #fff;">Haz clic para subir o arrastra aquí tus documentos</div>
-          <div class="text-dim text-xs">Formatos compatibles: .txt, .md, .pdf (texto), .json, .yaml, .py, .js, .ts, .sql</div>
+          <div id="nimphy-dropzone-prompt" style="font-size: 0.85rem; font-weight: 600; color: #fff;">Haz clic para subir o arrastra el archivo de dataset</div>
+          <div id="nimphy-allowed-extensions-hint" class="text-dim text-xs" style="color: var(--emerald-light); margin-top: 0.2rem;">Extensiones aceptadas: .jsonl, .json, .csv, .parquet</div>
         </div>
 
-        <div id="nimphy-files-list" style="margin-bottom: 0.7rem; display: flex; flex-direction: column; gap: 0.3rem;"></div>
-
-        <!-- Direct text paste / Prompt examples -->
-        <div class="form-group" style="margin-bottom: 0;">
-          <label style="font-size: 0.75rem;">O pega documentación / especificaciones en texto directo:</label>
-          <textarea id="nimphy-raw-docs" class="input-textarea" rows="3" placeholder="Pega aquí fragmentos de código, manuales, schemas SQL, ontologías o ejemplos Q&A..." oninput="updateNimphyTokenEstimate()"></textarea>
-        </div>
+        <div id="nimphy-files-list" style="display: flex; flex-direction: column; gap: 0.3rem;"></div>
       </div>
 
       <!-- ADVANCED TOGGLES -->
       <div class="grid-2 mb-3" style="font-size: 0.82rem;">
         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem;">
           <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #fff; font-weight: 600;">
-            <input type="checkbox" id="nimphy-toggle-graph-rag" checked>
+            <input type="checkbox" id="nimphy-toggle-graph-rag" checked onchange="toggleNimphyGraphRagContainer()">
             <span>🕸️ Integrar Arzor Graph RAG</span>
           </label>
-          <p class="text-dim text-xs" style="margin-top: 0.3rem; margin-bottom: 0;">Genera un grafo semántico de entidades a partir de los documentos adjuntos.</p>
+          <p class="text-dim text-xs" style="margin-top: 0.3rem; margin-bottom: 0;">Genera un grafo semántico de entidades a partir de documentación complementaria.</p>
         </div>
 
         <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.7rem;">
@@ -943,6 +940,26 @@
             <span>🧠 Memoria Mantx Ecdysis</span>
           </label>
           <p class="text-dim text-xs" style="margin-top: 0.3rem; margin-bottom: 0;">Envuelve el modelo con vector store persistente para recordar entre sesiones.</p>
+        </div>
+      </div>
+
+      <!-- DEDICATED GRAPH RAG DOCUMENTATION CONTAINER (SHOWN WHEN CHECKED) -->
+      <div id="nimphy-graph-rag-container" class="mb-3" style="background: rgba(16,185,129,0.04); border: 1px dashed rgba(16,185,129,0.3); border-radius: 10px; padding: 0.9rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <label style="font-weight: 700; color: #6ee7b7; margin-bottom: 0; font-size: 0.82rem;">🕸️ Documentación de Soporte para Arzor Graph RAG:</label>
+          <span id="nimphy-rag-tokens-badge" class="badge badge-mint" style="font-size: 0.65rem;">0 Docs RAG</span>
+        </div>
+
+        <div style="border: 1px dashed rgba(16,185,129,0.25); border-radius: 6px; padding: 0.6rem; text-align: center; margin-bottom: 0.5rem; cursor: pointer; background: #010804;" onclick="document.getElementById('nimphy-rag-file-upload').click()">
+          <input type="file" id="nimphy-rag-file-upload" multiple accept=".txt,.md,.pdf,.json,.yaml,.py,.js,.ts,.sql,.csv" style="display: none;" onchange="handleNimphyRagFilesSelected(this.files)">
+          <div style="font-size: 0.78rem; font-weight: 600; color: #fff;">📄 Adjuntar documentos para extracción de grafo (.md, .pdf, .sql, .ts, .txt, etc.)</div>
+        </div>
+
+        <div id="nimphy-rag-files-list" style="margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem;"></div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.72rem; color: var(--text-dim);">O pega especificaciones / código en texto directo para el Grafo:</label>
+          <textarea id="nimphy-rag-raw-docs" class="input-textarea" rows="2" placeholder="Pega aquí fragmentos de código, manuales, esquemas SQL, ontologías o notas para el grafo..." oninput="updateNimphyRagTokenEstimate()"></textarea>
         </div>
       </div>
 
@@ -1080,7 +1097,7 @@
       </div>
 
       <div class="form-group mb-3">
-        <label>System Prompt / Directivas de Comportamiento:</label>
+        <label>System Prompt / Directivas de Comportamiento (Opcional):</label>
         <input type="text" id="nimphy-system-prompt" class="input-text" placeholder="Ej: Eres un arquitecto sénior experto en optimización de bases de datos PostgreSQL...">
       </div>
 
@@ -1358,6 +1375,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=6.3.0"></script>
+  <script src="app.js?v=7.0.0"></script>
 </body>
 </html>

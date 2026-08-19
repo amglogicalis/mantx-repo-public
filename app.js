@@ -1655,16 +1655,27 @@ function openCreateNimphyModal() {
     baseModelSelect.style.cursor = 'pointer';
   }
   if (baseModelHint) baseModelHint.classList.add('hidden');
-  if (rawDocs) rawDocs.value = '';
-  if (filesList) filesList.innerHTML = '';
   if (confirmBtn) confirmBtn.textContent = '🚀 Producir Niphy';
+
+  // Clean, fresh upload state
+  uploadedNimphyFiles = [];
+  uploadedNimphyRagFiles = [];
+  renderNimphyFilesList();
+  renderNimphyRagFilesList();
+
+  const ragRawDocs = document.getElementById('nimphy-rag-raw-docs');
+  if (ragRawDocs) ragRawDocs.value = '';
 
   const storageSelect = document.getElementById('nimphy-storage-backend');
   if (storageSelect) storageSelect.value = 'mantx_vault';
   onNimphyStorageBackendChange();
 
   onNimphyProviderChange();
+  onNimphyMethodChange();
+  toggleNimphyGraphRagContainer();
   updateNimphyTokenEstimate();
+  updateNimphyRagTokenEstimate();
+
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -1675,6 +1686,7 @@ function openReTrainNimphyModal(nimphyId) {
   isRetrainMode = true;
   currentRetrainNimphyId = nimphyId;
   uploadedNimphyFiles = [];
+  uploadedNimphyRagFiles = [];
 
   const modal = document.getElementById('nimphy-create-modal');
   const title = document.getElementById('nimphy-modal-title');
@@ -1687,8 +1699,6 @@ function openReTrainNimphyModal(nimphyId) {
   const baseModelSelect = document.getElementById('nimphy-base-model');
   const baseModelHint = document.getElementById('nimphy-base-model-hint');
   const methodSelect = document.getElementById('nimphy-method');
-  const rawDocs = document.getElementById('nimphy-raw-docs');
-  const filesList = document.getElementById('nimphy-files-list');
   const confirmBtn = document.getElementById('btn-confirm-nimphy');
 
   const curVer = n.currentVersion || 'v1.0.0';
@@ -1725,9 +1735,10 @@ function openReTrainNimphyModal(nimphyId) {
   }
   if (baseModelHint) baseModelHint.classList.remove('hidden');
   if (methodSelect) methodSelect.value = n.method || 'qlora';
-  if (rawDocs) rawDocs.value = '';
-  if (filesList) filesList.innerHTML = '';
   if (confirmBtn) confirmBtn.textContent = `🚀 Lanzar Reentrenamiento (${nextVer})`;
+
+  renderNimphyFilesList();
+  renderNimphyRagFilesList();
 
   const storageSelect = document.getElementById('nimphy-storage-backend');
   const existingBackend = n.storageBackend || n.storageConfig?.backend || 'mantx_vault';
@@ -1754,8 +1765,11 @@ function openReTrainNimphyModal(nimphyId) {
     if (document.getElementById('nimphy-hf-private')) document.getElementById('nimphy-hf-private').checked = hc.isPrivate !== false;
   }
   onNimphyStorageBackendChange();
-
+  onNimphyMethodChange();
+  toggleNimphyGraphRagContainer();
   updateNimphyTokenEstimate();
+  updateNimphyRagTokenEstimate();
+
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -1764,11 +1778,118 @@ function closeCreateNimphyModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+const METHOD_ALLOWED_EXTENSIONS = {
+  qlora: ['.jsonl', '.json', '.csv', '.parquet'],
+  full_peft: ['.jsonl', '.json', '.csv', '.parquet'],
+  raft: ['.json', '.jsonl'],
+  aft: ['.aft.json', '.json', '.yaml', '.yml'],
+  few_shot_distill: ['.json', '.yaml', '.txt', '.md']
+};
+
+function getExtensionsForMethod(method) {
+  return METHOD_ALLOWED_EXTENSIONS[method] || METHOD_ALLOWED_EXTENSIONS.qlora;
+}
+
 function onNimphyMethodChange() {
-  const method = document.getElementById('nimphy-method')?.value;
-  const graphRagToggle = document.getElementById('nimphy-toggle-graph-rag');
-  if ((method === 'raft' || method === 'ecdysis_memory') && graphRagToggle) {
-    graphRagToggle.checked = true;
+  const method = document.getElementById('nimphy-method')?.value || 'qlora';
+  const label = document.getElementById('nimphy-dataset-label');
+  const fileInput = document.getElementById('nimphy-file-upload');
+  const hint = document.getElementById('nimphy-allowed-extensions-hint');
+  const prompt = document.getElementById('nimphy-dropzone-prompt');
+  const allowed = getExtensionsForMethod(method);
+
+  if (fileInput) {
+    fileInput.accept = allowed.join(',');
+  }
+
+  const methodNames = {
+    qlora: 'LoRA / QLoRA 4-bit (SFT)',
+    full_peft: 'PEFT / Full Fine-Tuning (SFT)',
+    raft: 'RAFT (Context + CoT QA)',
+    aft: 'Plantilla Canónica AFT (5 Capas)',
+    few_shot_distill: 'Directivas & Ejemplos Few-Shot'
+  };
+
+  const nameFormatted = methodNames[method] || method.toUpperCase();
+  if (label) {
+    label.innerHTML = `📄 Dataset / Plantilla de Entrada (<span style="color: #6ee7b7;">${nameFormatted}</span>):`;
+  }
+  if (prompt) {
+    prompt.textContent = `Haz clic para subir o arrastra el archivo de ${nameFormatted}`;
+  }
+  if (hint) {
+    hint.textContent = `Extensiones aceptadas estrictamente: ${allowed.join(', ')}`;
+  }
+
+  // Filter out any uploaded file that doesn't match the new method
+  if (uploadedNimphyFiles.length > 0) {
+    const validFiles = uploadedNimphyFiles.filter(f => {
+      const lower = f.name.toLowerCase();
+      return allowed.some(ext => lower.endsWith(ext));
+    });
+    if (validFiles.length !== uploadedNimphyFiles.length) {
+      uploadedNimphyFiles = validFiles;
+      renderNimphyFilesList();
+      updateNimphyTokenEstimate();
+      showCustomModal('⚠️ Archivos Reajustados', `Al cambiar al método "${nameFormatted}", se han descartado los archivos que no cumplen con las extensiones permitidas (${allowed.join(', ')}).`);
+    }
+  }
+}
+
+// ─── DEDICATED GRAPH RAG DOCUMENTATION MANAGEMENT ──────────────
+let uploadedNimphyRagFiles = [];
+
+function toggleNimphyGraphRagContainer() {
+  const isChecked = document.getElementById('nimphy-toggle-graph-rag')?.checked;
+  const container = document.getElementById('nimphy-graph-rag-container');
+  if (container) {
+    container.classList.toggle('hidden', !isChecked);
+  }
+}
+
+function handleNimphyRagFilesSelected(files) {
+  if (!files || files.length === 0) return;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    uploadedNimphyRagFiles.push({
+      name: f.name,
+      size: f.size,
+      type: f.type || 'text/plain'
+    });
+  }
+  renderNimphyRagFilesList();
+  updateNimphyRagTokenEstimate();
+}
+
+function removeNimphyRagFile(idx) {
+  uploadedNimphyRagFiles.splice(idx, 1);
+  renderNimphyRagFilesList();
+  updateNimphyRagTokenEstimate();
+}
+
+function renderNimphyRagFilesList() {
+  const container = document.getElementById('nimphy-rag-files-list');
+  if (!container) return;
+  container.innerHTML = uploadedNimphyRagFiles.map((f, idx) => `
+    <div style="background: #020704; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.7rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span>🕸️</span>
+        <strong style="color: #6ee7b7;">${f.name}</strong>
+        <span class="text-dim text-xs">(${(f.size / 1024).toFixed(1)} KB)</span>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.4rem; font-size: 0.7rem; color: #f87171;" onclick="removeNimphyRagFile(${idx})">✕</button>
+    </div>
+  `).join('');
+}
+
+function updateNimphyRagTokenEstimate() {
+  const badge = document.getElementById('nimphy-rag-tokens-badge');
+  const rawText = document.getElementById('nimphy-rag-raw-docs')?.value || '';
+  let totalBytes = uploadedNimphyRagFiles.reduce((acc, f) => acc + f.size, 0);
+  let estimatedDocs = uploadedNimphyRagFiles.length;
+  let estimatedTokens = Math.round((totalBytes / 4) + (rawText.length / 3.8));
+  if (badge) {
+    badge.textContent = `${estimatedDocs} Docs RAG | ~${estimatedTokens} Tokens`;
   }
 }
 
@@ -2011,14 +2132,27 @@ async function createRollaBallPrompt() {
 
 function handleNimphyFilesSelected(files) {
   if (!files || files.length === 0) return;
+  const method = document.getElementById('nimphy-method')?.value || 'qlora';
+  const allowed = getExtensionsForMethod(method);
 
+  let rejected = [];
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
-    uploadedNimphyFiles.push({
-      name: f.name,
-      size: f.size,
-      type: f.type || 'text/plain'
-    });
+    const lower = f.name.toLowerCase();
+    const isAllowed = allowed.some(ext => lower.endsWith(ext));
+    if (isAllowed) {
+      uploadedNimphyFiles.push({
+        name: f.name,
+        size: f.size,
+        type: f.type || 'text/plain'
+      });
+    } else {
+      rejected.push(f.name);
+    }
+  }
+
+  if (rejected.length > 0) {
+    showCustomModal('🚫 Extensión No Permitida', `Los siguientes archivos fueron rechazados porque no coinciden con las extensiones requeridas para este método (${allowed.join(', ')}):\n\n• ${rejected.join('\n• ')}\n\nPor favor, adjunta archivos con las extensiones compatibles.`);
   }
 
   renderNimphyFilesList();
@@ -2049,10 +2183,8 @@ function renderNimphyFilesList() {
 
 function updateNimphyTokenEstimate() {
   const badge = document.getElementById('nimphy-tokens-badge');
-  const rawText = document.getElementById('nimphy-raw-docs')?.value || '';
-  
   let totalBytes = uploadedNimphyFiles.reduce((acc, f) => acc + f.size, 0);
-  let estimatedTokens = Math.round((totalBytes / 4) + (rawText.length / 3.8));
+  let estimatedTokens = Math.round(totalBytes / 4);
 
   if (badge) {
     badge.textContent = `${uploadedNimphyFiles.length} Archivos | ~${estimatedTokens} Tokens`;
@@ -2067,7 +2199,7 @@ async function confirmCreateNimphy() {
   const targetEnv = document.getElementById('nimphy-target-env')?.value || 'action_cpu';
   const storageBackend = document.getElementById('nimphy-storage-backend')?.value || 'mantx_vault';
   const systemPrompt = document.getElementById('nimphy-system-prompt')?.value?.trim() || '';
-  const rawDocs = document.getElementById('nimphy-raw-docs')?.value?.trim() || '';
+  const ragRawDocs = document.getElementById('nimphy-rag-raw-docs')?.value?.trim() || '';
 
   // Storage config extraction
   let storageConfig = { backend: storageBackend };
@@ -2117,8 +2249,8 @@ async function confirmCreateNimphy() {
     const newVersionItem = {
       version,
       trainedAt: new Date().toISOString(),
-      finalLoss: method === 'raft' || method === 'ecdysis_memory' ? 0.38 : 0.53,
-      benchmarkScore: method === 'raft' || method === 'ecdysis_memory' ? 99 : 96,
+      finalLoss: method === 'raft' || method === 'few_shot_distill' ? 0.38 : 0.53,
+      benchmarkScore: method === 'raft' || method === 'few_shot_distill' ? 99 : 96,
       method
     };
 
@@ -2186,13 +2318,14 @@ El endpoint de producción actualizará automáticamente a la versión ${version
     storageConfig,
     systemPrompt,
     filesCount: uploadedNimphyFiles.length,
-    hasRawDocs: Boolean(rawDocs),
+    ragFilesCount: uploadedNimphyRagFiles.length,
+    hasRagDocs: Boolean(ragRawDocs) || uploadedNimphyRagFiles.length > 0,
     versions: [
       {
         version,
         trainedAt: new Date().toISOString(),
-        finalLoss: method === 'raft' || method === 'ecdysis_memory' ? 0.42 : 0.62,
-        benchmarkScore: method === 'raft' || method === 'ecdysis_memory' ? 98 : 94,
+        finalLoss: method === 'raft' || method === 'few_shot_distill' ? 0.42 : 0.62,
+        benchmarkScore: method === 'raft' || method === 'few_shot_distill' ? 98 : 94,
         method
       }
     ],
@@ -2212,8 +2345,9 @@ Modelo Base: ${newNimphy.baseModel}
 Método: ${newNimphy.method.toUpperCase()}
 Hardware Target: ${newNimphy.providerType === 'local_runner' ? (newNimphy.targetEnv === 'action_cpu' ? 'GitHub Actions Runner CPU ($0, 6h)' : 'HuggingFace ZeroGPU') : 'Termes Symbiont / BYOK + Ecdysis Memory Proxy'}
 Almacenamiento: ${storageSummary}
-Memoria Ecdysis: ${newNimphy.ecdysisMemoryEnabled ? '✔ ACTIVA (Vector Store + Graph)' : 'Deshabilitada'}
-Graph RAG: ${newNimphy.graphRagEnabled ? '✔ ACTIVO (Arzor Knowledge Graph)' : 'Deshabilitado'}
+Memoria Ecdysis: ${newNimphy.ecdysisMemoryEnabled ? '✔ ACTIVA (Vector Store Persistente)' : 'Deshabilitada'}
+Graph RAG: ${newNimphy.graphRagEnabled ? `✔ ACTIVO (${uploadedNimphyRagFiles.length} Docs + Notas Grafo)` : 'Deshabilitado'}
+Archivos Dataset: ${uploadedNimphyFiles.length} archivo(s) validado(s)
 
 Para lanzar la producción en GitHub Actions:
 mantx nimphys create --name "${newNimphy.name}" --provider ${newNimphy.providerType} --model ${newNimphy.baseModel} --method ${newNimphy.method}
@@ -2454,6 +2588,58 @@ function setForgeMode(mode) {
   }
 }
 
+function onForgeFormatChange() {
+  const fmt = document.getElementById('forge-fmt')?.value || 'alpaca';
+  const stratSelect = document.getElementById('forge-strat');
+  const countSelect = document.getElementById('forge-count');
+
+  if (fmt === 'aft') {
+    if (stratSelect) {
+      stratSelect.innerHTML = `
+        <option value="fractal_stratification">🧬 Estratificación Fractal L1–L5 (Arzor)</option>
+        <option value="constitutional_axioms">🛡️ Síntesis de Axiomas & Casos Límite</option>
+      `;
+    }
+    if (countSelect) {
+      countSelect.innerHTML = `
+        <option value="3">3 Trazas L5 (Perfil Rápido)</option>
+        <option value="5" selected>5 Trazas L5 (Equilibrado / Recomendado)</option>
+        <option value="10">10 Trazas L5 (Profundo / Exhaustivo)</option>
+      `;
+    }
+  } else if (fmt === 'few_shot') {
+    if (stratSelect) {
+      stratSelect.innerHTML = `
+        <option value="in_context_distillation">📜 Destilación de Reglas & Semillas</option>
+        <option value="adversarial_calibration">🎯 Calibración de Formato & Casos Borde</option>
+      `;
+    }
+    if (countSelect) {
+      countSelect.innerHTML = `
+        <option value="3">3 Ejemplos Few-Shot (Ultra-Compacto)</option>
+        <option value="5" selected>5 Ejemplos Few-Shot (Equilibrado / Recomendado)</option>
+        <option value="10">10 Ejemplos Few-Shot (Extensivo)</option>
+      `;
+    }
+  } else {
+    if (stratSelect) {
+      stratSelect.innerHTML = `
+        <option value="constitutional_critique">Constitutional AI (Juez Crítico)</option>
+        <option value="evol_instruct">Evol-Instruct (Complejidad Progresiva)</option>
+        <option value="raft_docs">RAFT Contextual (Documentos + QA)</option>
+      `;
+    }
+    if (countSelect) {
+      countSelect.innerHTML = `
+        <option value="10">10 Muestras (Rápido)</option>
+        <option value="50">50 Muestras</option>
+        <option value="100">100 Muestras</option>
+        <option value="500">500 Muestras (Completo)</option>
+      `;
+    }
+  }
+}
+
 function handleForgeFilesSelected(files) {
   if (!files || files.length === 0) return;
 
@@ -2515,30 +2701,13 @@ function generateDomainSpecificSamples(domain, count = 10, format = 'alpaca', co
   const isRedis = /redis/i.test(d);
   const isPostgres = /postgres|sql/i.test(d);
   const isRust = /rust/i.test(d);
-  const isPython = /python/i.test(d);
-  const isDocker = /docker|k8s|kubernetes/i.test(d);
 
   const topics = isRedis ? [
     { q: '¿Cómo optimizar el uso de memoria en Redis para colecciones masivas de datos en producción?', a: 'Utiliza estructuras Hash codificadas con ziplist/listpack (hash-max-ziplist-entries) en lugar de claves de tipo string aisladas. Esto reduce el overhead de metadatos de ~70 bytes por clave a menos de 10 bytes.' },
     { q: '¿Por qué se debe evitar el comando KEYS * en producción y qué alternativa segura usar?', a: 'KEYS * bloquea el hilo principal de eventos de Redis con complejidad O(N), congelando el servidor. En su lugar, emplea SCAN o HSCAN de forma iterativa con un cursor no bloqueante O(1) por llamada.' },
     { q: 'Implementa una estrategia de Pipelining eficiente en Redis para procesamiento por lotes', a: 'El Pipelining empaqueta múltiples comandos cliente sin esperar los Round Trip Time (RTT) individuales. Reduce la latencia acumulada de red de O(N * RTT) a O(RTT) mediante buffers de socket sincronizados.' },
     { q: 'Configuración recomendada de políticas de desalojo (Eviction Policy) para caché en Redis', a: 'Configura maxmemory-policy allkeys-lru o volatile-lfu según la distribución de acceso de tu carga de trabajo, garantizando que claves expirables se reciclen antes de agotar la RAM asignada.' },
-    { q: 'Patrón de bloqueo distribuido seguro con Redlock y TTL en Redis', a: 'Utiliza SET resource_name my_random_token NX PX 30000 con un UUID de liberación condicional validado vía script Lua atómico: if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end.' },
-    { q: '¿Cómo mitigar el problema de Cache Stampede o Thundering Herd en Redis?', a: 'Emplea técnicas de Early Expiration probabilística (algoritmo XFetch) o bloqueos distribuidos mutuos breves para que un único worker compute el dato pesado mientras los demás consumen la caché stale durante ese intervalo.' },
-    { q: '¿Qué diferencias arquitectónicas existen entre Redis Pub/Sub y Redis Streams?', a: 'Pub/Sub es efímero (fire-and-forget, sin persistencia ni ACK). Redis Streams ofrece log ordenado en disco con grupos de consumidores (Consumer Groups), ACK de mensajes leídos (XACK) y tolerancia a desconexiones de clientes.' },
-    { q: 'Estrategia de persistencia híbrida recomendada: RDB snapshots + AOF appendfsync everysec', a: 'Combina RDB para copias de seguridad compactas y arranque veloz con AOF (Append-Only File) configurado con appendfsync everysec para garantizar un límite máximo de 1 segundo de pérdida en caso de fallo crítico.' },
-    { q: 'Optimización de particionado con Redis Cluster y cálculo de Hash Slots', a: 'Redis Cluster divide el espacio de claves en 16.384 slots fijos usando CRC16(key) mod 16384. Utiliza Hash Tags como {user:100}:profile y {user:100}:orders para forzar la co-localización de datos relacionados en el mismo nodo físico.' },
-    { q: 'Métricas clave de telemetría a monitorizar en Redis con el comando INFO', a: 'Supervisa used_memory_rss vs used_memory (ratio de fragmentación > 1.5 indica fragmentación de memoria severa), instantaneous_ops_per_sec, connected_clients, rejected_connections y evicted_keys.' },
-    { q: 'Cálculo de cardinalidades masivas en milisegundos con HyperLogLog en Redis', a: 'Aplica PFADD y PFCOUNT para estimar conteos únicos de usuarios con un error estándar del 0.81% consumiendo un máximo invariable de 12 KB de RAM por clave, independientemente del volumen de datos.' },
-    { q: 'Operaciones bit a bit ultrarrápidas con Bitmaps para métricas de retención de usuarios', a: 'Utiliza SETBIT y BITPOS mapeando el ID del usuario al offset numérico. Calcula DAU (Daily Active Users) y retención combinando días con BITOP AND / OR con un consumo de apenas 1.2 MB para 10 millones de usuarios.' },
-    { q: 'Indexación y consultas de proximidad geoespacial con GeoSets en Redis', a: 'Añade coordenadas con GEOADD ubicaciones lon lat id y realiza búsquedas espaciales en microsegundos con GEOSEARCH ... BYRADIUS 5 km WITHDIST WITHCOORD basado en codificación Geohash de 52 bits.' },
-    { q: 'Client-Side Caching con protocolo RESP3 y tracking de invalidación en Redis', a: 'Habilita CLIENT TRACKING ON para mantener una copia local en memoria del proceso de la app. Redis envía notificaciones de invalidación únicamente cuando la clave sufre una mutación, eliminando latencia de red en lecturas repetitivas.' },
-    { q: 'Eliminación asíncrona no bloqueante de grandes estructuras con UNLINK y Lazy Free', a: 'Evita el comando DEL en colecciones gigantes (bigkeys). Emplea UNLINK y activa lazyfree-lazy-eviction yes y lazyfree-lazy-expire yes para desacoplar la liberación de memoria a un hilo secundario sin congelar el event loop.' },
-    { q: 'Control de concurrencia y transacciones ACID aisladas con MULTI/EXEC y WATCH', a: 'Aplica WATCH clave para detección de colisiones optimistas antes de abrir el bloque MULTI. Si otro cliente modifica la clave antes del EXEC, la transacción aborta limpiamente devolviendo nil para reintento.' },
-    { q: 'Identificación y auditoría de BigKeys en clústeres de Redis en producción', a: 'Ejecuta redis-cli --bigkeys o analiza el espacio con MEMORY USAGE clave para localizar colecciones que excedan los 10 MB y diseñar estrategias de particionado modular.' },
-    { q: 'Mitigación de Split-Brain y quorum en failovers de Redis Sentinel', a: 'Configura min-replicas-to-write 1 y min-replicas-max-lag 10 en la instancia primaria, garantizando que si el nodo maestro pierde conectividad con la mayoría de réplicas, rechace escrituras para evitar divergencia de estado.' },
-    { q: 'Optimización de sockets TCP y parámetros de kernel Linux para Redis de alto rendimiento', a: 'Configura en el sistema operativo net.core.somaxconn = 65535, vm.overcommit_memory = 1, y desactiva Transparent Huge Pages (echo never > /sys/kernel/mm/transparent_hugepage/enabled).' },
-    { q: 'Búsqueda vectorial e inferencia semántica con Redis Vector Search (HNSW / Flat)', a: 'Crea índices con FT.CREATE ... VECTOR HNSW 6 TYPE FLOAT32 DIM 1536 DISTANCE_METRIC COSINE para ejecutar k-NN (K-Nearest Neighbors) en tiempo real para aplicaciones RAG y agentes autónomos.' }
+    { q: 'Patrón de bloqueo distribuido seguro con Redlock y TTL en Redis', a: 'Utiliza SET resource_name my_random_token NX PX 30000 con un UUID de liberación condicional validado vía script Lua atómico: if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end.' }
   ] : isPostgres ? [
     { q: '¿Cómo optimizar consultas complejas en PostgreSQL con índices parciales y B-Tree?', a: 'Crea índices con cláusula WHERE indexando solo las tuplas activas: CREATE INDEX idx_orders_active ON orders(created_at) WHERE status = "pending". Esto reduce el tamaño del árbol y agiliza las lecturas en disco.' },
     { q: 'Interpretación de planes de ejecución con EXPLAIN (ANALYZE, BUFFERS)', a: 'Evalúa la métrica "Buffers: shared hit" vs "shared read" para identificar lecturas de disco innecesarias y nodos Seq Scan que requieran índices covering (INCLUDE).' },
@@ -2556,23 +2725,85 @@ function generateDomainSpecificSamples(domain, count = 10, format = 'alpaca', co
     { q: `Estrategias de observabilidad y métricas de producción para: ${d}`, a: `Configura métricas de golden signals (latencia, tráfico, errores y saturación) con tracing distribuido OpenTelemetry.` }
   ];
 
-  const totalCount = Math.min(Math.max(parseInt(count, 10) || 10, 1), 100);
+  const totalCount = Math.min(Math.max(parseInt(count, 10) || 5, 1), 100);
+
+  // CASE 1: AFT CANONICAL PROFILE
+  if (format === 'aft') {
+    const traces = [];
+    for (let i = 0; i < totalCount; i++) {
+      const topic = topics[i % topics.length];
+      traces.push({
+        input: topic.q,
+        chainOfThought: `Análisis de fundamentos para ${d}: descomposición de la consulta y aplicación de invariantes técnicas.`,
+        expectedOutput: topic.a
+      });
+    }
+
+    return {
+      schemaVersion: 'aft-1.0.0',
+      domain: d,
+      layers: {
+        L1_executive: {
+          persona: `Arquitecto Especialista en ${d}`,
+          objective: `Dominio y optimización profunda de ${d}`,
+          tone: 'assertive_technical'
+        },
+        L2_axiomatic: {
+          invariants: [
+            `Garantía de rendimiento y cero cuellos de botella en ${d}`,
+            `Validación estricta de esquemas e invariantes en frontera`,
+            `Tolerancia a fallos y manejo de excepciones idempotente`
+          ]
+        },
+        L3_methodological: {
+          stepTransitions: [
+            { step: 1, action: 'Inspeccionar métricas y telemetría inicial' },
+            { step: 2, action: 'Identificar contención o puntos de bloqueo' },
+            { step: 3, action: 'Aplicar optimizaciones axiomáticas estructuradas' }
+          ]
+        },
+        L4_constraints: {
+          forbiddenPatterns: [
+            'Operaciones bloqueantes sin timeout',
+            'Alucinación de tipos o estructuras no declaradas'
+          ],
+          strictTypes: true
+        },
+        L5_calibrationTraces: traces
+      }
+    };
+  }
+
+  // CASE 2: FEW-SHOT DIGESTION
+  if (format === 'few_shot') {
+    const examples = [];
+    for (let i = 0; i < totalCount; i++) {
+      const topic = topics[i % topics.length];
+      examples.push({
+        user: topic.q,
+        assistant: topic.a
+      });
+    }
+
+    return {
+      systemDirective: {
+        corePersona: `Especialista en ${d}`,
+        rules: [
+          `Aplica rigurosamente las directivas y patrones de ingeniería para ${d}`,
+          `Respuestas técnicas concisas con código verificado y estructurado`,
+          `Prioriza robustez, tipos estrictos y cero ambigüedad`
+        ],
+        outputFormat: 'Markdown estructurado con bloques de código'
+      },
+      fewShotCalibration: examples
+    };
+  }
+
+  // CASE 3: STANDARD SFT / RAFT SAMPLES
   const result = [];
-
-  const angles = [
-    '',
-    ' [Enfoque: Troubleshooting y Depuración en Producción]',
-    ' [Enfoque: Rendimiento Extremo y Baja Latencia]',
-    ' [Enfoque: Alta Disponibilidad y Resiliencia]'
-  ];
-
   for (let i = 0; i < totalCount; i++) {
-    const topicIdx = i % topics.length;
-    const baseTopic = topics[topicIdx];
-    const angleIdx = Math.floor(i / topics.length) % angles.length;
-    const angle = angles[angleIdx];
-
-    const finalQuestion = angle ? `${baseTopic.q.replace(/\?$/, '')}${angle}?` : baseTopic.q;
+    const baseTopic = topics[i % topics.length];
+    const finalQuestion = baseTopic.q;
 
     if (format === 'raft') {
       result.push({
@@ -2589,7 +2820,7 @@ function generateDomainSpecificSamples(domain, count = 10, format = 'alpaca', co
         ]
       });
     } else {
-      // Alpaca format (default)
+      // Alpaca / ChatML
       result.push({
         instruction: finalQuestion,
         input: contextDocs ? contextDocs.slice(0, 150) : '',
@@ -2621,55 +2852,58 @@ async function runDataForge() {
   out.innerHTML = `
     <div style="display: flex; align-items: center; gap: 0.6rem;">
       <div class="pulse-dot"></div>
-      <span>Sintetizando ${count} muestras para "${domain}" ${uploadedForgeFiles.length > 0 ? `(usando ${uploadedForgeFiles.length} archivos semilla)` : ''} con ${strat.toUpperCase()}...</span>
+      <span>Sintetizando dataset (${fmt.toUpperCase()}) para "${domain}" ${uploadedForgeFiles.length > 0 ? `(usando ${uploadedForgeFiles.length} archivos semilla)` : ''}...</span>
     </div>
   `;
 
   setTimeout(() => {
     const dataset = generateDomainSpecificSamples(domain, parseInt(count, 10), fmt, combinedContext);
+    const isObjectPayload = fmt === 'aft' || fmt === 'few_shot';
+    const sampleCount = isObjectPayload 
+      ? (fmt === 'aft' ? dataset.layers.L5_calibrationTraces.length : dataset.fewShotCalibration.length)
+      : dataset.length;
+
     currentGeneratedDataset = {
       name,
       domain,
       format: fmt,
       strategy: strat,
-      samples: dataset,
-      count: dataset.length,
+      data: dataset,
+      count: sampleCount,
       filesCount: uploadedForgeFiles.length,
       createdAt: new Date().toISOString()
     };
 
-    const previewCount = Math.min(3, dataset.length);
-    const previewData = dataset.slice(0, previewCount);
-
     out.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.8rem;">
         <div>
-          <strong style="color: var(--emerald-light); font-size: 0.88rem;">✔ Dataset Sintetizado: ${currentGeneratedDataset.count} Muestras (100% Calidad Aprobada)</strong>
+          <strong style="color: var(--emerald-light); font-size: 0.88rem;">✔ Artefacto Sintetizado: ${sampleCount} ${fmt === 'aft' ? 'Trazas AFT' : fmt === 'few_shot' ? 'Ejemplos Few-Shot' : 'Muestras'} (100% Calidad Aprobada)</strong>
           <div class="text-dim text-xs" style="margin-top: 0.2rem;">Dominio: ${domain} | Formato: ${fmt.toUpperCase()} | Estrategia: ${strat.toUpperCase()} ${uploadedForgeFiles.length > 0 ? `| ${uploadedForgeFiles.length} Archivos Semilla` : ''}</div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-          <button class="btn btn-outline btn-sm" onclick="downloadForgeDataset()">📥 Descargar JSON</button>
-          <button class="btn btn-primary btn-sm" onclick="trainNimphyWithForge()">🚀 Entrenar Niphy</button>
+          <button class="btn btn-outline btn-sm" onclick="downloadForgeDataset()">📥 Descargar ${fmt === 'aft' ? '.aft.json' : '.json'}</button>
+          <button class="btn btn-primary btn-sm" onclick="trainNimphyWithForge()">🚀 Producir Niphy con este Dataset</button>
         </div>
       </div>
-      <div class="text-xs text-dim mb-1">Previsualización de muestras generadas (${previewCount} de ${dataset.length}):</div>
-      <pre style="font-family: var(--font-mono); font-size: 0.72rem; color: #a7f3d0; background: #010402; padding: 0.7rem; border-radius: 6px; overflow-x: auto; max-height: 180px;">${JSON.stringify(previewData, null, 2)}</pre>
+      <div class="text-xs text-dim mb-1">Previsualización de estructura generada:</div>
+      <pre style="font-family: var(--font-mono); font-size: 0.72rem; color: #a7f3d0; background: #010402; padding: 0.7rem; border-radius: 6px; overflow-x: auto; max-height: 180px;">${JSON.stringify(dataset, null, 2)}</pre>
     `;
   }, 700);
 }
 
 function downloadForgeDataset() {
-  if (!currentGeneratedDataset || !currentGeneratedDataset.samples) {
+  if (!currentGeneratedDataset || !currentGeneratedDataset.data) {
     showCustomModal('⚠️ Sin Datos', 'Genera primero un dataset con el botón "Sintetizar Dataset con Forge".');
     return;
   }
 
-  const jsonStr = JSON.stringify(currentGeneratedDataset.samples, null, 2);
+  const jsonStr = JSON.stringify(currentGeneratedDataset.data, null, 2);
   const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const fileName = `${currentGeneratedDataset.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-dataset.json`;
+  const ext = currentGeneratedDataset.format === 'aft' ? '.aft.json' : currentGeneratedDataset.format === 'few_shot' ? '.fewshot.json' : '-dataset.json';
+  const fileName = `${currentGeneratedDataset.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}${ext}`;
   a.download = fileName;
   document.body.appendChild(a);
   a.click();
@@ -2678,33 +2912,50 @@ function downloadForgeDataset() {
 }
 
 function trainNimphyWithForge() {
-  if (!currentGeneratedDataset || !currentGeneratedDataset.samples) {
+  if (!currentGeneratedDataset || !currentGeneratedDataset.data) {
     showCustomModal('⚠️ Sin Datos', 'Genera primero un dataset con el botón "Sintetizar Dataset con Forge".');
     return;
   }
 
   openCreateNimphyModal();
   const nameInput = document.getElementById('nimphy-name');
-  const rawDocsInput = document.getElementById('nimphy-raw-docs');
   const methodSelect = document.getElementById('nimphy-method');
   const systemPromptInput = document.getElementById('nimphy-system-prompt');
 
   const cleanName = currentGeneratedDataset.name.replace(/[^a-zA-Z0-9]/g, '');
   if (nameInput) nameInput.value = `${cleanName || 'DomainExpert'}-Niphy`;
-  if (rawDocsInput) rawDocsInput.value = JSON.stringify(currentGeneratedDataset.samples, null, 2);
-  if (methodSelect) {
-    methodSelect.value = currentGeneratedDataset.format === 'raft' ? 'raft' : 'qlora';
+
+  let targetMethod = 'qlora';
+  let targetExt = '.json';
+  if (currentGeneratedDataset.format === 'aft') {
+    targetMethod = 'aft';
+    targetExt = '.aft.json';
+  } else if (currentGeneratedDataset.format === 'few_shot') {
+    targetMethod = 'few_shot_distill';
+    targetExt = '.json';
+  } else if (currentGeneratedDataset.format === 'raft') {
+    targetMethod = 'raft';
+    targetExt = '.json';
   }
+
+  if (methodSelect) {
+    methodSelect.value = targetMethod;
+    onNimphyMethodChange();
+  }
+
+  // Inject generated dataset directly into uploadedNimphyFiles
+  const jsonContent = JSON.stringify(currentGeneratedDataset.data, null, 2);
+  uploadedNimphyFiles = [{
+    name: `${cleanName.toLowerCase() || 'forge-dataset'}${targetExt}`,
+    size: jsonContent.length,
+    type: 'application/json'
+  }];
+  renderNimphyFilesList();
+  updateNimphyTokenEstimate();
+
   if (systemPromptInput) {
     systemPromptInput.value = `Eres un asistente de IA experto en ${currentGeneratedDataset.domain}. Responde con máxima precisión técnica y ejemplos prácticos.`;
   }
-
-  if (uploadedForgeFiles.length > 0) {
-    uploadedNimphyFiles = [...uploadedForgeFiles];
-    renderNimphyFilesList();
-  }
-
-  updateNimphyTokenEstimate();
 }
 
 // ─── NIMPHYS LABORATORY MATRIX STUDIO ─────────────────────────────
