@@ -426,15 +426,21 @@
 
       <!-- TAB 6: NIMPHYS, FORGE & LAB -->
       <section id="tab-nimphys" class="tab-content">
-        <div class="tab-header">
+        <div class="tab-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;">
           <div>
             <h2>🧬 Nimphys Models, Synthetic Forge & Laboratory</h2>
             <p class="text-dim">Entrena y personaliza modelos especializados (Nimphys) a coste $0, sintetiza datasets con Constitutional AI y compara métodos en el laboratorio.</p>
           </div>
-          <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
-            <button class="btn btn-secondary btn-sm" onclick="openAftStudioModal()" style="border-color: var(--emerald-main); color: var(--emerald-light); font-weight: 600;">🧬 AFT Visual Studio (Editor Canónico)</button>
-            <button class="btn btn-secondary btn-sm" onclick="openSeedsGuideModal()">📋 Guía Semillas con IA Externa</button>
-            <button class="btn btn-primary" onclick="openCreateNimphyModal()">+ Producir / Entrenar Niphy</button>
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="openAftStudioModal()" style="font-size: 0.76rem; border-color: rgba(16,185,129,0.4); color: #6ee7b7; padding: 0.35rem 0.65rem; height: 32px; display: inline-flex; align-items: center;">
+              🧬 AFT Studio
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="openSeedsGuideModal()" style="font-size: 0.76rem; border-color: var(--border-subtle); color: #fff; padding: 0.35rem 0.65rem; height: 32px; display: inline-flex; align-items: center;">
+              📋 Guía de Semillas
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="openCreateNimphyModal()" style="font-size: 0.76rem; padding: 0.35rem 0.75rem; height: 32px; display: inline-flex; align-items: center; font-weight: 600;">
+              + Producir Niphy
+            </button>
           </div>
         </div>
 
