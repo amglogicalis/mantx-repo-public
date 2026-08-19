@@ -378,6 +378,25 @@ async function loadVaultData() {
     }
   } catch {}
 
+  // 5. Load or seed public-serving.json
+  try {
+    const pubRes = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/public-serving.json`, {
+      headers: { 'Authorization': `token ${token}` }
+    });
+    if (pubRes.ok) {
+      const data = await pubRes.json();
+      const content = decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(cfg => {
+          if (cfg.nimphyId) publicServingConfigs[cfg.nimphyId] = cfg;
+        });
+      }
+    } else if (token && pubRes.status === 404) {
+      await savePublicServingToVault();
+    }
+  } catch {}
+
   renderDashboardStats();
   renderAkgPools();
   renderNimphysCatalog();
@@ -3792,18 +3811,23 @@ jobs:
       - name: 📦 Install terra-mantx & cloudflared
         run: |
           npm install -g terra-mantx 2>/dev/null || true
-          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o /tmp/cloudflared.deb
-          sudo dpkg -i /tmp/cloudflared.deb
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
+          chmod +x /tmp/cloudflared
+          sudo mv /tmp/cloudflared /usr/local/bin/cloudflared
+          echo "[MANTX] cloudflared $(cloudflared --version) installed successfully."
 
-      - name: 🚀 Start MANTX OpenAI-Compatible Inference Server
+      - name: 🌐 Run Inference Server & Cloudflare Tunnel
         env:
-          PORT: 7430
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
           NIMPHY_ID: "${nimphyId}"
+          AUTO_RELAY: "${relay}"
+          RELAY_ITER: \${{ inputs.relay_iteration }}
         run: |
+          # 1. Create and start HTTP Inference Server
           cat << 'SERVEREOF' > /tmp/mantx_server.mjs
           import http from 'http';
 
-          const PORT = parseInt(process.env.PORT || '7430');
+          const PORT = 7430;
           const NIMPHY_ID = process.env.NIMPHY_ID || 'nimphy';
           const IDLE_TIMEOUT_MS = ${idle} * 60 * 1000;
           let lastReq = Date.now();
@@ -3853,32 +3877,22 @@ jobs:
           });
 
           server.listen(PORT, '127.0.0.1', () => console.log('[MANTX] Server listening on port ' + PORT));
-
-          setInterval(() => {
-            if (IDLE_TIMEOUT_MS > 0 && Date.now() - lastReq > IDLE_TIMEOUT_MS) {
-              console.log('[MANTX] Idle timeout reached, server going to sleep state (process stays alive)');
-            }
-          }, 60000);
           SERVEREOF
+
           node /tmp/mantx_server.mjs &
           SERVER_PID=$!
-          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
-          sleep 3
           echo "[MANTX] Server started (PID $SERVER_PID)"
+          sleep 2
 
-      - name: 🌐 Establish Cloudflare Tunnel & Capture Public URL
-        env:
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          NIMPHY_ID: "${nimphyId}"
-        run: |
-          # Start cloudflared tunnel (trycloudflare.com, no account required)
+          # 2. Start Cloudflare Tunnel in background
           cloudflared tunnel --url http://127.0.0.1:7430 > /tmp/cf_log.txt 2>&1 &
           CF_PID=$!
-          echo "CF_PID=$CF_PID" >> $GITHUB_ENV
+          echo "[MANTX] Cloudflare tunnel started (PID $CF_PID)"
 
-          # Wait for URL to appear in output (max 30s)
-          for i in $(seq 1 30); do
-            PUBLIC_URL=$(grep -o 'https://[a-zA-Z0-9-]*\\.trycloudflare\\.com' /tmp/cf_log.txt 2>/dev/null | head -1)
+          # 3. Wait for Cloudflare public URL
+          PUBLIC_URL=""
+          for i in $(seq 1 35); do
+            PUBLIC_URL=$(grep -oE 'https://[a-zA-Z0-9-]+\.trycloudflare\.com' /tmp/cf_log.txt 2>/dev/null | head -n 1)
             if [ -n "$PUBLIC_URL" ]; then
               break
             fi
@@ -3886,16 +3900,18 @@ jobs:
           done
 
           if [ -z "$PUBLIC_URL" ]; then
-            echo "[MANTX ERROR] Could not capture Cloudflare tunnel URL. Log:"
+            echo "[MANTX ERROR] Cloudflare Tunnel did not produce a trycloudflare.com URL. Log:"
             cat /tmp/cf_log.txt
+            kill $SERVER_PID $CF_PID 2>/dev/null || true
             exit 1
           fi
 
           echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_ENV
           echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_STEP_SUMMARY
-          echo "[MANTX] Public 24/7 URL: $PUBLIC_URL"
+          echo "### 🌐 MANTX Nimphy Server Live: $PUBLIC_URL" >> $GITHUB_STEP_SUMMARY
+          echo "[MANTX] >>> PUBLIC 24/7 URL ESTABLISHED: $PUBLIC_URL <<<"
 
-          # Write real URL to public-serving.json in current repository ($GITHUB_REPOSITORY)
+          # 4. Write URL to public-serving.json in $GITHUB_REPOSITORY
           VAULT_URL="https://api.github.com/repos/$GITHUB_REPOSITORY/contents/public-serving.json"
           CURRENT=$(curl -s -H "Authorization: token $GH_TOKEN" $VAULT_URL || echo '{}')
           SHA=$(echo "$CURRENT" | jq -r '.sha // empty')
@@ -3908,7 +3924,6 @@ jobs:
           WORKFLOW_ID="\${{ github.run_id }}"
           NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-          # Update or insert the entry for this nimphyId
           NEW_CONTENT=$(echo "$OLD_CONTENT" | jq --arg id "$NIMPHY_ID" --arg url "$PUBLIC_URL" --arg wf "$WORKFLOW_ID" --arg now "$NOW" '
             if (type == "array") then
               if any(.[]; .nimphyId == $id) then
@@ -3930,47 +3945,49 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
 
-          echo "[MANTX] Vault sync HTTP $HTTP_CODE"
+          echo "[MANTX] Vault sync HTTP response: $HTTP_CODE"
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "[MANTX] Public URL successfully written to repository: $PUBLIC_URL"
+            echo "[MANTX] Successfully persisted state to $GITHUB_REPOSITORY"
           else
-            echo "[MANTX WARNING] Failed to write to repository contents (HTTP $HTTP_CODE):"
+            echo "[MANTX WARNING] Failed to persist state:"
             cat /tmp/put_resp.json
           fi
 
-      - name: 🔄 Warmloop + Shutdown Polling (runs until shutdown or 5h50m relay)
-        env:
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          PUBLIC_URL: \${{ env.PUBLIC_URL }}
-          NIMPHY_ID: "${nimphyId}"
-          AUTO_RELAY: "${relay}"
-          RELAY_ITER: \${{ inputs.relay_iteration }}
-        run: |
-          VAULT_URL="https://api.github.com/repos/$GITHUB_REPOSITORY/contents/public-serving.json"
+          # 5. Continuous Loop: Warmloop + Vault Polling for Hard Shutdown
           START_TIME=$(date +%s)
-          MAX_SECONDS=21000  # 5h50m = 350 min
+          MAX_SECONDS=21000  # 5h50m
 
-          echo "[MANTX] Server LIVE at $PUBLIC_URL"
-          echo "[MANTX] Shutdown polling every 30s. Will auto-relay at 5h50m if enabled."
+          echo "[MANTX] Entering warmloop. Polling for shutdown signal every 30s..."
 
           while true; do
             NOW=$(date +%s)
             ELAPSED=$((NOW - START_TIME))
 
-            # Check shutdown signal from repo
+            # Verify processes are still running
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+              echo "[MANTX ERROR] Server process died unexpectedly."
+              kill $CF_PID 2>/dev/null || true
+              exit 1
+            fi
+            if ! kill -0 $CF_PID 2>/dev/null; then
+              echo "[MANTX ERROR] Cloudflare Tunnel process died unexpectedly."
+              kill $SERVER_PID 2>/dev/null || true
+              exit 1
+            fi
+
+            # Check for shutdown signal from vault
             CONTENT=$(curl -s -H "Authorization: token $GH_TOKEN" $VAULT_URL | jq -r '.content // empty' | tr -d '\n' | base64 -d 2>/dev/null || echo '[]')
             STATUS=$(echo "$CONTENT" | jq -r --arg id "$NIMPHY_ID" '.[]? | select(.nimphyId == $id) | .status // "online"')
 
             if [ "$STATUS" = "shutdown" ]; then
-              echo "[MANTX] Hard shutdown signal received from repository. Terminating."
-              kill $SERVER_PID 2>/dev/null || true
-              kill $CF_PID 2>/dev/null || true
+              echo "[MANTX] Hard shutdown signal received. Terminating processes cleanly."
+              kill $SERVER_PID $CF_PID 2>/dev/null || true
               exit 0
             fi
 
             # Auto-relay before 6h limit
             if [ $ELAPSED -ge $MAX_SECONDS ]; then
-              echo "[MANTX] 5h50m reached. Triggering relay iteration $((RELAY_ITER + 1))..."
+              echo "[MANTX] 5h50m limit reached. Triggering relay dispatch iteration $((RELAY_ITER + 1))..."
               if [ "$AUTO_RELAY" = "true" ]; then
                 WORKFLOW_FILE="serve-public-${nimphyId}.yml"
                 NEXT_ITER=$((RELAY_ITER + 1))
@@ -3979,9 +3996,10 @@ jobs:
                   -H "Authorization: token $GH_TOKEN" \
                   -H "Content-Type: application/json" \
                   -d "{\"ref\":\"main\",\"inputs\":{\"relay_iteration\":\"$NEXT_ITER\"}}" && \
-                  echo "[MANTX] Relay workflow triggered successfully." || \
-                  echo "[MANTX] Relay trigger failed (needs workflow scope PAT). Server will stop after this run."
+                  echo "[MANTX] Relay workflow dispatched successfully." || \
+                  echo "[MANTX WARNING] Relay trigger failed (workflow permission required)."
               fi
+              kill $SERVER_PID $CF_PID 2>/dev/null || true
               exit 0
             fi
 
