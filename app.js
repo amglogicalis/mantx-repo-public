@@ -1492,10 +1492,6 @@ async function detectTermesModels(forceToast = false) {
       }
 
       populateBaseModelSelect(dynamicModels, defaultModel);
-
-      if (forceToast) {
-        showCustomModal('🟢 Termes Endpoint Conectado', `Se detectó correctamente el endpoint dedicado:\n\n• Nombre: ${payload.name || payload.endpointId}\n• Modelo Base: ${defaultModel}\n• Proveedor: ${providerName}\n• Modo: Mono-Modelo Estricto`);
-      }
       return;
     }
 
@@ -1543,10 +1539,6 @@ async function detectTermesModels(forceToast = false) {
     }
 
     populateBaseModelSelect(dynamicModels.length > 0 ? dynamicModels : TERMES_DEFAULT_MODELS);
-
-    if (forceToast) {
-      showCustomModal('🟢 Termes Symbiont Conectado', `Se detectó correctamente el endpoint en "${endpoint}".\n\n• Modelos disponibles: ${modelsCount}\n• Proveedores: ${providersSummary}`);
-    }
 
   } catch (err) {
     if (detectedInput) {
