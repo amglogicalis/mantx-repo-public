@@ -1868,8 +1868,13 @@ async function detectByokProviderAndModels() {
       providerLabel.textContent = 'Pega una clave para auto-detectar';
       providerLabel.style.color = 'var(--text-dim)';
     }
-    if (badge) badge.textContent = 'REST / OpenAI Compatible';
-    populateBaseModelSelect(BYOK_DEFAULT_MODELS.general);
+    if (badge) {
+      badge.textContent = 'Esperando Clave API...';
+      badge.style.color = 'var(--text-dim)';
+    }
+    if (select) {
+      select.innerHTML = '<option value="">🔑 Pega tu API Key para cargar modelos...</option>';
+    }
     return;
   }
 
