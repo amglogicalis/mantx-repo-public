@@ -1780,6 +1780,7 @@ function closeCreateNimphyModal() {
 
 const METHOD_ALLOWED_EXTENSIONS = {
   qlora: ['.jsonl', '.json', '.csv', '.parquet'],
+  lora: ['.jsonl', '.json', '.csv', '.parquet'],
   full_peft: ['.jsonl', '.json', '.csv', '.parquet'],
   raft: ['.json', '.jsonl'],
   aft: ['.aft.json', '.json', '.yaml', '.yml'],
@@ -1804,6 +1805,7 @@ function onNimphyMethodChange() {
 
   const methodNames = {
     qlora: 'LoRA / QLoRA 4-bit (SFT)',
+    lora: 'LoRA 16-bit (SFT Estándar)',
     full_peft: 'PEFT / Full Fine-Tuning (SFT)',
     raft: 'RAFT (Context + CoT QA)',
     aft: 'Plantilla Canónica AFT (5 Capas)',
@@ -3211,9 +3213,8 @@ function openLabMatrixModal() {
   if (container) container.innerHTML = '';
   labCandidateCounter = 0;
 
-  // Add 2 default fresh candidate rows
-  addLabCandidateRow({ name: 'Candidato 1', method: 'qlora', graphRag: true, ecdysis: true });
-  addLabCandidateRow({ name: 'Candidato 2', method: 'raft', graphRag: false, ecdysis: true });
+  // Render clean empty state (no hardcoded candidate branches)
+  renderLabCandidatesEmptyState();
 
   if (modal) modal.classList.remove('hidden');
 }
@@ -3238,17 +3239,34 @@ function closeLabMatrixModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+function renderLabCandidatesEmptyState() {
+  const container = document.getElementById('lab-candidates-container');
+  if (!container) return;
+  container.innerHTML = `
+    <div id="lab-empty-state" style="text-align: center; padding: 2rem 1.2rem; border: 1px dashed var(--border-subtle); border-radius: 8px; background: rgba(0,0,0,0.25);">
+      <div style="font-size: 1.6rem; margin-bottom: 0.3rem;">🧪</div>
+      <strong style="color: #fff; font-size: 0.88rem; display: block; margin-bottom: 0.2rem;">No hay ramas candidatas en la matriz</strong>
+      <p class="text-dim text-xs" style="max-width: 440px; margin: 0 auto 0.8rem auto;">
+        Pulsa <strong>➕ Añadir Candidato</strong> para configurar los modelos, métodos y parámetros de cada rama a evaluar.
+      </p>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addLabCandidateRow()" style="font-size: 0.75rem;">➕ Añadir Primer Candidato</button>
+    </div>
+  `;
+}
+
 // ─── DYNAMIC PER-METHOD DATASET MANAGEMENT (IN-MEMORY) ─────────────
 function onLabMethodDatasetChange() {
   const method = document.getElementById('lab-method-select')?.value || 'qlora';
   const fileInput = document.getElementById('lab-method-file-upload');
   const hint = document.getElementById('lab-method-allowed-hint');
   const prompt = document.getElementById('lab-method-dropzone-prompt');
+  const sub = document.getElementById('lab-method-dropzone-sub');
   const allowed = getExtensionsForMethod(method);
 
   if (fileInput) fileInput.accept = allowed.join(',');
-  if (hint) hint.textContent = `Extensiones estrictas: ${allowed.join(', ')}`;
+  if (hint) hint.textContent = `Extensiones permitidas: ${allowed.join(', ')}`;
   if (prompt) prompt.textContent = `Haz clic para adjuntar archivo para ${LAB_METHOD_NAMES[method] || method.toUpperCase()}`;
+  if (sub) sub.textContent = `Formatos aceptados: ${allowed.join(', ')}`;
 
   renderLabMethodFilesList();
   updateLabMethodTokenEstimate();
@@ -3400,6 +3418,9 @@ function getMethodsForLabProvider(prov, selectedMethod) {
 function addLabCandidateRow(data = {}) {
   const container = document.getElementById('lab-candidates-container');
   if (!container) return;
+
+  const emptyState = document.getElementById('lab-empty-state');
+  if (emptyState) emptyState.remove();
 
   labCandidateCounter++;
   const rowId = `lab_cand_row_${labCandidateCounter}`;
@@ -3765,6 +3786,11 @@ function detectLabCandidateByok(rowId) {
 function removeLabCandidateRow(rowId) {
   const row = document.getElementById(rowId);
   if (row) row.remove();
+  const container = document.getElementById('lab-candidates-container');
+  const remaining = container ? container.querySelectorAll('.lab-candidate-row') : [];
+  if (remaining.length === 0) {
+    renderLabCandidatesEmptyState();
+  }
 }
 
 async function executeLaboratoryMatrix() {

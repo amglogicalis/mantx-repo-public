@@ -1177,7 +1177,7 @@
 
       <!-- 1. DYNAMIC IN-MEMORY DATASET / TEMPLATE UPLOADER PER METHOD -->
       <div class="form-group mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.9rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.4rem;">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span style="font-size: 1rem;">📄</span>
             <strong style="color: var(--emerald-light); font-size: 0.85rem;">1. Datasets / Plantillas por Método (En Memoria):</strong>
@@ -1185,9 +1185,9 @@
           <span id="lab-method-tokens-badge" class="badge badge-mint" style="font-size: 0.68rem;">0 Archivos en Método Actual</span>
         </div>
 
-        <div class="grid-2 mb-2">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label style="font-size: 0.75rem;">Configurar Dataset para el Método:</label>
+        <div style="display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 240px;">
+            <label style="font-size: 0.75rem; display: block; margin-bottom: 0.2rem; color: var(--text-dim);">Selecciona el Método de Entrenamiento:</label>
             <select id="lab-method-select" class="input-select" onchange="onLabMethodDatasetChange()">
               <option value="qlora" selected>LoRA / QLoRA 4-bit (SFT)</option>
               <option value="lora">LoRA 16-bit (SFT Estándar)</option>
@@ -1197,21 +1197,23 @@
               <option value="few_shot_distill">System Directive & Few-Shot Digestion</option>
             </select>
           </div>
-          <div style="display: flex; flex-direction: column; justify-content: flex-end;">
-            <div id="lab-method-allowed-hint" class="text-xs text-dim" style="font-size: 0.72rem; color: #a7f3d0; margin-bottom: 0.2rem;">
-              Extensiones estrictas: .jsonl, .json, .csv, .parquet
-            </div>
-            <div class="text-xs text-dim" style="font-size: 0.70rem;">
-              💡 Cada método retiene sus propios archivos en memoria al alternar el desplegable.
-            </div>
+          <div style="display: flex; align-items: center; padding-top: 1.1rem;">
+            <span id="lab-method-allowed-hint" class="badge" style="background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); font-size: 0.72rem; padding: 0.35rem 0.6rem;">
+              Extensiones permitidas: .jsonl, .json, .csv, .parquet
+            </span>
           </div>
         </div>
 
         <!-- Dropzone for selected method -->
-        <div style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 0.7rem; text-align: center; margin-bottom: 0.5rem; cursor: pointer; background: #020704;" onclick="document.getElementById('lab-method-file-upload').click()">
+        <div style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 0.7rem; text-align: center; margin-bottom: 0.4rem; cursor: pointer; background: #020704;" onclick="document.getElementById('lab-method-file-upload').click()">
           <input type="file" id="lab-method-file-upload" multiple style="display: none;" onchange="handleLabMethodFilesSelected(this.files)">
-          <div style="font-size: 1rem; margin-bottom: 0.1rem;">📂</div>
-          <div id="lab-method-dropzone-prompt" style="font-size: 0.78rem; font-weight: 600; color: #fff;">Haz clic para adjuntar archivo para este método</div>
+          <div style="font-size: 1.1rem; margin-bottom: 0.1rem;">📂</div>
+          <div id="lab-method-dropzone-prompt" style="font-size: 0.78rem; font-weight: 600; color: #fff;">Haz clic para adjuntar archivo para LoRA / QLoRA 4-bit (SFT)</div>
+          <div id="lab-method-dropzone-sub" class="text-dim text-xs" style="font-size: 0.70rem; margin-top: 0.1rem;">Formatos aceptados: .jsonl, .json, .csv, .parquet</div>
+        </div>
+
+        <div class="text-xs text-dim" style="font-size: 0.70rem; margin-bottom: 0.4rem; color: var(--text-muted);">
+          💡 Cada método retiene sus propios archivos en memoria mientras el modal esté abierto al alternar el desplegable.
         </div>
 
         <!-- File list for active method -->
