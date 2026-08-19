@@ -1291,11 +1291,12 @@ function onNimphyProviderChange() {
     populateBaseModelSelect(RUNNER_LOCAL_MODELS);
     if (methodSelect) {
       methodSelect.innerHTML = `
-        <option value="qlora">⚡ LoRA / QLoRA 4-bit (Unsloth Tensor Update)</option>
-        <option value="full_peft">🎯 PEFT / Full Fine-Tuning (Gradient Weights)</option>
-        <option value="raft">🧬 RAFT (Retrieval-Augmented Fine-Tuning con Docs)</option>
-        <option value="aft">🔬 AFT Compiler (Adaptive Fractal Tuning Arzor)</option>
-        <option value="few_shot_distill">📜 System Directive & Few-Shot Digestion (In-Context Distillation)</option>
+        <option value="qlora">⚡ QLoRA 4-bit (SFT — Cuantización 4-bit & Low-Rank)</option>
+        <option value="lora">🎯 LoRA 16-bit (SFT — Low-Rank Adaptation Estándar)</option>
+        <option value="full_peft">🎯 PEFT / Full Fine-Tuning (SFT — Gradient Adapters)</option>
+        <option value="raft">🧬 RAFT (Retrieval-Augmented Fine-Tuning con CoT)</option>
+        <option value="aft">🔬 AFT Compiler (Adaptive Fractal Tuning Arzor 5-Capas)</option>
+        <option value="few_shot_distill">📜 System Directive & Few-Shot Digestion (In-Context Calibration)</option>
       `;
     }
   }
@@ -3172,7 +3173,7 @@ let labDatasetsByMethod = {
 let labRagFiles = [];
 
 const LAB_METHOD_NAMES = {
-  qlora: 'LoRA / QLoRA 4-bit (SFT)',
+  qlora: 'QLoRA 4-bit (SFT)',
   lora: 'LoRA 16-bit (SFT Estándar)',
   full_peft: 'PEFT / Full Fine-Tuning (SFT)',
   raft: 'RAFT (Context + CoT)',
@@ -3406,7 +3407,7 @@ function getMethodsForLabProvider(prov, selectedMethod) {
     `;
   }
   return `
-    <option value="qlora" ${selectedMethod === 'qlora' || !selectedMethod ? 'selected' : ''}>⚡ LoRA / QLoRA 4-bit (SFT)</option>
+    <option value="qlora" ${selectedMethod === 'qlora' || !selectedMethod ? 'selected' : ''}>⚡ QLoRA 4-bit (SFT Cuantizado)</option>
     <option value="lora" ${selectedMethod === 'lora' ? 'selected' : ''}>🎯 LoRA 16-bit (SFT Estándar)</option>
     <option value="full_peft" ${selectedMethod === 'full_peft' ? 'selected' : ''}>🎯 PEFT / Full Fine-Tuning (SFT)</option>
     <option value="raft" ${selectedMethod === 'raft' ? 'selected' : ''}>🧬 RAFT (Retrieval Augmented FT con CoT)</option>
