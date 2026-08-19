@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5.6.0">
+  <link rel="stylesheet" href="style.css?v=5.7.0">
 </head>
 <body>
 
@@ -447,8 +447,25 @@
 
             <!-- Context / Docs Upload Area (Visible when docs mode selected) -->
             <div id="forge-docs-container" class="form-group mb-2 hidden" style="background: rgba(0,0,0,0.3); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
-              <label style="color: var(--emerald-light);">📄 Adjuntar Documentación o Ejemplos Semilla:</label>
-              <textarea id="forge-docs-input" class="input-textarea" rows="3" placeholder="Pega aquí el contenido de tus documentos, código o ejemplos en bruto..."></textarea>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <label style="color: var(--emerald-light); font-weight: 700; margin-bottom: 0;">📄 Documentación o Ejemplos Semilla:</label>
+                <span id="forge-tokens-badge" class="badge badge-mint" style="font-size: 0.68rem;">0 Archivos | ~0 Tokens</span>
+              </div>
+
+              <!-- File Drag & Drop Upload Area for Forge -->
+              <div style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 0.8rem; text-align: center; margin-bottom: 0.6rem; cursor: pointer; background: #020704;" onclick="document.getElementById('forge-file-upload').click()">
+                <input type="file" id="forge-file-upload" multiple style="display: none;" onchange="handleForgeFilesSelected(this.files)">
+                <div style="font-size: 1.2rem; margin-bottom: 0.2rem;">📁</div>
+                <div style="font-size: 0.8rem; font-weight: 600; color: #fff;">Haz clic para subir o arrastra aquí documentos / código fuente</div>
+                <div class="text-dim text-xs">Soporta .txt, .md, .json, .sql, .py, .ts, .yaml, .csv</div>
+              </div>
+
+              <div id="forge-files-list" style="display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.6rem;">
+                <!-- Uploaded file items injected via JS -->
+              </div>
+
+              <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.2rem;">O pega contexto / notas adicionales en texto:</label>
+              <textarea id="forge-docs-input" class="input-textarea" rows="2" placeholder="Pega aquí snippets de código, documentación complementaria o instrucciones adicionales..." oninput="updateForgeTokenEstimate()"></textarea>
             </div>
 
             <div class="grid-3 mb-3">
@@ -1341,6 +1358,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=5.6.0"></script>
+  <script src="app.js?v=5.7.0"></script>
 </body>
 </html>

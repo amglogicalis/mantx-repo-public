@@ -2444,6 +2444,7 @@ async function saveNimphysToVault() {
 
 // ─── SYNTHETIC DATA FORGE ────────────────────────────────────
 let currentForgeMode = 'auto';
+let uploadedForgeFiles = [];
 
 function setForgeMode(mode) {
   currentForgeMode = mode;
@@ -2459,6 +2460,60 @@ function setForgeMode(mode) {
     } else {
       docsContainer.classList.add('hidden');
     }
+  }
+}
+
+function handleForgeFilesSelected(files) {
+  if (!files || files.length === 0) return;
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      uploadedForgeFiles.push({
+        name: f.name,
+        size: f.size,
+        type: f.type || 'text/plain',
+        content: e.target.result || ''
+      });
+      renderForgeFilesList();
+      updateForgeTokenEstimate();
+    };
+    reader.readAsText(f);
+  }
+}
+
+function removeForgeFile(idx) {
+  uploadedForgeFiles.splice(idx, 1);
+  renderForgeFilesList();
+  updateForgeTokenEstimate();
+}
+
+function renderForgeFilesList() {
+  const container = document.getElementById('forge-files-list');
+  if (!container) return;
+
+  container.innerHTML = uploadedForgeFiles.map((f, idx) => `
+    <div style="background: #020704; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.7rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        <span>📄</span>
+        <strong style="color: #fff;">${f.name}</strong>
+        <span class="text-dim text-xs">(${(f.size / 1024).toFixed(1)} KB)</span>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.4rem; font-size: 0.7rem; color: #f87171;" onclick="removeForgeFile(${idx})">✕</button>
+    </div>
+  `).join('');
+}
+
+function updateForgeTokenEstimate() {
+  const badge = document.getElementById('forge-tokens-badge');
+  const rawText = document.getElementById('forge-docs-input')?.value || '';
+  
+  let totalBytes = uploadedForgeFiles.reduce((acc, f) => acc + (f.content?.length || f.size || 0), 0);
+  let estimatedTokens = Math.round((totalBytes / 4) + (rawText.length / 3.8));
+
+  if (badge) {
+    badge.textContent = `${uploadedForgeFiles.length} Archivos | ~${estimatedTokens} Tokens`;
   }
 }
 
@@ -2568,16 +2623,19 @@ async function runDataForge() {
   const domain = rawObj || rawName || 'Optimización de Rendimiento y Arquitectura';
   const name = rawName || `${domain.slice(0, 25)} QA Dataset`;
 
+  const filesText = uploadedForgeFiles.map(f => `--- Documento: ${f.name} ---\n${f.content}`).join('\n\n');
+  const combinedContext = [filesText, docsText].filter(Boolean).join('\n\n');
+
   out.classList.remove('hidden');
   out.innerHTML = `
     <div style="display: flex; align-items: center; gap: 0.6rem;">
       <div class="pulse-dot"></div>
-      <span>Sintetizando ${count} muestras para "${domain}" con ${strat.toUpperCase()}...</span>
+      <span>Sintetizando ${count} muestras para "${domain}" ${uploadedForgeFiles.length > 0 ? `(usando ${uploadedForgeFiles.length} archivos semilla)` : ''} con ${strat.toUpperCase()}...</span>
     </div>
   `;
 
   setTimeout(() => {
-    const dataset = generateDomainSpecificSamples(domain, parseInt(count, 10), fmt, docsText);
+    const dataset = generateDomainSpecificSamples(domain, parseInt(count, 10), fmt, combinedContext);
     currentGeneratedDataset = {
       name,
       domain,
@@ -2585,6 +2643,7 @@ async function runDataForge() {
       strategy: strat,
       samples: dataset,
       count: dataset.length,
+      filesCount: uploadedForgeFiles.length,
       createdAt: new Date().toISOString()
     };
 
@@ -2595,7 +2654,7 @@ async function runDataForge() {
       <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.8rem;">
         <div>
           <strong style="color: var(--emerald-light); font-size: 0.88rem;">✔ Dataset Sintetizado: ${currentGeneratedDataset.count} Muestras (100% Calidad Aprobada)</strong>
-          <div class="text-dim text-xs" style="margin-top: 0.2rem;">Dominio: ${domain} | Formato: ${fmt.toUpperCase()} | Estrategia: ${strat.toUpperCase()}</div>
+          <div class="text-dim text-xs" style="margin-top: 0.2rem;">Dominio: ${domain} | Formato: ${fmt.toUpperCase()} | Estrategia: ${strat.toUpperCase()} ${uploadedForgeFiles.length > 0 ? `| ${uploadedForgeFiles.length} Archivos Semilla` : ''}</div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
           <button class="btn btn-outline btn-sm" onclick="downloadForgeDataset()">📥 Descargar JSON</button>
@@ -2647,6 +2706,11 @@ function trainNimphyWithForge() {
   }
   if (systemPromptInput) {
     systemPromptInput.value = `Eres un asistente de IA experto en ${currentGeneratedDataset.domain}. Responde con máxima precisión técnica y ejemplos prácticos.`;
+  }
+
+  if (uploadedForgeFiles.length > 0) {
+    uploadedNimphyFiles = [...uploadedForgeFiles];
+    renderNimphyFilesList();
   }
 
   updateNimphyTokenEstimate();
