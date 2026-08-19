@@ -2717,7 +2717,6 @@ function openLabMatrixModal() {
   const nameInput = document.getElementById('lab-input-name');
   const promptInput = document.getElementById('lab-input-prompt');
   const contextInput = document.getElementById('lab-input-context');
-  const container = document.getElementById('lab-candidates-container');
 
   if (nameInput) nameInput.value = 'Matriz de Convergencia Multimétodo';
   if (promptInput) promptInput.value = 'Implementa un debounce concurrente en TypeScript con tipado genérico estricto';
@@ -2727,12 +2726,8 @@ function openLabMatrixModal() {
   renderLabFilesList();
   updateLabContextEstimate();
 
-  if (container) {
-    container.innerHTML = '';
-    labCandidateCounter = 0;
-    // Load default preset candidates
-    applyLabPreset('methods');
-  }
+  labCandidateCounter = 0;
+  renderLabCandidatesEmptyState();
 
   if (modal) modal.classList.remove('hidden');
 }
@@ -2740,6 +2735,21 @@ function openLabMatrixModal() {
 function closeLabMatrixModal() {
   const modal = document.getElementById('lab-matrix-modal');
   if (modal) modal.classList.add('hidden');
+}
+
+function renderLabCandidatesEmptyState() {
+  const container = document.getElementById('lab-candidates-container');
+  if (!container) return;
+  container.innerHTML = `
+    <div id="lab-empty-state" style="text-align: center; padding: 2.2rem 1.2rem; border: 1px dashed var(--border-subtle); border-radius: 8px; background: rgba(0,0,0,0.25);">
+      <div style="font-size: 1.8rem; margin-bottom: 0.4rem;">🧪</div>
+      <strong style="color: #fff; font-size: 0.9rem; display: block; margin-bottom: 0.3rem;">No hay ramas candidatas en la matriz</strong>
+      <p class="text-dim text-xs" style="max-width: 480px; margin: 0 auto 1rem auto;">
+        Pulsa <strong>➕ Añadir Candidato</strong> para configurar modelos personalizados o haz clic en una de las <strong>plantillas rápidas</strong> superiores para cargar comparativas predefinidas.
+      </p>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addLabCandidateRow()" style="font-size: 0.75rem;">➕ Añadir Primera Rama</button>
+    </div>
+  `;
 }
 
 function handleLabFilesSelected(fileList) {
@@ -2806,7 +2816,6 @@ function applyLabPreset(type) {
     if (nameInput) nameInput.value = 'Salto de Rendimiento: Niphy Entrenado vs Modelo Base';
     if (promptInput) promptInput.value = 'Implementa un pool de conexiones async con reintentos exponenciales y health checks';
     
-    // Add existing trained nimphys if available, else first default
     if (nimphysList && nimphysList.length > 0) {
       const topNimphy = nimphysList[0];
       addLabCandidateRow({
@@ -2818,7 +2827,6 @@ function applyLabPreset(type) {
         ecdysis: Boolean(topNimphy.ecdysisMemoryEnabled),
         env: 'action_cpu'
       });
-      // Second trained nimphy if exists
       if (nimphysList.length > 1) {
         const secondNimphy = nimphysList[1];
         addLabCandidateRow({
@@ -2835,23 +2843,22 @@ function applyLabPreset(type) {
       addLabCandidateRow({ name: 'PostgreSQL-Optimizer (v1.2.0)', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
     }
 
-    // Add Raw Base Model for direct delta comparison
     addLabCandidateRow({ name: 'Qwen 2.5 Coder 3B Base (Sin Entrenar)', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'qlora', graphRag: false, ecdysis: false, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Llama 3.2 3B Base (Sin Entrenar)', provider: 'local_runner', model: 'llama-3.2-3b-instruct', method: 'lora', graphRag: false, ecdysis: false, env: 'action_cpu' });
+    addLabCandidateRow({ name: 'Llama 3.2 3B Base (Sin Entrenar)', provider: 'local_runner', model: 'llama-3.2-3b-instruct', method: 'full_peft', graphRag: false, ecdysis: false, env: 'action_cpu' });
   } else if (type === 'methods') {
-    if (nameInput) nameInput.value = 'Comparativa de Métodos (QLoRA vs RAFT vs AFT)';
+    if (nameInput) nameInput.value = 'Comparativa de Métodos de Pesos (QLoRA vs RAFT vs AFT vs PEFT)';
     if (promptInput) promptInput.value = 'Optimiza consultas SQL complejas con índices compuestos y análisis EXPLAIN';
     addLabCandidateRow({ name: 'Qwen 3B + RAFT (Docs + Graph RAG)', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
     addLabCandidateRow({ name: 'Qwen 3B + QLoRA 4-bit Standard', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'qlora', graphRag: false, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Llama 3.2 3B + LoRA Peft', provider: 'local_runner', model: 'llama-3.2-3b-instruct', method: 'lora', graphRag: false, ecdysis: false, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Qwen 1.5B + AFT Attention', provider: 'local_runner', model: 'qwen-2.5-coder-1.5b', method: 'aft', graphRag: true, ecdysis: false, env: 'action_cpu' });
+    addLabCandidateRow({ name: 'Qwen 3B + AFT Compiler', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'aft', graphRag: true, ecdysis: false, env: 'action_cpu' });
+    addLabCandidateRow({ name: 'Llama 3.2 3B + Full PEFT', provider: 'local_runner', model: 'llama-3.2-3b-instruct', method: 'full_peft', graphRag: false, ecdysis: false, env: 'action_cpu' });
   } else if (type === 'sub3b') {
     if (nameInput) nameInput.value = 'Sub-3B Shootout (Qwen vs Llama vs SmolLM2 vs Mistral)';
     if (promptInput) promptInput.value = 'Genera un microservicio REST en Rust con Tokio y Axum para streaming de eventos';
     addLabCandidateRow({ name: 'Qwen 2.5 Coder 3B', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'qlora', graphRag: true, ecdysis: true, env: 'action_cpu' });
     addLabCandidateRow({ name: 'Llama 3.2 3B Instruct', provider: 'local_runner', model: 'llama-3.2-3b-instruct', method: 'qlora', graphRag: false, ecdysis: true, env: 'action_cpu' });
     addLabCandidateRow({ name: 'SmolLM2 1.7B Instruct', provider: 'local_runner', model: 'smollm2-1.7b-instruct', method: 'raft', graphRag: true, ecdysis: false, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Ministral 3B Instruct', provider: 'local_runner', model: 'ministral-3b-instruct', method: 'qlora', graphRag: false, ecdysis: true, env: 'action_cpu' });
+    addLabCandidateRow({ name: 'DeepSeek Coder 6.7B', provider: 'local_runner', model: 'deepseek-coder-6.7b', method: 'qlora', graphRag: false, ecdysis: true, env: 'action_cpu' });
   } else if (type === 'rag_memory') {
     if (nameInput) nameInput.value = 'Impacto de Graph RAG vs Memoria Semántica Ecdysis';
     if (promptInput) promptInput.value = 'Diseña un modelo de dominio DDD para un broker de mensajería asíncrona';
@@ -2862,8 +2869,8 @@ function applyLabPreset(type) {
     if (nameInput) nameInput.value = 'Multi-Proveedor Shootout (Runner Local $0 vs Termes vs BYOK)';
     if (promptInput) promptInput.value = 'Explica la arquitectura interna de un motor de búsqueda vectorial';
     addLabCandidateRow({ name: 'Runner Local CPU ($0): Qwen 3B RAFT', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Termes Symbiont: Gemini 3.7 Flash', provider: 'termes', model: 'gemini-3.7-flash', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'BYOK Cloud API: Groq Llama 3.3 70B', provider: 'byok', model: 'llama-3.3-70b-versatile', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'byok_api' });
+    addLabCandidateRow({ name: 'Termes Symbiont: Gemini 3.7 Flash', provider: 'termes', termesEndpoint: 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json', model: 'gemini-3.7-flash', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'action_cpu' });
+    addLabCandidateRow({ name: 'BYOK Cloud API: Llama 3.3 70B', provider: 'byok', model: 'llama-3.3-70b-versatile', method: 'ecdysis_memory', graphRag: true, ecdysis: true, env: 'byok_api' });
   }
 }
 
@@ -2878,9 +2885,28 @@ function getTrainedNimphysOptions(selectedId) {
   `).join('');
 }
 
+function getMethodsForLabProvider(prov, selectedMethod) {
+  if (prov === 'termes' || prov === 'byok') {
+    return `
+      <option value="ecdysis_memory" ${selectedMethod === 'ecdysis_memory' || !selectedMethod ? 'selected' : ''}>🧠 Memoria Mantx Ecdysis (Semantic Proxy)</option>
+      <option value="graph_rag" ${selectedMethod === 'graph_rag' ? 'selected' : ''}>🕸️ Graph RAG (Inyección de Grafo Contextual)</option>
+    `;
+  }
+  return `
+    <option value="qlora" ${selectedMethod === 'qlora' || !selectedMethod ? 'selected' : ''}>LoRA / QLoRA 4-bit (Unsloth)</option>
+    <option value="raft" ${selectedMethod === 'raft' ? 'selected' : ''}>RAFT (Retrieval Augmented Fine-Tuning)</option>
+    <option value="aft" ${selectedMethod === 'aft' ? 'selected' : ''}>AFT Compiler (Adaptive Tuning)</option>
+    <option value="full_peft" ${selectedMethod === 'full_peft' ? 'selected' : ''}>Full Fine-Tuning (PEFT)</option>
+    <option value="ecdysis_memory" ${selectedMethod === 'ecdysis_memory' ? 'selected' : ''}>Ecdysis Semantic Memory Proxy</option>
+  `;
+}
+
 function addLabCandidateRow(data = {}) {
   const container = document.getElementById('lab-candidates-container');
   if (!container) return;
+
+  const emptyState = document.getElementById('lab-empty-state');
+  if (emptyState) emptyState.remove();
 
   labCandidateCounter++;
   const rowId = `lab_cand_row_${labCandidateCounter}`;
@@ -2892,12 +2918,12 @@ function addLabCandidateRow(data = {}) {
 
   const defaultName = data.name || `Candidato #${labCandidateCounter}`;
   const defaultProv = data.provider || 'local_runner';
-  const defaultMethod = data.method || 'qlora';
+  const defaultMethod = data.method || (defaultProv === 'termes' || defaultProv === 'byok' ? 'ecdysis_memory' : 'qlora');
   const defaultModel = data.model || 'qwen-2.5-coder-3b';
   const defaultGraphRag = data.graphRag !== undefined ? data.graphRag : true;
   const defaultEcdysis = data.ecdysis !== undefined ? data.ecdysis : true;
   const defaultEnv = data.env || 'action_cpu';
-  const defaultTermesEndpoint = data.termesEndpoint || 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json';
+  const defaultTermesEndpoint = data.termesEndpoint || '';
   const defaultTermesKey = data.termesKey || '';
   const defaultByokKey = data.byokKey || '';
 
@@ -2923,13 +2949,9 @@ function addLabCandidateRow(data = {}) {
       </div>
 
       <div class="form-group" style="margin-bottom: 0;">
-        <label style="font-size: 0.72rem; color: var(--text-dim);">Método / Inferencia:</label>
+        <label style="font-size: 0.72rem; color: var(--text-dim);">Método de Especialización / Inferencia:</label>
         <select class="input-select lab-cand-method" style="font-size: 0.78rem; padding: 0.35rem 0.6rem;">
-          <option value="qlora" ${defaultMethod === 'qlora' ? 'selected' : ''}>LoRA / QLoRA 4-bit (Unsloth)</option>
-          <option value="raft" ${defaultMethod === 'raft' ? 'selected' : ''}>RAFT (Retrieval Augmented FT)</option>
-          <option value="aft" ${defaultMethod === 'aft' ? 'selected' : ''}>AFT Compiler (Adaptive Tuning)</option>
-          <option value="full_peft" ${defaultMethod === 'full_peft' ? 'selected' : ''}>Full Fine-Tuning (PEFT)</option>
-          <option value="ecdysis_memory" ${defaultMethod === 'ecdysis_memory' ? 'selected' : ''}>Ecdysis Semantic Memory Proxy</option>
+          ${getMethodsForLabProvider(defaultProv, defaultMethod)}
         </select>
       </div>
     </div>
@@ -2948,7 +2970,7 @@ function addLabCandidateRow(data = {}) {
     <div class="lab-cand-panel-local ${defaultProv === 'local_runner' ? '' : 'hidden'}" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem;">
       <div class="grid-2">
         <div class="form-group" style="margin-bottom: 0;">
-          <label style="font-size: 0.72rem; color: var(--emerald-light);">Modelo Base GGUF:</label>
+          <label style="font-size: 0.72rem; color: var(--emerald-light);">Modelo Base GGUF ($0):</label>
           <select class="input-select lab-cand-local-model" style="font-size: 0.78rem;">
             ${DEFAULT_MODELS.map(m => `<option value="${m.id}" ${m.id === defaultModel ? 'selected' : ''}>${m.name}</option>`).join('')}
           </select>
@@ -2967,7 +2989,10 @@ function addLabCandidateRow(data = {}) {
     <div class="lab-cand-panel-termes ${defaultProv === 'termes' ? '' : 'hidden'}" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(6,182,212,0.3); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem;">
       <div class="grid-2 mb-1">
         <div class="form-group" style="margin-bottom: 0;">
-          <label style="font-size: 0.72rem; color: #22d3ee;">URL Endpoint Termes:</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+            <label style="font-size: 0.72rem; color: #22d3ee; margin-bottom: 0;">URL Endpoint Termes:</label>
+            <button type="button" class="btn btn-outline btn-sm" onclick="setLabCandidateTermesDefault('${rowId}')" style="font-size: 0.65rem; padding: 0.1rem 0.3rem; color: #22d3ee; border-color: rgba(6,182,212,0.3);">⚡ Usar Gemini 3.7 Flash</button>
+          </div>
           <input type="text" class="input-text lab-cand-termes-endpoint" value="${defaultTermesEndpoint}" placeholder="http://127.0.0.1:7420/v1 o URL .json" oninput="detectLabCandidateTermes('${rowId}')" style="font-size: 0.78rem;">
         </div>
         <div class="form-group" style="margin-bottom: 0;">
@@ -2975,8 +3000,8 @@ function addLabCandidateRow(data = {}) {
           <input type="password" class="input-text lab-cand-termes-key" value="${defaultTermesKey}" placeholder="Token si el endpoint es privado" oninput="detectLabCandidateTermes('${rowId}')" style="font-size: 0.78rem;">
         </div>
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem;">
-        <span class="text-dim lab-cand-termes-status" style="color: #22d3ee;">🟢 Termes Auto-Detectado</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; flex-wrap: wrap; gap: 0.3rem;">
+        <span class="text-dim lab-cand-termes-status" style="color: ${defaultTermesEndpoint ? '#22d3ee' : 'var(--text-dim)'};">${defaultTermesEndpoint ? '🟢 Termes Auto-Detectado' : 'ℹ️ Pega una URL de endpoint de Termes'}</span>
         <select class="input-select lab-cand-termes-model" style="max-width: 250px; font-size: 0.72rem; padding: 0.2rem 0.4rem; height: auto;">
           <option value="gemini-3.7-flash" ${defaultModel === 'gemini-3.7-flash' ? 'selected' : ''}>gemini-3.7-flash (Google Gemini Web)</option>
           <option value="gemini-3.1-pro" ${defaultModel === 'gemini-3.1-pro' ? 'selected' : ''}>gemini-3.1-pro (Google Gemini Web)</option>
@@ -2992,22 +3017,17 @@ function addLabCandidateRow(data = {}) {
       <div class="grid-2 mb-1">
         <div class="form-group" style="margin-bottom: 0;">
           <label style="font-size: 0.72rem; color: #c084fc;">BYOK API Key:</label>
-          <input type="password" class="input-text lab-cand-byok-key" value="${defaultByokKey}" placeholder="gsk_..., AIza..., sk-..., nvapi-..." oninput="detectLabCandidateByok('${rowId}')" style="font-size: 0.78rem;">
+          <input type="password" class="input-text lab-cand-byok-key" value="${defaultByokKey}" placeholder="Pega tu clave (gsk_..., AIza..., sk-..., nvapi-..., csk-...)" oninput="detectLabCandidateByok('${rowId}')" style="font-size: 0.78rem;">
         </div>
         <div class="form-group" style="margin-bottom: 0;">
           <label style="font-size: 0.72rem; color: #c084fc;">Modelo Cloud Seleccionado:</label>
           <select class="input-select lab-cand-byok-model" style="font-size: 0.78rem;">
-            <option value="llama-3.3-70b-versatile" ${defaultModel === 'llama-3.3-70b-versatile' ? 'selected' : ''}>Groq — Llama 3.3 70B Versatile</option>
-            <option value="llama-3.1-8b-instant" ${defaultModel === 'llama-3.1-8b-instant' ? 'selected' : ''}>Groq — Llama 3.1 8B Instant</option>
-            <option value="gemini-2.0-flash" ${defaultModel === 'gemini-2.0-flash' ? 'selected' : ''}>Gemini — 2.0 Flash</option>
-            <option value="gemini-1.5-pro" ${defaultModel === 'gemini-1.5-pro' ? 'selected' : ''}>Gemini — 1.5 Pro</option>
-            <option value="gpt-4o-mini" ${defaultModel === 'gpt-4o-mini' ? 'selected' : ''}>OpenAI — GPT-4o Mini</option>
-            <option value="claude-3-5-sonnet-20241022" ${defaultModel === 'claude-3-5-sonnet-20241022' ? 'selected' : ''}>Claude — 3.5 Sonnet</option>
+            ${defaultByokKey ? getByokModelsForProvider('auto', defaultModel) : '<option value="">🔑 Pega tu API Key para cargar modelos...</option>'}
           </select>
         </div>
       </div>
       <div style="font-size: 0.72rem; color: var(--text-dim);">
-        Proveedor: <strong class="lab-cand-byok-provider-label" style="color: #c084fc;">Groq / Auto</strong>
+        Proveedor: <strong class="lab-cand-byok-provider-label" style="color: ${defaultByokKey ? '#c084fc' : 'var(--text-dim)'};">${defaultByokKey ? 'Auto-Detectado' : 'Pega una clave para auto-detectar'}</strong>
       </div>
     </div>
 
@@ -3030,6 +3050,50 @@ function addLabCandidateRow(data = {}) {
   `;
 
   container.appendChild(rowDiv);
+  if (defaultByokKey) detectLabCandidateByok(rowId);
+  if (defaultTermesEndpoint) detectLabCandidateTermes(rowId);
+}
+
+function setLabCandidateTermesDefault(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const endpointInput = row.querySelector('.lab-cand-termes-endpoint');
+  if (endpointInput) {
+    endpointInput.value = 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json';
+    detectLabCandidateTermes(rowId);
+  }
+}
+
+function getByokModelsForProvider(provider, selectedModel) {
+  if (provider === 'gemini') {
+    return `
+      <option value="gemini-2.0-flash" ${selectedModel === 'gemini-2.0-flash' || !selectedModel ? 'selected' : ''}>Gemini 2.0 Flash (Multimodal & Fast)</option>
+      <option value="gemini-1.5-pro" ${selectedModel === 'gemini-1.5-pro' ? 'selected' : ''}>Gemini 1.5 Pro (2M Context Window)</option>
+      <option value="gemini-1.5-flash" ${selectedModel === 'gemini-1.5-flash' ? 'selected' : ''}>Gemini 1.5 Flash (Ultra-Ligero)</option>
+    `;
+  }
+  if (provider === 'anthropic') {
+    return `
+      <option value="claude-3-5-sonnet-20241022" ${selectedModel === 'claude-3-5-sonnet-20241022' || !selectedModel ? 'selected' : ''}>Claude 3.5 Sonnet (State-of-the-Art Coding)</option>
+      <option value="claude-3-5-haiku-20241022" ${selectedModel === 'claude-3-5-haiku-20241022' ? 'selected' : ''}>Claude 3.5 Haiku (Ultra-Fast)</option>
+      <option value="claude-3-opus-20240229" ${selectedModel === 'claude-3-opus-20240229' ? 'selected' : ''}>Claude 3 Opus (Razonamiento Complejo)</option>
+    `;
+  }
+  if (provider === 'openai') {
+    return `
+      <option value="gpt-4o-mini" ${selectedModel === 'gpt-4o-mini' || !selectedModel ? 'selected' : ''}>GPT-4o Mini (Rápido y Económico)</option>
+      <option value="gpt-4o" ${selectedModel === 'gpt-4o' ? 'selected' : ''}>GPT-4o Omnimodel (Full Intelligence)</option>
+      <option value="o1-mini" ${selectedModel === 'o1-mini' ? 'selected' : ''}>o1-mini (Reasoning Model)</option>
+    `;
+  }
+  // Default Groq
+  return `
+    <option value="llama-3.3-70b-versatile" ${selectedModel === 'llama-3.3-70b-versatile' || !selectedModel ? 'selected' : ''}>Llama 3.3 70B Versatile (Groq LPU 300 t/s)</option>
+    <option value="llama-3.1-8b-instant" ${selectedModel === 'llama-3.1-8b-instant' ? 'selected' : ''}>Llama 3.1 8B Instant (Groq LPU 800 t/s)</option>
+    <option value="mixtral-8x7b-32768" ${selectedModel === 'mixtral-8x7b-32768' ? 'selected' : ''}>Mixtral 8x7B (32k Context)</option>
+    <option value="qwen-2.5-coder-32b" ${selectedModel === 'qwen-2.5-coder-32b' ? 'selected' : ''}>Qwen 2.5 Coder 32B</option>
+    <option value="deepseek-r1-distill-llama-70b" ${selectedModel === 'deepseek-r1-distill-llama-70b' ? 'selected' : ''}>DeepSeek R1 Distill Llama 70B</option>
+  `;
 }
 
 function onLabCandidateProviderChange(rowId) {
@@ -3049,19 +3113,21 @@ function onLabCandidateProviderChange(rowId) {
   if (panelTermes) panelTermes.classList.toggle('hidden', prov !== 'termes');
   if (panelByok) panelByok.classList.toggle('hidden', prov !== 'byok');
 
+  if (methodSelect) {
+    const curMethod = methodSelect.value;
+    methodSelect.innerHTML = getMethodsForLabProvider(prov, curMethod);
+  }
+
   if (prov === 'trained_nimphy') {
     onLabCandidateNimphySelectChange(rowId);
     if (summaryBadge) summaryBadge.textContent = '🧬 Modelo Entrenado';
   } else if (prov === 'termes') {
-    if (methodSelect) methodSelect.value = 'ecdysis_memory';
     if (summaryBadge) summaryBadge.textContent = '🌐 Web Symbiont';
     detectLabCandidateTermes(rowId);
   } else if (prov === 'byok') {
-    if (methodSelect) methodSelect.value = 'ecdysis_memory';
     if (summaryBadge) summaryBadge.textContent = '🔑 Cloud API';
     detectLabCandidateByok(rowId);
   } else {
-    if (methodSelect) methodSelect.value = 'qlora';
     if (summaryBadge) summaryBadge.textContent = '🖥️ Runner $0';
   }
 }
@@ -3095,10 +3161,16 @@ function detectLabCandidateTermes(rowId) {
     const statusEl = row.querySelector('.lab-cand-termes-status');
     const modelSelect = row.querySelector('.lab-cand-termes-model');
 
-    const endpoint = endpointInput?.value?.trim() || 'http://127.0.0.1:7420/v1';
+    const endpoint = endpointInput?.value?.trim() || '';
     const apiKey = keyInput?.value?.trim() || '';
 
-    if (!endpoint) return;
+    if (!endpoint) {
+      if (statusEl) {
+        statusEl.textContent = 'ℹ️ Pega una URL de endpoint de Termes';
+        statusEl.style.color = 'var(--text-dim)';
+      }
+      return;
+    }
 
     try {
       let isDedicatedJson = endpoint.endsWith('.json') || endpoint.includes('/ep_pub_') || endpoint.includes('/ep_priv_');
@@ -3156,40 +3228,61 @@ function detectLabCandidateByok(rowId) {
 
   const key = keyInput?.value?.trim() || '';
 
-  let provider = 'Groq (Auto-Detección)';
-  let color = '#c084fc';
+  if (!key) {
+    if (labelEl) {
+      labelEl.textContent = 'Pega una clave para auto-detectar';
+      labelEl.style.color = 'var(--text-dim)';
+    }
+    if (modelSelect) {
+      modelSelect.innerHTML = '<option value="">🔑 Pega tu API Key para cargar modelos...</option>';
+    }
+    return;
+  }
+
+  let providerKey = 'groq';
+  let providerTitle = 'Groq Cloud (Auto-Detección)';
+  let color = '#f59e0b';
   let defaultModel = 'llama-3.3-70b-versatile';
 
   if (key.startsWith('AIza')) {
-    provider = 'Google Gemini (BYOK)';
+    providerKey = 'gemini';
+    providerTitle = 'Google Gemini (BYOK)';
     color = '#60a5fa';
     defaultModel = 'gemini-2.0-flash';
   } else if (key.startsWith('sk-ant-')) {
-    provider = 'Anthropic Claude (BYOK)';
+    providerKey = 'anthropic';
+    providerTitle = 'Anthropic Claude (BYOK)';
     color = '#f472b6';
     defaultModel = 'claude-3-5-sonnet-20241022';
   } else if (key.startsWith('sk-')) {
-    provider = 'OpenAI (BYOK)';
+    providerKey = 'openai';
+    providerTitle = 'OpenAI (BYOK)';
     color = '#34d399';
     defaultModel = 'gpt-4o-mini';
   } else if (key.startsWith('gsk_')) {
-    provider = 'Groq Cloud (BYOK)';
+    providerKey = 'groq';
+    providerTitle = 'Groq Cloud (BYOK)';
     color = '#f59e0b';
     defaultModel = 'llama-3.3-70b-versatile';
   }
 
   if (labelEl) {
-    labelEl.textContent = provider;
+    labelEl.textContent = providerTitle;
     labelEl.style.color = color;
   }
-  if (modelSelect && defaultModel) {
-    modelSelect.value = defaultModel;
+  if (modelSelect) {
+    modelSelect.innerHTML = getByokModelsForProvider(providerKey, defaultModel);
   }
 }
 
 function removeLabCandidateRow(rowId) {
   const row = document.getElementById(rowId);
   if (row) row.remove();
+  const container = document.getElementById('lab-candidates-container');
+  const remaining = container ? container.querySelectorAll('.lab-candidate-row') : [];
+  if (remaining.length === 0) {
+    renderLabCandidatesEmptyState();
+  }
 }
 
 async function executeLaboratoryMatrix() {
@@ -3281,6 +3374,9 @@ async function executeLaboratoryMatrix() {
     if (isRaft) { bonus += 5.5; lossDiff += 0.18; }
     else if (cand.method === 'qlora') { bonus += 3.2; lossDiff += 0.12; }
     else if (cand.method === 'aft') { bonus += 4.0; lossDiff += 0.15; }
+    else if (cand.method === 'full_peft') { bonus += 4.8; lossDiff += 0.17; }
+    else if (cand.method === 'graph_rag') { bonus += 4.2; lossDiff += 0.14; }
+    else if (cand.method === 'ecdysis_memory') { bonus += 3.8; lossDiff += 0.13; }
 
     if (isGraphRag) { bonus += 3.0; lossDiff += 0.08; }
     if (isEcdysis) { bonus += 2.5; lossDiff += 0.06; }
