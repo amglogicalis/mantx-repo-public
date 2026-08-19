@@ -4410,8 +4410,6 @@ function bridgeLabCandidateToRetrain(labId, candidateId) {
     const ragDocs = document.getElementById('retrain-rag-raw-docs');
     if (ragDocs) ragDocs.value = exp.ragRawText || '';
   }
-
-  showCustomModal('🔄 Re-entrenamiento Precargado desde Lab', `Se han cargado el método "${LAB_METHOD_NAMES[cand.method]}", el dataset de la prueba y la configuración de Graph RAG.\n\nIndica la "Nueva Versión Objetivo" que desees asignar y pulsa "🚀 Re-entrenar Niphy".`);
 }
 
 function bridgeLabCandidateToProduce(labId, candidateId) {
@@ -4470,8 +4468,6 @@ function bridgeLabCandidateToProduce(labId, candidateId) {
     const ragDocs = document.getElementById('nimphy-rag-raw-docs');
     if (ragDocs) ragDocs.value = exp.ragRawText || '';
   }
-
-  showCustomModal('🚀 Parámetros del Lab Precargados', `Se han pre-configurado el modelo base, método, dataset y documentos RAG de la rama "${cand.name}".\n\nPuedes ajustar cualquier detalle final y pulsar "+ Producir Niphy".`);
 }
 
 // ─── PRODUCTION INTELLIGENCE & AUTO-HEAL ─────────────────────
