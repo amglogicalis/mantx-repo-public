@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5.5.0">
+  <link rel="stylesheet" href="style.css?v=5.6.0">
 </head>
 <body>
 
@@ -939,11 +939,126 @@
         </div>
         <div class="form-group" style="margin-bottom: 0;">
           <label>Almacenamiento de Pesos:</label>
-          <select id="nimphy-storage-backend" class="input-select">
-            <option value="mantx_vault">.mantx-storage ($0 GitHub Repo)</option>
-            <option value="rolla_ball">📦 Rolla-Ball ($0 Terra Storage)</option>
-            <option value="s3">☁️ AWS S3</option>
+          <select id="nimphy-storage-backend" class="input-select" onchange="onNimphyStorageBackendChange()">
+            <option value="mantx_vault">🏛️ .mantx-storage ($0 GitHub Repo Nativo)</option>
+            <option value="rolla_ball">📦 Rolla-Ball ($0 Terra Storage .rolla-storage)</option>
+            <option value="s3">☁️ Amazon S3 / Cloudflare R2 / MinIO</option>
+            <option value="hf_hub">🤗 HuggingFace Hub</option>
           </select>
+        </div>
+      </div>
+
+      <!-- DYNAMIC STORAGE BACKEND DETAILS -->
+      <div id="nimphy-storage-details-container" class="mb-3">
+        <!-- 1. ROLLA BALL PANEL -->
+        <div id="storage-panel-rolla" class="storage-backend-panel hidden" style="background: rgba(0,0,0,0.35); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 0.8rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.4rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.1rem;">📦</span>
+              <strong style="color: #60a5fa; font-size: 0.88rem;">Rolla Ball (.rolla-storage):</strong>
+            </div>
+            <span id="nimphy-rolla-owner-badge" class="badge" style="background: rgba(59,130,246,0.15); color: #93c5fd; font-size: 0.68rem;">Detectando cuenta...</span>
+          </div>
+
+          <!-- External PAT Checkbox -->
+          <div class="form-group mb-2" style="background: #020704; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.5rem 0.7rem;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; color: #e2e8f0; font-size: 0.78rem; margin-bottom: 0;">
+              <input type="checkbox" id="nimphy-rolla-external-toggle" onchange="toggleRollaExternalPat()">
+              <span>Usar otra cuenta / organización de GitHub para Rolla</span>
+            </label>
+            <div id="nimphy-rolla-external-pat-group" class="hidden" style="margin-top: 0.5rem;">
+              <label style="font-size: 0.72rem; color: var(--text-dim);">GitHub PAT Externo (con permisos de repo para .rolla-storage):</label>
+              <div style="display: flex; gap: 0.4rem;">
+                <input type="password" id="nimphy-rolla-external-pat" class="input-text" placeholder="ghp_... o github_pat_..." oninput="onRollaPatInput()">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="listRollaBalls(true)" style="font-size: 0.72rem;">🔍 Detectar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ball Selection / Creation -->
+          <div class="grid-2 mb-2">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">Rolla Ball Destino:</label>
+              <select id="nimphy-rolla-ball-select" class="input-select" onchange="onRollaBallSelectChange()">
+                <option value="__new__">➕ Crear Nueva Rolla Ball...</option>
+              </select>
+            </div>
+            <div class="form-group" id="nimphy-rolla-new-ball-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">Nombre de la Nueva Ball:</label>
+              <div style="display: flex; gap: 0.4rem;">
+                <input type="text" id="nimphy-rolla-new-ball-name" class="input-text" placeholder="Ej: nimphy-postgres-weights">
+                <button type="button" class="btn btn-primary btn-sm" onclick="createRollaBallPrompt()" style="font-size: 0.72rem; white-space: nowrap;">➕ Crear</button>
+              </div>
+            </div>
+          </div>
+          <div id="nimphy-rolla-status-text" class="text-xs text-dim" style="font-size: 0.72rem; color: var(--text-muted);">
+            Las Rolla Balls se almacenan a $0 en el repositorio <code>.rolla-storage</code> mediante GitHub Releases sin saturar ramas Git.
+          </div>
+        </div>
+
+        <!-- 2. S3 / R2 / MINIO PANEL -->
+        <div id="storage-panel-s3" class="storage-backend-panel hidden" style="background: rgba(0,0,0,0.35); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 0.8rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem;">
+            <span style="font-size: 1.1rem;">☁️</span>
+            <strong style="color: #fbbf24; font-size: 0.88rem;">Amazon S3 / Cloudflare R2 / MinIO Compatible:</strong>
+          </div>
+
+          <div class="grid-2 mb-2">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">Endpoint URL (Opcional para AWS, obligatorio para R2/MinIO):</label>
+              <input type="text" id="nimphy-s3-endpoint" class="input-text" placeholder="https://<account-id>.r2.cloudflarestorage.com">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">Bucket Name:</label>
+              <input type="text" id="nimphy-s3-bucket" class="input-text" placeholder="mantx-nimphys-weights">
+            </div>
+          </div>
+
+          <div class="grid-3 mb-2">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">Región:</label>
+              <input type="text" id="nimphy-s3-region" class="input-text" placeholder="us-east-1 (o auto)">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">Access Key ID:</label>
+              <input type="password" id="nimphy-s3-key" class="input-text" placeholder="AKIA... / R2 Access Key">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">Secret Access Key:</label>
+              <input type="password" id="nimphy-s3-secret" class="input-text" placeholder="Secret Key...">
+            </div>
+          </div>
+
+          <div class="form-group mb-0">
+            <label style="font-size: 0.75rem;">AWS Session Token (Opcional para STS / Credenciales Temporales):</label>
+            <input type="password" id="nimphy-s3-token" class="input-text" placeholder="FwoGZXI... (Dejar vacío si son credenciales permanentes)">
+          </div>
+        </div>
+
+        <!-- 3. HUGGINGFACE HUB PANEL -->
+        <div id="storage-panel-hf" class="storage-backend-panel hidden" style="background: rgba(0,0,0,0.35); border: 1px solid rgba(236, 72, 153, 0.3); border-radius: 8px; padding: 0.8rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem;">
+            <span style="font-size: 1.1rem;">🤗</span>
+            <strong style="color: #f472b6; font-size: 0.88rem;">HuggingFace Model Hub:</strong>
+          </div>
+
+          <div class="grid-2 mb-2">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">Target Repo ID:</label>
+              <input type="text" id="nimphy-hf-repo" class="input-text" placeholder="mi-usuario/nimphy-weights-adapter">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.75rem;">HuggingFace Write Token:</label>
+              <input type="password" id="nimphy-hf-token" class="input-text" placeholder="hf_... (Permiso de escritura)">
+            </div>
+          </div>
+
+          <div class="form-group mb-0">
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; color: #fff; font-size: 0.78rem;">
+              <input type="checkbox" id="nimphy-hf-private" checked>
+              <span>Crear como repositorio privado en HuggingFace Hub</span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -1226,6 +1341,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=5.5.0"></script>
+  <script src="app.js?v=5.6.0"></script>
 </body>
 </html>

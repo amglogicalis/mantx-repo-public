@@ -1668,6 +1668,10 @@ function openCreateNimphyModal() {
   if (filesList) filesList.innerHTML = '';
   if (confirmBtn) confirmBtn.textContent = '🚀 Producir Niphy';
 
+  const storageSelect = document.getElementById('nimphy-storage-backend');
+  if (storageSelect) storageSelect.value = 'mantx_vault';
+  onNimphyStorageBackendChange();
+
   onNimphyProviderChange();
   updateNimphyTokenEstimate();
   if (modal) modal.classList.remove('hidden');
@@ -1734,6 +1738,32 @@ function openReTrainNimphyModal(nimphyId) {
   if (filesList) filesList.innerHTML = '';
   if (confirmBtn) confirmBtn.textContent = `🚀 Lanzar Reentrenamiento (${nextVer})`;
 
+  const storageSelect = document.getElementById('nimphy-storage-backend');
+  const existingBackend = n.storageBackend || n.storageConfig?.backend || 'mantx_vault';
+  if (storageSelect) storageSelect.value = existingBackend;
+
+  if (n.storageConfig?.backend === 'rolla_ball' && n.storageConfig.rollaConfig) {
+    const rc = n.storageConfig.rollaConfig;
+    const toggle = document.getElementById('nimphy-rolla-external-toggle');
+    const patInput = document.getElementById('nimphy-rolla-external-pat');
+    if (toggle) toggle.checked = Boolean(rc.useExternalPat);
+    if (patInput) patInput.value = rc.externalPat || '';
+  } else if (n.storageConfig?.backend === 's3' && n.storageConfig.s3Config) {
+    const sc = n.storageConfig.s3Config;
+    if (document.getElementById('nimphy-s3-endpoint')) document.getElementById('nimphy-s3-endpoint').value = sc.endpoint || '';
+    if (document.getElementById('nimphy-s3-bucket')) document.getElementById('nimphy-s3-bucket').value = sc.bucketName || '';
+    if (document.getElementById('nimphy-s3-region')) document.getElementById('nimphy-s3-region').value = sc.region || '';
+    if (document.getElementById('nimphy-s3-key')) document.getElementById('nimphy-s3-key').value = sc.accessKeyId || '';
+    if (document.getElementById('nimphy-s3-secret')) document.getElementById('nimphy-s3-secret').value = sc.secretAccessKey || '';
+    if (document.getElementById('nimphy-s3-token')) document.getElementById('nimphy-s3-token').value = sc.sessionToken || '';
+  } else if (n.storageConfig?.backend === 'hf_hub' && n.storageConfig.hfConfig) {
+    const hc = n.storageConfig.hfConfig;
+    if (document.getElementById('nimphy-hf-repo')) document.getElementById('nimphy-hf-repo').value = hc.repoId || '';
+    if (document.getElementById('nimphy-hf-token')) document.getElementById('nimphy-hf-token').value = hc.token || '';
+    if (document.getElementById('nimphy-hf-private')) document.getElementById('nimphy-hf-private').checked = hc.isPrivate !== false;
+  }
+  onNimphyStorageBackendChange();
+
   updateNimphyTokenEstimate();
   if (modal) modal.classList.remove('hidden');
 }
@@ -1748,6 +1778,243 @@ function onNimphyMethodChange() {
   const graphRagToggle = document.getElementById('nimphy-toggle-graph-rag');
   if ((method === 'raft' || method === 'ecdysis_memory') && graphRagToggle) {
     graphRagToggle.checked = true;
+  }
+}
+
+// ─── DYNAMIC STORAGE BACKEND MANAGEMENT ──────────────────────────
+function onNimphyStorageBackendChange() {
+  const backend = document.getElementById('nimphy-storage-backend')?.value || 'mantx_vault';
+  const panelRolla = document.getElementById('storage-panel-rolla');
+  const panelS3 = document.getElementById('storage-panel-s3');
+  const panelHf = document.getElementById('storage-panel-hf');
+
+  if (panelRolla) panelRolla.classList.toggle('hidden', backend !== 'rolla_ball');
+  if (panelS3) panelS3.classList.toggle('hidden', backend !== 's3');
+  if (panelHf) panelHf.classList.toggle('hidden', backend !== 'hf_hub');
+
+  if (backend === 'rolla_ball') {
+    listRollaBalls(false);
+  }
+}
+
+function toggleRollaExternalPat() {
+  const toggle = document.getElementById('nimphy-rolla-external-toggle');
+  const group = document.getElementById('nimphy-rolla-external-pat-group');
+  const isExternal = Boolean(toggle?.checked);
+
+  if (group) group.classList.toggle('hidden', !isExternal);
+  listRollaBalls(isExternal);
+}
+
+let rollaPatDebounceTimer = null;
+function onRollaPatInput() {
+  clearTimeout(rollaPatDebounceTimer);
+  rollaPatDebounceTimer = setTimeout(() => {
+    listRollaBalls(true);
+  }, 400);
+}
+
+async function listRollaBalls(useExternalPat = false) {
+  const badge = document.getElementById('nimphy-rolla-owner-badge');
+  const select = document.getElementById('nimphy-rolla-ball-select');
+  const statusText = document.getElementById('nimphy-rolla-status-text');
+
+  let token = getStoredToken();
+  if (useExternalPat) {
+    const extPat = document.getElementById('nimphy-rolla-external-pat')?.value?.trim();
+    if (extPat) token = extPat;
+  }
+
+  if (!token) {
+    if (badge) {
+      badge.textContent = '🔒 Requiere GitHub PAT';
+      badge.style.color = '#f87171';
+      badge.style.background = 'rgba(239,68,68,0.12)';
+    }
+    return;
+  }
+
+  if (badge) {
+    badge.textContent = '⏳ Consultando .rolla-storage...';
+    badge.style.color = '#93c5fd';
+  }
+
+  try {
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!userRes.ok) throw new Error('PAT inválido o expirado (401)');
+    const userData = await userRes.json();
+    const owner = userData.login;
+
+    if (badge) {
+      badge.textContent = `👤 @${owner} • .rolla-storage`;
+      badge.style.color = '#60a5fa';
+      badge.style.background = 'rgba(59,130,246,0.15)';
+    }
+
+    const releasesRes = await fetch(`https://api.github.com/repos/${owner}/.rolla-storage/releases?per_page=100&_t=${Date.now()}`, {
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    let balls = [];
+    if (releasesRes.status === 404) {
+      if (statusText) {
+        statusText.innerHTML = `⚠️ El repositorio <code>.rolla-storage</code> aún no existe en <strong>@${owner}</strong>. Se creará automáticamente al guardar tu primera Rolla Ball.`;
+      }
+    } else if (releasesRes.ok) {
+      const releases = await releasesRes.json();
+      if (Array.isArray(releases)) {
+        balls = releases.map(r => {
+          const rawName = r.tag_name || r.name || 'ball';
+          const ballName = rawName.startsWith('ball-') ? rawName.replace('ball-', '') : rawName;
+          const assetsCount = r.assets ? r.assets.length : 0;
+          return {
+            tag: r.tag_name,
+            name: ballName,
+            assetsCount,
+            sizeMb: r.assets ? (r.assets.reduce((acc, a) => acc + (a.size || 0), 0) / (1024 * 1024)).toFixed(1) : '0.0'
+          };
+        });
+      }
+    }
+
+    if (select) {
+      const previousValue = select.value;
+      select.innerHTML = '';
+
+      if (balls.length > 0) {
+        balls.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.name;
+          opt.textContent = `📦 ${b.name} (${b.assetsCount} archivos • ${b.sizeMb} MB)`;
+          select.appendChild(opt);
+        });
+      }
+
+      const newOpt = document.createElement('option');
+      newOpt.value = '__new__';
+      newOpt.textContent = '➕ Crear Nueva Rolla Ball...';
+      select.appendChild(newOpt);
+
+      if (previousValue && previousValue !== '__new__' && balls.some(b => b.name === previousValue)) {
+        select.value = previousValue;
+      } else if (balls.length > 0) {
+        select.value = balls[0].name;
+      } else {
+        select.value = '__new__';
+      }
+
+      onRollaBallSelectChange();
+    }
+
+    if (statusText && releasesRes.ok) {
+      statusText.innerHTML = `✔ Conectado a <code>${owner}/.rolla-storage</code>. ${balls.length} Rolla Balls detectadas a $0.`;
+    }
+
+  } catch (err) {
+    if (badge) {
+      badge.textContent = `⚠️ Error: ${err.message}`;
+      badge.style.color = '#f87171';
+    }
+  }
+}
+
+function onRollaBallSelectChange() {
+  const select = document.getElementById('nimphy-rolla-ball-select');
+  const newGroup = document.getElementById('nimphy-rolla-new-ball-group');
+  const isNew = select?.value === '__new__';
+
+  if (newGroup) {
+    newGroup.classList.toggle('hidden', !isNew);
+  }
+}
+
+async function createRollaBallPrompt() {
+  const nameInput = document.getElementById('nimphy-rolla-new-ball-name');
+  const rawName = nameInput?.value?.trim();
+  if (!rawName) {
+    showCustomModal('⚠️ Nombre de Ball Requerido', 'Por favor introduce un nombre para la nueva Rolla Ball (ej: nimphy-postgres-weights).');
+    return;
+  }
+
+  const cleanName = rawName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  const useExternalPat = document.getElementById('nimphy-rolla-external-toggle')?.checked || false;
+  let token = getStoredToken();
+  if (useExternalPat) {
+    token = document.getElementById('nimphy-rolla-external-pat')?.value?.trim() || token;
+  }
+
+  if (!token) {
+    showCustomModal('⚠️ Token Requerido', 'Se requiere un GitHub PAT para crear la Rolla Ball en .rolla-storage.');
+    return;
+  }
+
+  try {
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: { 'Authorization': `token ${token}` }
+    });
+    const user = await userRes.json();
+    const owner = user.login;
+
+    const checkRepo = await fetch(`https://api.github.com/repos/${owner}/.rolla-storage`, {
+      headers: { 'Authorization': `token ${token}` }
+    });
+
+    if (checkRepo.status === 404) {
+      await fetch('https://api.github.com/user/repos', {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: '.rolla-storage',
+          description: 'Rolla Storage Vault — Object Storage via GitHub Releases for Terra Ecosystem ($0 Cost)',
+          private: true,
+          auto_init: true
+        })
+      });
+    }
+
+    const createRelRes = await fetch(`https://api.github.com/repos/${owner}/.rolla-storage/releases`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tag_name: `ball-${cleanName}`,
+        name: `Rolla Ball: ${cleanName}`,
+        body: `Rolla Ball creada para almacenar pesos y artefactos de modelos Nimphy en MANTX.`,
+        draft: false,
+        prerelease: false
+      })
+    });
+
+    if (!createRelRes.ok && createRelRes.status !== 422) {
+      throw new Error(`Error ${createRelRes.status} al crear release en .rolla-storage`);
+    }
+
+    await listRollaBalls(useExternalPat);
+    const select = document.getElementById('nimphy-rolla-ball-select');
+    if (select) {
+      select.value = cleanName;
+      onRollaBallSelectChange();
+    }
+    if (nameInput) nameInput.value = '';
+
+    showCustomModal('📦 Rolla Ball Creada', `Se ha inicializado la Rolla Ball "${cleanName}" en el repositorio privado "${owner}/.rolla-storage".`);
+
+  } catch (err) {
+    showCustomModal('⚠️ Error al Crear Rolla Ball', err.message);
   }
 }
 
@@ -1811,6 +2078,44 @@ async function confirmCreateNimphy() {
   const systemPrompt = document.getElementById('nimphy-system-prompt')?.value?.trim() || '';
   const rawDocs = document.getElementById('nimphy-raw-docs')?.value?.trim() || '';
 
+  // Storage config extraction
+  let storageConfig = { backend: storageBackend };
+  let storageSummary = '.mantx-storage ($0 GitHub)';
+
+  if (storageBackend === 'rolla_ball') {
+    const ballSelect = document.getElementById('nimphy-rolla-ball-select')?.value;
+    const newBallName = document.getElementById('nimphy-rolla-new-ball-name')?.value?.trim();
+    const ballName = (ballSelect === '__new__' ? newBallName : ballSelect) || 'nimphy-weights';
+    const useExternalPat = document.getElementById('nimphy-rolla-external-toggle')?.checked || false;
+    const externalPat = document.getElementById('nimphy-rolla-external-pat')?.value?.trim();
+
+    storageConfig.rollaConfig = {
+      ballName,
+      useExternalPat,
+      externalPat: useExternalPat ? externalPat : undefined
+    };
+    storageSummary = `📦 Rolla Ball: ${ballName} (.rolla-storage)`;
+  } else if (storageBackend === 's3') {
+    const bucket = document.getElementById('nimphy-s3-bucket')?.value?.trim() || 'mantx-weights';
+    storageConfig.s3Config = {
+      endpoint: document.getElementById('nimphy-s3-endpoint')?.value?.trim(),
+      bucketName: bucket,
+      region: document.getElementById('nimphy-s3-region')?.value?.trim() || 'us-east-1',
+      accessKeyId: document.getElementById('nimphy-s3-key')?.value?.trim() || '',
+      secretAccessKey: document.getElementById('nimphy-s3-secret')?.value?.trim() || '',
+      sessionToken: document.getElementById('nimphy-s3-token')?.value?.trim() || undefined
+    };
+    storageSummary = `☁️ S3 Bucket: ${bucket}`;
+  } else if (storageBackend === 'hf_hub') {
+    const repo = document.getElementById('nimphy-hf-repo')?.value?.trim() || 'user/nimphy-weights';
+    storageConfig.hfConfig = {
+      repoId: repo,
+      token: document.getElementById('nimphy-hf-token')?.value?.trim(),
+      isPrivate: document.getElementById('nimphy-hf-private')?.checked !== false
+    };
+    storageSummary = `🤗 HuggingFace Hub: ${repo}`;
+  }
+
   if (isRetrainMode && currentRetrainNimphyId) {
     const existing = nimphysList.find(item => item.nimphyId === currentRetrainNimphyId);
     if (!existing) {
@@ -1832,6 +2137,8 @@ async function confirmCreateNimphy() {
     existing.method = method;
     existing.graphRagEnabled = graphRag;
     existing.ecdysisMemoryEnabled = ecdysis;
+    existing.storageBackend = storageBackend;
+    existing.storageConfig = storageConfig;
     existing.filesCount = (existing.filesCount || 0) + uploadedNimphyFiles.length;
     existing.updatedAt = new Date().toISOString();
 
@@ -1847,7 +2154,7 @@ Proveedor: ${existing.providerType.toUpperCase()}
 Modelo Base: ${existing.baseModel} (Bloqueado)
 Método: ${method.toUpperCase()}
 Hardware: ${existing.providerType === 'local_runner' ? (targetEnv === 'action_cpu' ? 'GitHub Actions Runner CPU ($0, 6h)' : 'HuggingFace ZeroGPU') : 'Capa Semántica Ecdysis + Remote Proxy'}
-Almacenamiento: ${storageBackend === 'mantx_vault' ? '.mantx-storage ($0 GitHub)' : storageBackend}
+Almacenamiento: ${storageSummary}
 
 Comando para lanzar el runner en GitHub Actions:
 mantx nimphys train --id ${existing.nimphyId} --version ${version} --method ${method}
@@ -1885,6 +2192,7 @@ El endpoint de producción actualizará automáticamente a la versión ${version
     ecdysisMemoryEnabled: ecdysis || providerType !== 'local_runner',
     targetEnv,
     storageBackend,
+    storageConfig,
     systemPrompt,
     filesCount: uploadedNimphyFiles.length,
     hasRawDocs: Boolean(rawDocs),
@@ -1912,7 +2220,7 @@ Proveedor: ${newNimphy.providerType.toUpperCase()}
 Modelo Base: ${newNimphy.baseModel}
 Método: ${newNimphy.method.toUpperCase()}
 Hardware Target: ${newNimphy.providerType === 'local_runner' ? (newNimphy.targetEnv === 'action_cpu' ? 'GitHub Actions Runner CPU ($0, 6h)' : 'HuggingFace ZeroGPU') : 'Termes Symbiont / BYOK + Ecdysis Memory Proxy'}
-Almacenamiento: ${newNimphy.storageBackend === 'mantx_vault' ? '.mantx-storage ($0 GitHub)' : newNimphy.storageBackend}
+Almacenamiento: ${storageSummary}
 Memoria Ecdysis: ${newNimphy.ecdysisMemoryEnabled ? '✔ ACTIVA (Vector Store + Graph)' : 'Deshabilitada'}
 Graph RAG: ${newNimphy.graphRagEnabled ? '✔ ACTIVO (Arzor Knowledge Graph)' : 'Deshabilitado'}
 
@@ -1982,6 +2290,17 @@ function renderNimphysCatalog() {
               </div>
 
               <div style="display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.8rem;">
+                ${(() => {
+                  const storageBackend = n.storageBackend || n.storageConfig?.backend || 'mantx_vault';
+                  if (storageBackend === 'rolla_ball') {
+                    return `<span class="badge" style="font-size: 0.62rem; background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25);">📦 Rolla: ${n.storageConfig?.rollaConfig?.ballName || 'ball'}</span>`;
+                  } else if (storageBackend === 's3') {
+                    return `<span class="badge" style="font-size: 0.62rem; background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25);">☁️ S3: ${n.storageConfig?.s3Config?.bucketName || 'bucket'}</span>`;
+                  } else if (storageBackend === 'hf_hub') {
+                    return `<span class="badge" style="font-size: 0.62rem; background: rgba(236,72,153,0.12); color: #f472b6; border: 1px solid rgba(236,72,153,0.25);">🤗 HF: ${n.storageConfig?.hfConfig?.repoId || 'hub'}</span>`;
+                  }
+                  return `<span class="badge" style="font-size: 0.62rem; background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25);">🏛️ .mantx-storage</span>`;
+                })()}
                 ${n.ecdysisMemoryEnabled ? '<span class="badge" style="font-size: 0.62rem; background: rgba(16,185,129,0.1); color: #34d399;">🧠 Memoria Ecdysis</span>' : ''}
                 ${n.graphRagEnabled ? '<span class="badge" style="font-size: 0.62rem; background: rgba(6,182,212,0.1); color: #38bdf8;">🕸️ Graph RAG</span>' : ''}
                 ${n.filesCount ? `<span class="badge badge-mint" style="font-size: 0.62rem;">📄 ${n.filesCount} Docs</span>` : ''}
