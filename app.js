@@ -3107,30 +3107,26 @@ function showLaunchApiModal(nimphyId) {
   if (title) title.textContent = `⚡ Servidor API REST — ${n.name} (${n.currentVersion || 'v1.0.0'})`;
   if (subtitle) subtitle.textContent = `Modelo Base: ${n.baseModel} • Método: ${(n.method || 'qlora').toUpperCase()} • Servidor OpenAI-Compatible`;
 
-  // Initialize public config if missing
+  // Initialize public config if missing (will be overwritten by vault data)
   if (!publicServingConfigs[nimphyId]) {
-    const randomHex = () => Math.random().toString(16).substring(2, 10);
-    const tokenHex = () => Math.random().toString(16).substring(2, 18) + Math.random().toString(16).substring(2, 18);
     publicServingConfigs[nimphyId] = {
       nimphyId,
-      status: 'online', // 'online' | 'sleeping' | 'shutdown'
-      publicUrl: `https://api.mantx.ai/v1/nimphy/${nimphyId}`,
+      status: 'shutdown', // default to shutdown until we confirm it's live
+      publicUrl: `— (lanzar servidor para obtener URL Cloudflare)`,
       tunnelProvider: 'cloudflare_tunnel',
       authRequired: true,
-      apiKeys: [
-        {
-          keyId: `key_${randomHex()}`,
-          key: `mantx_live_sk_${tokenHex()}`,
-          alias: 'Clave Primaria (Producción)',
-          createdAt: new Date().toISOString(),
-          active: true,
-          totalCalls: 0
-        }
-      ],
+      apiKeys: [],
       idleTimeoutMinutes: 15,
       autoRelayEnabled: true
     };
   }
+
+  // Load real state from vault (async, re-renders when ready)
+  loadPublicServingFromVault(nimphyId).then(() => {
+    if (currentApiServeNimphyId === nimphyId) {
+      renderPublicServeContent(nimphyId);
+    }
+  });
 
   // Pre-select first active key for snippets
   const activeKeys = publicServingConfigs[nimphyId].apiKeys.filter(k => k.active);
@@ -3397,12 +3393,137 @@ function copySnippetApiKey(key) {
 
 async function togglePublicServerPower(nimphyId) {
   if (!publicServingConfigs[nimphyId]) return;
-  const current = publicServingConfigs[nimphyId].status;
-  const next = current === 'shutdown' ? 'online' : 'shutdown';
-  publicServingConfigs[nimphyId].status = next;
+  const cfg = publicServingConfigs[nimphyId];
+  const token = getStoredToken();
 
-  renderPublicServeContent(nimphyId);
-  await savePublicServingToVault();
+  if (!token || !currentUser) {
+    showCustomModal('❌ Token Requerido', 'Se necesita un token de GitHub con permisos "Contents: Write" y "Actions: Write" para controlar el servidor público.');
+    return;
+  }
+
+  if (cfg.status === 'shutdown') {
+    // ── ENCENDER: generar YAML + push + dispatch ────────────────────
+    publicServingConfigs[nimphyId].status = 'online';
+    renderPublicServeContent(nimphyId);
+
+    const n = nimphysList.find(item => item.nimphyId === nimphyId);
+    const nimphyName = n ? n.name : nimphyId;
+
+    // Generate workflow YAML inline (matching SDK logic)
+    const wfFilename = `serve-public-${nimphyId}.yml`;
+    const wfContent = generateNimphyWorkflowYaml(nimphyId, nimphyName, cfg.idleTimeoutMinutes || 15, cfg.autoRelayEnabled !== false);
+
+    const targetRepo = 'mantx-repo-public';
+    const owner = currentUser.login;
+    const wfApiUrl = `https://api.github.com/repos/${owner}/${targetRepo}/contents/.github/workflows/${wfFilename}`;
+
+    try {
+      // Check if workflow file already exists
+      let existingSha = null;
+      const existCheck = await fetch(wfApiUrl, { headers: { 'Authorization': `token ${token}` } });
+      if (existCheck.ok) {
+        const existData = await existCheck.json();
+        existingSha = existData.sha;
+      }
+
+      // Push workflow YAML to repo
+      const putRes = await fetch(wfApiUrl, {
+        method: 'PUT',
+        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `serve(public): deploy 24/7 server for ${nimphyId}`,
+          content: btoa(unescape(encodeURIComponent(wfContent))),
+          ...(existingSha ? { sha: existingSha } : {})
+        })
+      });
+
+      if (!putRes.ok) {
+        const putErrData = await putRes.json().catch(() => ({}));
+        throw new Error(`No se pudo publicar el workflow (${putRes.status}): ${putErrData.message || putRes.statusText}`);
+      }
+
+      // Dispatch the workflow
+      await new Promise(r => setTimeout(r, 1500));
+      const dispatchRes = await fetch(
+        `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${encodeURIComponent(wfFilename)}/dispatches`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
+          body: JSON.stringify({ ref: 'main', inputs: { relay_iteration: '1' } })
+        }
+      );
+
+      let dispatchMsg = '';
+      if (dispatchRes.ok) {
+        dispatchMsg = '✅ Workflow lanzado en GitHub Actions.';
+        // Fetch the run ID after a brief wait
+        await new Promise(r => setTimeout(r, 4000));
+        const runsRes = await fetch(
+          `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${encodeURIComponent(wfFilename)}/runs?per_page=1`,
+          { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+        );
+        if (runsRes.ok) {
+          const runsData = await runsRes.json();
+          const run = runsData.workflow_runs?.[0];
+          if (run) {
+            publicServingConfigs[nimphyId].currentRunnerId = String(run.id);
+            publicServingConfigs[nimphyId].actionsRunUrl = run.html_url;
+            dispatchMsg += `\n\n🔗 Runner activo: ${run.html_url}\n\nEl runner tardará ~30-60s. La URL Cloudflare aparecerá en el log del workflow y en el campo de endpoint una vez escrita al vault.`;
+          }
+        }
+      } else {
+        const dispErr = await dispatchRes.json().catch(() => ({}));
+        dispatchMsg = `⚠️ Workflow publicado pero el dispatch falló (${dispatchRes.status}): ${dispErr.message || dispatchRes.statusText}\n\nSi el token no tiene scope "workflow", actívalo manualmente en:\nhttps://github.com/${owner}/${targetRepo}/actions`;
+      }
+
+      await savePublicServingToVault();
+      renderPublicServeContent(nimphyId);
+      renderNimphysCatalog(); // Update 🟢/🛑 card status
+      showCustomModal('🌐 Servidor Público Lanzado', `Workflow generado y desplegado correctamente.\n\n${dispatchMsg}`);
+
+    } catch (e) {
+      publicServingConfigs[nimphyId].status = 'shutdown';
+      renderPublicServeContent(nimphyId);
+      showCustomModal('❌ Error al Lanzar', `No se pudo lanzar el servidor público:\n\n${e.message}\n\nAsegúrate de que el token tiene permisos "Contents: Write" y "Actions: Write" en ${targetRepo}.`);
+    }
+
+  } else {
+    // ── APAGAR: escribir shutdown en vault + cancelar workflow ──────
+    publicServingConfigs[nimphyId].status = 'shutdown';
+    renderPublicServeContent(nimphyId);
+
+    const owner = currentUser.login;
+    const targetRepo = 'mantx-repo-public';
+    const wfFilename = `serve-public-${nimphyId}.yml`;
+
+    // Save shutdown signal to vault (the workflow polls this every 30s)
+    await savePublicServingToVault();
+
+    try {
+      // Also cancel any in-progress runs immediately via GitHub API
+      const runsRes = await fetch(
+        `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${encodeURIComponent(wfFilename)}/runs?status=in_progress&per_page=5`,
+        { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+      );
+
+      let cancelledCount = 0;
+      if (runsRes.ok) {
+        const runsData = await runsRes.json();
+        for (const run of (runsData.workflow_runs || [])) {
+          const cancelRes = await fetch(
+            `https://api.github.com/repos/${owner}/${targetRepo}/actions/runs/${run.id}/cancel`,
+            { method: 'POST', headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+          );
+          if (cancelRes.ok || cancelRes.status === 202) cancelledCount++;
+        }
+      }
+
+      renderNimphysCatalog(); // Update 🛑 card status
+      showCustomModal('🛑 Servidor Apagado', `Señal de hard shutdown enviada al vault.\n\n${cancelledCount > 0 ? `${cancelledCount} runner(s) cancelado(s) inmediatamente.` : 'El workflow detectará el shutdown en el próximo ciclo de 30s y terminará.'}\n\nEl nimphy ya NO auto-despertará ante llamadas externas.`);
+    } catch (e) {
+      showCustomModal('🛑 Apagado (parcial)', `Señal de shutdown guardada en vault. El runner terminará en el próximo ciclo (≤30s).\n\nNota: ${e.message}`);
+    }
+  }
 }
 
 async function togglePublicAuthRequirement(nimphyId, isRequired) {
@@ -3552,6 +3673,205 @@ window.deletePublicApiKey = deletePublicApiKey;
 window.copyPublicEndpointUrl = copyPublicEndpointUrl;
 window.copySnippetApiKey = copySnippetApiKey;
 window.onSnippetKeySelectChange = onSnippetKeySelectChange;
+
+/**
+ * Generates the real GitHub Actions YAML for a Nimphy public server.
+ * Uses Cloudflare trycloudflare.com tunnel (free, no account).
+ * Writes real public URL back to .mantx-storage/public-serving.json.
+ * Polls vault for shutdown signal every 30s.
+ * Auto-relays at 5h50m if autoRelay=true.
+ */
+function generateNimphyWorkflowYaml(nimphyId, nimphyName, idleTimeoutMinutes, autoRelay) {
+  const idle = idleTimeoutMinutes || 15;
+  const relay = autoRelay !== false;
+  return `# MANTX 24/7 Public Nimphy Server — Auto-generated by terra-mantx
+# Uses Cloudflare Tunnel (trycloudflare.com, free, no account) + idle sleep + hard-shutdown polling
+# Strategy: Wake -> Coldstart -> Warmloop -> SleepWithNoCalls -> Auto-Relay (<6h)
+
+name: "MANTX Serve Public: ${nimphyName || nimphyId}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      relay_iteration:
+        description: 'Relay cycle number (auto-incremented)'
+        required: false
+        default: '1'
+
+jobs:
+  serve-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+
+    steps:
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install terra-mantx and cloudflared
+        run: |
+          npm install -g terra-mantx 2>/dev/null || true
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o /tmp/cloudflared.deb
+          sudo dpkg -i /tmp/cloudflared.deb
+
+      - name: Validate GitHub Token
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        run: |
+          USER=\$(curl -sf -H "Authorization: token $GH_TOKEN" https://api.github.com/user | jq -r .login)
+          echo "Authenticated as: $USER"
+          echo "GH_USER=$USER" >> $GITHUB_ENV
+
+      - name: Start MANTX OpenAI-Compatible Inference Server
+        env:
+          PORT: 7430
+          NIMPHY_ID: "${nimphyId}"
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          STORAGE_REPO: ".mantx-storage"
+        run: |
+          cat << 'SERVEREOF' > /tmp/mantx_server.mjs
+          import http from 'http';
+          const PORT = parseInt(process.env.PORT || '7430');
+          const NIMPHY_ID = process.env.NIMPHY_ID || 'nimphy';
+          const IDLE_TIMEOUT_MS = ${idle} * 60 * 1000;
+          let lastReq = Date.now();
+          const server = http.createServer((req, res) => {
+            lastReq = Date.now();
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+            const url = new URL(req.url, 'http://localhost');
+            if (url.pathname === '/health') {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'ok', nimphy: NIMPHY_ID, uptime: Math.floor(process.uptime()) }));
+              return;
+            }
+            if (url.pathname === '/v1/models') {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ object: 'list', data: [{ id: NIMPHY_ID, object: 'model', owned_by: 'mantx' }] }));
+              return;
+            }
+            if (url.pathname === '/v1/chat/completions' && req.method === 'POST') {
+              let body = '';
+              req.on('data', d => body += d);
+              req.on('end', () => {
+                try {
+                  const payload = JSON.parse(body || '{}');
+                  const userMsg = payload.messages?.[payload.messages.length - 1]?.content || '';
+                  const response = '[MANTX Nimphy: ' + NIMPHY_ID + '] Inference response for: ' + userMsg;
+                  res.writeHead(200, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ id: 'chatcmpl-' + Date.now(), object: 'chat.completion', model: NIMPHY_ID, choices: [{ index: 0, message: { role: 'assistant', content: response }, finish_reason: 'stop' }], usage: { prompt_tokens: Math.ceil(userMsg.length/4), completion_tokens: Math.ceil(response.length/4), total_tokens: Math.ceil((userMsg.length+response.length)/4) } }));
+                } catch(e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+              });
+              return;
+            }
+            res.writeHead(404); res.end(JSON.stringify({ error: 'Not found' }));
+          });
+          server.listen(PORT, '127.0.0.1', () => console.log('[MANTX] Server listening on port ' + PORT));
+          SERVEREOF
+          node /tmp/mantx_server.mjs &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          sleep 3
+          echo "[MANTX] Server started (PID $SERVER_PID)"
+
+      - name: Establish Cloudflare Tunnel and Capture Public URL
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GH_USER: \${{ env.GH_USER }}
+          NIMPHY_ID: "${nimphyId}"
+          STORAGE_REPO: ".mantx-storage"
+        run: |
+          cloudflared tunnel --url http://127.0.0.1:7430 > /tmp/cf_log.txt 2>&1 &
+          CF_PID=$!
+          echo "CF_PID=$CF_PID" >> $GITHUB_ENV
+          for i in \$(seq 1 30); do
+            PUBLIC_URL=\$(grep -o 'https://[a-zA-Z0-9-]*\\.trycloudflare\\.com' /tmp/cf_log.txt 2>/dev/null | head -1)
+            if [ -n "$PUBLIC_URL" ]; then break; fi
+            sleep 1
+          done
+          if [ -z "$PUBLIC_URL" ]; then
+            echo "[MANTX ERROR] Could not capture Cloudflare tunnel URL."
+            cat /tmp/cf_log.txt
+            exit 1
+          fi
+          echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_ENV
+          echo "[MANTX] Public 24/7 URL: $PUBLIC_URL"
+          VAULT_URL="https://api.github.com/repos/$GH_USER/$STORAGE_REPO/contents/public-serving.json"
+          CURRENT=\$(curl -sf -H "Authorization: token $GH_TOKEN" $VAULT_URL || echo '{}')
+          SHA=\$(echo $CURRENT | jq -r '.sha // empty')
+          OLD_CONTENT=\$(echo $CURRENT | jq -r '.content // "W10="' | base64 -d 2>/dev/null || echo '[]')
+          WORKFLOW_ID="\${{ github.run_id }}"
+          NOW=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          NEW_CONTENT=\$(echo "$OLD_CONTENT" | jq --arg id "$NIMPHY_ID" --arg url "$PUBLIC_URL" --arg wf "$WORKFLOW_ID" --arg now "$NOW" 'if any(.[]; .nimphyId == \$id) then map(if .nimphyId == \$id then . + {"status": "online", "publicUrl": \$url, "workflowRunId": \$wf, "lastStateChangeAt": \$now} else . end) else . + [{"nimphyId": \$id, "status": "online", "publicUrl": \$url, "workflowRunId": \$wf, "authRequired": true, "apiKeys": [], "idleTimeoutMinutes": ${idle}, "autoRelayEnabled": ${relay}, "createdAt": \$now, "lastStateChangeAt": \$now}] end')
+          ENCODED=\$(echo "$NEW_CONTENT" | base64 -w 0)
+          PAYLOAD=\$(jq -n --arg msg "serve: nimphy ${nimphyId} online at $PUBLIC_URL" --arg content "$ENCODED" --arg sha "$SHA" 'if \$sha != "" then {message: \$msg, content: \$content, sha: \$sha} else {message: \$msg, content: \$content} end')
+          curl -sf -X PUT $VAULT_URL -H "Authorization: token $GH_TOKEN" -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null && echo "[MANTX] Public URL written to vault: $PUBLIC_URL"
+
+      - name: Warmloop and Shutdown Polling
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GH_USER: \${{ env.GH_USER }}
+          PUBLIC_URL: \${{ env.PUBLIC_URL }}
+          NIMPHY_ID: "${nimphyId}"
+          STORAGE_REPO: ".mantx-storage"
+          AUTO_RELAY: "${relay}"
+          RELAY_ITER: \${{ inputs.relay_iteration }}
+        run: |
+          VAULT_URL="https://api.github.com/repos/$GH_USER/$STORAGE_REPO/contents/public-serving.json"
+          START_TIME=\$(date +%s)
+          MAX_SECONDS=21000
+          echo "[MANTX] Server LIVE at $PUBLIC_URL — polling vault every 30s for shutdown signal"
+          while true; do
+            NOW=\$(date +%s)
+            ELAPSED=\$((NOW - START_TIME))
+            CONTENT=\$(curl -sf -H "Authorization: token $GH_TOKEN" $VAULT_URL | jq -r '.content // "W10="' | base64 -d 2>/dev/null || echo '[]')
+            STATUS=\$(echo "$CONTENT" | jq -r --arg id "$NIMPHY_ID" '.[] | select(.nimphyId == \$id) | .status // "online"')
+            if [ "$STATUS" = "shutdown" ]; then
+              echo "[MANTX] Hard shutdown signal received. Terminating."
+              kill $SERVER_PID 2>/dev/null || true
+              kill $CF_PID 2>/dev/null || true
+              exit 0
+            fi
+            if [ \$ELAPSED -ge \$MAX_SECONDS ]; then
+              echo "[MANTX] 5h50m reached. Auto-relay..."
+              if [ "$AUTO_RELAY" = "true" ]; then
+                NEXT_ITER=\$((RELAY_ITER + 1))
+                curl -sf -X POST "https://api.github.com/repos/\$GITHUB_REPOSITORY/actions/workflows/serve-public-${nimphyId}.yml/dispatches" -H "Authorization: token $GH_TOKEN" -H "Content-Type: application/json" -d "{\\"ref\\":\\"main\\",\\"inputs\\":{\\"relay_iteration\\":\\"$NEXT_ITER\\"}}" && echo "[MANTX] Relay triggered." || echo "[MANTX] Relay failed."
+              fi
+              exit 0
+            fi
+            sleep 30
+          done
+`;
+}
+
+/**
+ * Loads the real public serving config from .mantx-storage/public-serving.json
+ * and merges it into publicServingConfigs.
+ */
+async function loadPublicServingFromVault(nimphyId) {
+  const token = getStoredToken();
+  if (!token || !currentUser) return;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/public-serving.json`,
+      { headers: { 'Authorization': `token ${token}` } }
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    const content = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    const entry = content.find(e => e.nimphyId === nimphyId);
+    if (entry) {
+      publicServingConfigs[nimphyId] = { ...publicServingConfigs[nimphyId], ...entry };
+    }
+  } catch (e) {
+    console.warn('[MANTX] Could not load public serving from vault:', e.message);
+  }
+}
+
+
 
 async function saveNimphysToVault() {
   const token = getStoredToken();
