@@ -3448,7 +3448,8 @@ async function togglePublicServerPower(nimphyId) {
     const wfFilename = `serve-public-${nimphyId}.yml`;
     const wfContent = generateNimphyWorkflowYaml(nimphyId, nimphyName, cfg.idleTimeoutMinutes || 15, cfg.autoRelayEnabled !== false);
 
-    const targetRepo = 'mantx-repo-public';
+    // Target the user's personal vault repository (.mantx-storage)
+    const targetRepo = STORAGE_REPO;
     const owner = currentUser.login;
     const wfApiUrl = `https://api.github.com/repos/${owner}/${targetRepo}/contents/.github/workflows/${wfFilename}`;
 
@@ -3474,7 +3475,7 @@ async function togglePublicServerPower(nimphyId) {
 
       if (!putRes.ok) {
         const putErrData = await putRes.json().catch(() => ({}));
-        throw new Error(`No se pudo publicar el workflow (${putRes.status}): ${putErrData.message || putRes.statusText}`);
+        throw new Error(`No se pudo publicar el workflow en ${targetRepo} (${putRes.status}): ${putErrData.message || putRes.statusText}`);
       }
 
       // Dispatch the workflow
@@ -3490,7 +3491,7 @@ async function togglePublicServerPower(nimphyId) {
 
       let dispatchMsg = '';
       if (dispatchRes.ok) {
-        dispatchMsg = '✅ Workflow lanzado en GitHub Actions.';
+        dispatchMsg = `✅ Workflow lanzado en ${owner}/${targetRepo}.`;
         // Fetch the run ID after a brief wait
         await new Promise(r => setTimeout(r, 4000));
         const runsRes = await fetch(
@@ -3503,25 +3504,25 @@ async function togglePublicServerPower(nimphyId) {
           if (run) {
             publicServingConfigs[nimphyId].currentRunnerId = String(run.id);
             publicServingConfigs[nimphyId].actionsRunUrl = run.html_url;
-            dispatchMsg += `\n\n🔗 Runner activo: ${run.html_url}\n\nEl runner tardará ~30-60s. La URL Cloudflare aparecerá en el log del workflow y en el campo de endpoint una vez escrita al vault.`;
+            dispatchMsg += `\n\n🔗 Runner activo: ${run.html_url}\n\nEl runner tardará ~30-60s. La URL Cloudflare aparecerá en el log del workflow y en el campo de endpoint una vez escrita a ${STORAGE_REPO}.`;
           }
         }
       } else {
         const dispErr = await dispatchRes.json().catch(() => ({}));
-        dispatchMsg = `⚠️ Workflow publicado pero el dispatch falló (${dispatchRes.status}): ${dispErr.message || dispatchRes.statusText}\n\nSi el token no tiene scope "workflow", actívalo manualmente en:\nhttps://github.com/${owner}/${targetRepo}/actions`;
+        dispatchMsg = `⚠️ Workflow publicado en ${targetRepo} pero el dispatch falló (${dispatchRes.status}): ${dispErr.message || dispatchRes.statusText}\n\nSi el token no tiene scope "workflow", actívalo manualmente en:\nhttps://github.com/${owner}/${targetRepo}/actions`;
       }
 
       await savePublicServingToVault();
       renderPublicServeContent(nimphyId);
       renderNimphysCatalog(); // Update 🟢/🛑 card status
       startPublicServingPolling(nimphyId);
-      showCustomModal('🌐 Servidor Público Lanzado', `Workflow generado y desplegado correctamente.\n\n${dispatchMsg}`);
+      showCustomModal('🌐 Servidor Público Lanzado', `Workflow generado y desplegado correctamente en tu vault.\n\n${dispatchMsg}`);
 
     } catch (e) {
       stopPublicServingPolling();
       publicServingConfigs[nimphyId].status = 'shutdown';
       renderPublicServeContent(nimphyId);
-      showCustomModal('❌ Error al Lanzar', `No se pudo lanzar el servidor público:\n\n${e.message}\n\nAsegúrate de que el token tiene permisos "Contents: Write" y "Actions: Write" en ${targetRepo}.`);
+      showCustomModal('❌ Error al Lanzar', `No se pudo lanzar el servidor público en ${targetRepo}:\n\n${e.message}\n\nAsegúrate de que el token tiene permisos "Contents: Write" y "Actions: Write" en ${owner}/${targetRepo}.`);
     }
 
   } else {
@@ -3531,7 +3532,7 @@ async function togglePublicServerPower(nimphyId) {
     renderPublicServeContent(nimphyId);
 
     const owner = currentUser.login;
-    const targetRepo = 'mantx-repo-public';
+    const targetRepo = STORAGE_REPO;
     const wfFilename = `serve-public-${nimphyId}.yml`;
 
     // Save shutdown signal to vault (the workflow polls this every 30s)
@@ -3557,9 +3558,9 @@ async function togglePublicServerPower(nimphyId) {
       }
 
       renderNimphysCatalog(); // Update 🛑 card status
-      showCustomModal('🛑 Servidor Apagado', `Señal de hard shutdown enviada al vault.\n\n${cancelledCount > 0 ? `${cancelledCount} runner(s) cancelado(s) inmediatamente.` : 'El workflow detectará el shutdown en el próximo ciclo de 30s y terminará.'}\n\nEl nimphy ya NO auto-despertará ante llamadas externas.`);
+      showCustomModal('🛑 Servidor Apagado', `Señal de hard shutdown enviada a ${STORAGE_REPO}.\n\n${cancelledCount > 0 ? `${cancelledCount} runner(s) cancelado(s) inmediatamente.` : 'El workflow detectará el shutdown en el próximo ciclo de 30s y terminará.'}\n\nEl nimphy ya NO auto-despertará ante llamadas externas.`);
     } catch (e) {
-      showCustomModal('🛑 Apagado (parcial)', `Señal de shutdown guardada en vault. El runner terminará en el próximo ciclo (≤30s).\n\nNota: ${e.message}`);
+      showCustomModal('🛑 Apagado (parcial)', `Señal de shutdown guardada en ${STORAGE_REPO}. El runner terminará en el próximo ciclo (≤30s).\n\nNota: ${e.message}`);
     }
   }
 }
@@ -3699,34 +3700,33 @@ function stopPublicServingPolling() {
 async function savePublicServingToVault() {
   const token = getStoredToken();
   if (currentUser && token) {
-    const payload = Object.keys(publicServingConfigs).map(k => publicServingConfigs[k]);
-    const repos = ['mantx-repo-public', STORAGE_REPO];
-    for (const repo of repos) {
+    try {
+      const payload = Object.keys(publicServingConfigs).map(k => publicServingConfigs[k]);
+      let sha = null;
       try {
-        const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/public-serving.json`, {
+        const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/public-serving.json`, {
           headers: { 'Authorization': `token ${token}` }
         });
-        let sha = null;
         if (res.ok) {
           const data = await res.json();
           sha = data.sha;
         }
+      } catch {}
 
-        await fetch(`https://api.github.com/repos/${currentUser.login}/${repo}/contents/public-serving.json`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `token ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            message: 'sync: update 24/7 public serving configuration',
-            content: btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2)))),
-            ...(sha ? { sha } : {})
-          })
-        });
-      } catch (e) {
-        console.warn(`Could not sync public serving configs to ${repo}:`, e.message);
-      }
+      await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/public-serving.json`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'sync: update 24/7 public serving configuration in .mantx-storage',
+          content: btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2)))),
+          ...(sha ? { sha } : {})
+        })
+      });
+    } catch (e) {
+      console.warn('Could not sync public serving configs to vault:', e.message);
     }
   }
 }
@@ -3997,28 +3997,25 @@ jobs:
 async function loadPublicServingFromVault(nimphyId) {
   const token = getStoredToken();
   if (!token || !currentUser) return null;
-  const repos = ['mantx-repo-public', STORAGE_REPO];
-  for (const repo of repos) {
-    try {
-      const res = await fetch(
-        `https://api.github.com/repos/${currentUser.login}/${repo}/contents/public-serving.json`,
-        { headers: { 'Authorization': `token ${token}` } }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const contentStr = decodeURIComponent(escape(atob(data.content.replace(/[\r\n]/g, ''))));
-        const content = JSON.parse(contentStr);
-        if (Array.isArray(content)) {
-          const entry = content.find(e => e.nimphyId === nimphyId);
-          if (entry) {
-            publicServingConfigs[nimphyId] = { ...publicServingConfigs[nimphyId], ...entry };
-            return entry;
-          }
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/public-serving.json`,
+      { headers: { 'Authorization': `token ${token}` } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const contentStr = decodeURIComponent(escape(atob(data.content.replace(/[\r\n]/g, ''))));
+      const content = JSON.parse(contentStr);
+      if (Array.isArray(content)) {
+        const entry = content.find(e => e.nimphyId === nimphyId);
+        if (entry) {
+          publicServingConfigs[nimphyId] = { ...publicServingConfigs[nimphyId], ...entry };
+          return entry;
         }
       }
-    } catch (e) {
-      console.warn(`[MANTX] Could not load public serving from ${repo}:`, e.message);
     }
+  } catch (e) {
+    // Graceful silent fallback
   }
   return null;
 }
