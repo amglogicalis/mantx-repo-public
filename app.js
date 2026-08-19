@@ -3509,15 +3509,46 @@ async function togglePublicServerPower(nimphyId) {
         }
       } catch {}
 
-      // Dispatch the workflow with retry loop (waiting for GitHub Actions to index newly committed YAML)
+      // Find registered workflow ID by polling GET /actions/workflows
+      let matchedWorkflow = null;
+      for (let attempt = 1; attempt <= 8; attempt++) {
+        await new Promise(r => setTimeout(r, attempt === 1 ? 2500 : 3000));
+        try {
+          const listRes = await fetch(
+            `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows`,
+            { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+          );
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            matchedWorkflow = (listData.workflows || []).find(w =>
+              (w.path && w.path.endsWith(wfFilename)) ||
+              (w.name && w.name.includes(nimphyId)) ||
+              (w.name && w.name === `MANTX Serve Public: ${nimphyName}`)
+            );
+            if (matchedWorkflow) break;
+          }
+        } catch {}
+      }
+
+      // If workflow was found, ensure it is active
+      const dispatchTargetId = matchedWorkflow ? matchedWorkflow.id : encodeURIComponent(wfFilename);
+      if (matchedWorkflow && matchedWorkflow.state && matchedWorkflow.state !== 'active') {
+        try {
+          await fetch(`https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${matchedWorkflow.id}/enable`, {
+            method: 'PUT',
+            headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+          });
+        } catch {}
+      }
+
+      // Dispatch the workflow
       let dispatchOk = false;
       let lastErrData = null;
       let lastStatus = 0;
 
-      for (let attempt = 1; attempt <= 6; attempt++) {
-        await new Promise(r => setTimeout(r, attempt === 1 ? 3000 : 3500));
+      for (let attempt = 1; attempt <= 5; attempt++) {
         const dispatchRes = await fetch(
-          `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${encodeURIComponent(wfFilename)}/dispatches`,
+          `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${dispatchTargetId}/dispatches`,
           {
             method: 'POST',
             headers: {
@@ -3539,6 +3570,7 @@ async function togglePublicServerPower(nimphyId) {
         if (dispatchRes.status !== 404 && dispatchRes.status !== 422) {
           break;
         }
+        await new Promise(r => setTimeout(r, 3000));
       }
 
       let dispatchMsg = '';
@@ -3547,7 +3579,7 @@ async function togglePublicServerPower(nimphyId) {
         // Fetch the run ID after a brief wait
         await new Promise(r => setTimeout(r, 4000));
         const runsRes = await fetch(
-          `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${encodeURIComponent(wfFilename)}/runs?per_page=1`,
+          `https://api.github.com/repos/${owner}/${targetRepo}/actions/workflows/${dispatchTargetId}/runs?per_page=1`,
           { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
         );
         if (runsRes.ok) {
@@ -3560,14 +3592,14 @@ async function togglePublicServerPower(nimphyId) {
           }
         }
       } else {
-        dispatchMsg = `⚠️ Workflow publicado en ${targetRepo} pero el dispatch falló (${lastStatus}): ${lastErrData?.message || 'Indexer timeout'}\n\nSi el token no tiene scope "workflow", actívalo manualmente en:\nhttps://github.com/${owner}/${targetRepo}/actions`;
+        dispatchMsg = `⚠️ El workflow fue publicado en tu vault pero GitHub requiere el scope "workflow" en tu Personal Access Token para invocarlo por API.\n\n👉 Para resolverlo en 1 click:\n1. Ve a https://github.com/settings/tokens y asegúrate de marcar el checkbox "workflow".\n2. O pulsa "Run workflow" manualmente en:\nhttps://github.com/${owner}/${targetRepo}/actions/workflows/${wfFilename}`;
       }
 
       await savePublicServingToVault();
       renderPublicServeContent(nimphyId);
       renderNimphysCatalog(); // Update 🟢/🛑 card status
       startPublicServingPolling(nimphyId);
-      showCustomModal('🌐 Servidor Público Lanzado', `Workflow generado y desplegado correctamente en tu vault.\n\n${dispatchMsg}`);
+      showCustomModal('🌐 Servidor Público Lanzado', `Workflow desplegado en tu vault.\n\n${dispatchMsg}`);
 
     } catch (e) {
       stopPublicServingPolling();
