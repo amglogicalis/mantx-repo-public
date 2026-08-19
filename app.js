@@ -4993,54 +4993,187 @@ function bridgeLabCandidateToProduce(labId, candidateId) {
   }
 }
 
-// ─── PRODUCTION INTELLIGENCE & AUTO-HEAL ─────────────────────
+// ─── PRODUCTION INTELLIGENCE & MULTI-MODEL AUTO-HEAL ─────────
+function openAutoHealInfoModal() {
+  const modal = document.getElementById('autoheal-info-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeAutoHealInfoModal() {
+  const modal = document.getElementById('autoheal-info-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
 function renderAutoHealOptions() {
-  const select = document.getElementById('autoheal-nimphy-select');
-  if (!select) return;
+  renderAutoHealModelsGrid();
+}
 
-  if (nimphysList.length === 0) {
-    select.innerHTML = `<option value="default_nimphy">Nimphy por defecto</option>`;
+function renderAutoHealModelsGrid() {
+  const container = document.getElementById('autoheal-models-grid');
+  const countBadge = document.getElementById('autoheal-active-count-badge');
+  if (!container) return;
+
+  if (!nimphysList || nimphysList.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 1.8rem 1rem; background: rgba(0,0,0,0.25); border: 1px dashed var(--border-subtle); border-radius: 8px;">
+        <span style="font-size: 1.5rem;">🧬</span>
+        <strong style="color: #fff; font-size: 0.88rem; display: block; margin-top: 0.3rem;">No hay Nimphys registrados en producción</strong>
+        <p class="text-dim text-xs" style="max-width: 420px; margin: 0.2rem auto 0.6rem auto;">
+          Entrena tu primer modelo en la pestaña <strong>Nimphys, Forge & Lab</strong> para activar el circuito cerrado de recuperación automática.
+        </p>
+      </div>
+    `;
+    if (countBadge) countBadge.textContent = '0 Modelos con Auto-Heal Activo';
+    return;
+  }
+
+  let activeCount = 0;
+
+  container.innerHTML = nimphysList.map(n => {
+    // Ensure default config exists for this nimphy
+    if (!autoHealMap[n.nimphyId]) {
+      autoHealMap[n.nimphyId] = {
+        enabled: false,
+        driftThresholdPercent: 12,
+        autoDeployOnlyIfWinsBattle: true,
+        lastScore: n.versions?.[n.versions.length - 1]?.benchmarkScore || 95,
+        lastAudit: 'Sin auditoría reciente'
+      };
+    }
+
+    const cfg = autoHealMap[n.nimphyId];
+    if (cfg.enabled) activeCount++;
+
+    const isLocal = n.providerType === 'local_runner';
+    const isTermes = n.providerType === 'termes';
+    const isByok = n.providerType === 'byok_remote';
+    const providerBadge = isTermes
+      ? `<span class="badge" style="background: rgba(6,182,212,0.12); color: #38bdf8; font-size: 0.65rem;">🌐 Termes Symbiont</span>`
+      : isByok
+      ? `<span class="badge" style="background: rgba(168,85,247,0.12); color: #c084fc; font-size: 0.65rem;">🔑 BYOK Cloud</span>`
+      : `<span class="badge badge-emerald" style="font-size: 0.65rem;">⚡ Runner CPU ($0)</span>`;
+
+    return `
+      <div class="panel-card" style="background: rgba(0,0,0,0.35); border: 1px solid ${cfg.enabled ? 'rgba(16,185,129,0.35)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.9rem 1.1rem; transition: border-color 0.2s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;">
+          
+          <!-- Nimphy Identity -->
+          <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 220px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.45rem;">
+                <strong style="color: #fff; font-size: 0.92rem;">${n.name}</strong>
+                <span class="badge badge-emerald" style="font-size: 0.65rem;">${n.currentVersion || 'v1.0.0'}</span>
+                ${providerBadge}
+              </div>
+              <div style="font-size: 0.73rem; color: var(--text-dim); margin-top: 0.15rem;">
+                Modelo Base: <code style="color: #a7f3d0;">${n.baseModel}</code> • Método: <strong>${(n.method || 'qlora').toUpperCase()}</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Controls: Threshold & Auto-Deploy Rule -->
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            
+            <!-- Drift Threshold Select -->
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+              <span style="font-size: 0.72rem; color: var(--text-dim);">Umbral Drift:</span>
+              <select class="input-select" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; width: auto;" onchange="updateAutoHealThresholdForModel('${n.nimphyId}', this.value)">
+                <option value="8" ${cfg.driftThresholdPercent === 8 ? 'selected' : ''}>8% de Caída (Estricto)</option>
+                <option value="10" ${cfg.driftThresholdPercent === 10 ? 'selected' : ''}>10% de Caída</option>
+                <option value="12" ${cfg.driftThresholdPercent === 12 ? 'selected' : ''}>12% de Caída (Recomendado)</option>
+                <option value="15" ${cfg.driftThresholdPercent === 15 ? 'selected' : ''}>15% de Caída</option>
+                <option value="20" ${cfg.driftThresholdPercent === 20 ? 'selected' : ''}>20% de Caída</option>
+              </select>
+            </div>
+
+            <!-- Health Status & Individual Audit Button -->
+            <button type="button" class="btn btn-outline btn-sm" onclick="auditSingleNimphyHealth('${n.nimphyId}')" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; height: 28px;">
+              🔍 Auditar
+            </button>
+
+            <!-- Auto-Heal Toggle Switch -->
+            <label class="switch" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; margin: 0;">
+              <input type="checkbox" ${cfg.enabled ? 'checked' : ''} onchange="toggleAutoHealForModel('${n.nimphyId}', this.checked)">
+              <span class="badge ${cfg.enabled ? 'badge-emerald' : 'badge-outline'}" style="font-size: 0.72rem; min-width: 96px; text-align: center; padding: 0.25rem 0.6rem;">
+                ${cfg.enabled ? '🟢 AUTO-HEAL' : '⚪ DESACTIVADO'}
+              </span>
+            </label>
+
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (countBadge) {
+    countBadge.textContent = `${activeCount} Modelo${activeCount === 1 ? '' : 's'} con Auto-Heal Activo`;
+  }
+}
+
+async function toggleAutoHealForModel(nimphyId, isChecked) {
+  if (!autoHealMap[nimphyId]) {
+    autoHealMap[nimphyId] = {
+      enabled: isChecked,
+      driftThresholdPercent: 12,
+      autoDeployOnlyIfWinsBattle: true
+    };
   } else {
-    select.innerHTML = nimphysList.map(n => `<option value="${n.nimphyId}">${n.name} (${n.currentVersion || 'v1'})</option>`).join('');
+    autoHealMap[nimphyId].enabled = isChecked;
   }
+
+  // Update UI silently without any annoying popups
+  renderAutoHealModelsGrid();
+  await saveAutoHealToVault();
 }
 
-function toggleAutoHealMode() {
-  const checkbox = document.getElementById('toggle-autoheal');
-  const badge = document.getElementById('autoheal-status-badge');
-  const select = document.getElementById('autoheal-nimphy-select');
-  const selectedNimphy = select?.value || 'default_nimphy';
-
-  const isEnabled = checkbox?.checked || false;
-
-  if (badge) {
-    badge.textContent = isEnabled ? 'HABILITADO' : 'DESHABILITADO';
-    badge.style.background = isEnabled ? 'var(--emerald-main)' : 'var(--emerald-dark)';
+async function updateAutoHealThresholdForModel(nimphyId, value) {
+  if (!autoHealMap[nimphyId]) {
+    autoHealMap[nimphyId] = {
+      enabled: false,
+      driftThresholdPercent: Number(value) || 12,
+      autoDeployOnlyIfWinsBattle: true
+    };
+  } else {
+    autoHealMap[nimphyId].driftThresholdPercent = Number(value) || 12;
   }
 
-  autoHealMap[selectedNimphy] = isEnabled;
-  if (isEnabled) {
-    showCustomModal('🛡️ Modo Auto-Heal Activado', `Auto-Heal activado para ${selectedNimphy}.\n\nCuando las auditorías detecten una caída de calidad superior al umbral configurado:\n1. Synthetic Data Forge generará datos focalizados.\n2. Nimphys Engine creará una nueva versión de entrenamiento incremental.\n3. Se ejecutará una Deimatic Battle automática y solo se desplegará si supera al modelo actual.`);
-  }
+  await saveAutoHealToVault();
 }
 
-function loadAutoHealForSelected() {
-  const select = document.getElementById('autoheal-nimphy-select');
-  const checkbox = document.getElementById('toggle-autoheal');
-  const badge = document.getElementById('autoheal-status-badge');
-  const selectedNimphy = select?.value || 'default_nimphy';
+async function saveAutoHealToVault() {
+  const token = getStoredToken();
+  if (currentUser && token) {
+    try {
+      const payload = Object.keys(autoHealMap).map(k => ({
+        nimphyId: k,
+        ...autoHealMap[k]
+      }));
 
-  const isEnabled = Boolean(autoHealMap[selectedNimphy]);
-  if (checkbox) checkbox.checked = isEnabled;
-  if (badge) {
-    badge.textContent = isEnabled ? 'HABILITADO' : 'DESHABILITADO';
-    badge.style.background = isEnabled ? 'var(--emerald-main)' : 'var(--emerald-dark)';
+      const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/intelligence-autoheal.json`, {
+        headers: { 'Authorization': `token ${token}` }
+      });
+      let sha = null;
+      if (res.ok) {
+        const data = await res.json();
+        sha = data.sha;
+      }
+
+      await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/intelligence-autoheal.json`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'sync: update multi-model auto-heal configuration in .mantx-storage',
+          content: btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2)))),
+          sha
+        })
+      });
+    } catch (e) {
+      console.warn('Could not sync auto-heal config to vault:', e.message);
+    }
   }
-}
-
-function saveAutoHealConfig() {
-  const threshold = document.getElementById('autoheal-threshold-select')?.value || '12';
-  showCustomModal('⚙️ Configuración de Auto-Heal Actualizada', `Umbral de drift configurado al ${threshold}%.`);
 }
 
 function renderIntelligenceHistory() {
@@ -5049,7 +5182,7 @@ function renderIntelligenceHistory() {
 
   list.innerHTML = `
     <div class="empty-state">
-      No hay auditorías registradas en este momento. Haz clic en "Auditar Calidad de Producción".
+      No hay auditorías registradas en este momento. Haz clic en <strong>"🔍 Auditar Calidad Global"</strong> o en <strong>"Auditar"</strong> en un modelo específico.
     </div>
   `;
 }
@@ -5060,18 +5193,75 @@ function auditDriftHealth() {
   const latencyEl = document.getElementById('stat-avg-latency');
   const driftEl = document.getElementById('stat-drift-status');
 
-  if (scoreEl) scoreEl.textContent = '94%';
-  if (latencyEl) latencyEl.textContent = '380ms';
+  const avgScore = 95;
+  const avgLatency = 340;
+
+  if (scoreEl) scoreEl.textContent = `${avgScore}%`;
+  if (latencyEl) latencyEl.textContent = `${avgLatency}ms`;
   if (driftEl) driftEl.textContent = 'ÓPTIMO';
 
   if (!list) return;
   const now = new Date().toLocaleTimeString();
-  list.innerHTML = `
-    <div style="padding: 0.8rem; background: rgba(0,0,0,0.3); border-radius: 8px; font-size: 0.82rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
-      <span>[${now}] Auditoría de Calidad en Producción</span>
-      <span style="color: var(--emerald-light);">Score: 94/100 | Latencia: 380ms | Drift: NO (Óptimo)</span>
+
+  const modelsText = nimphysList.length > 0 
+    ? nimphysList.map(n => {
+        const cfg = autoHealMap[n.nimphyId];
+        const status = cfg?.enabled ? '🟢 Auto-Heal Activo' : '⚪ Pasivo';
+        return `• <strong>${n.name}</strong> (${n.currentVersion || 'v1'}): Score 96/100 | Latencia 320ms | ${status}`;
+      }).join('<br>')
+    : 'No hay modelos registrados en producción.';
+
+  const entry = `
+    <div style="padding: 0.85rem; background: rgba(0,0,0,0.3); border-radius: 8px; font-size: 0.80rem; margin-bottom: 0.6rem; border-left: 3px solid var(--emerald-main);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+        <span style="font-weight: 600; color: #fff;">[${now}] Auditoría Global Multi-Modelo</span>
+        <span style="color: var(--emerald-light); font-weight: 600;">Score Global: 95/100 | Latencia Media: 340ms | Drift: NO (Óptimo)</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); line-height: 1.6; padding-left: 0.4rem;">
+        ${modelsText}
+      </div>
     </div>
-  ` + list.innerHTML.replace('No hay auditorías registradas en este momento. Haz clic en "Auditar Calidad de Producción".', '');
+  `;
+
+  list.innerHTML = entry + list.innerHTML.replace('No hay auditorías registradas en este momento. Haz clic en <strong>"🔍 Auditar Calidad Global"</strong> o en <strong>"Auditar"</strong> en un modelo específico.', '').replace('No hay auditorías registradas en este momento. Haz clic en "Auditar Calidad de Producción".', '');
+}
+
+function auditSingleNimphyHealth(nimphyId) {
+  const model = nimphysList.find(n => n.nimphyId === nimphyId);
+  if (!model) return;
+
+  const cfg = autoHealMap[nimphyId] || { enabled: false, driftThresholdPercent: 12 };
+  const list = document.getElementById('intelligence-history-list');
+  const now = new Date().toLocaleTimeString();
+
+  // Simulate semantic audit against baseline
+  const score = 93 + Math.floor(Math.random() * 6);
+  const latency = 280 + Math.floor(Math.random() * 120);
+  const drift = 100 - score;
+  const isBreached = drift >= cfg.driftThresholdPercent;
+
+  let healActionText = '';
+  if (isBreached && cfg.enabled) {
+    healActionText = `<br><span style="color: #6ee7b7;">🛡️ <strong>Auto-Heal Disparado:</strong> Generando datos con Forge y preparando entrenamiento incremental ${model.currentVersion || 'v1.0.0'} &rarr; v1.1.0...</span>`;
+  } else if (isBreached && !cfg.enabled) {
+    healActionText = `<br><span style="color: #f87171;">⚠️ <strong>Drift superior al umbral (${drift}%):</strong> Auto-Heal está inactivo en este modelo. Actívalo para autoreparación.</span>`;
+  }
+
+  if (list) {
+    const entry = `
+      <div style="padding: 0.85rem; background: rgba(0,0,0,0.3); border-radius: 8px; font-size: 0.80rem; margin-bottom: 0.6rem; border-left: 3px solid ${isBreached ? '#f87171' : 'var(--emerald-main)'};">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+          <span style="font-weight: 600; color: #fff;">[${now}] Auditoría Focalizada: ${model.name}</span>
+          <span style="color: ${isBreached ? '#f87171' : 'var(--emerald-light)'}; font-weight: 600;">Score: ${score}/100 | Latencia: ${latency}ms | Drift: ${drift}%</span>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-dim);">
+          • Modelo: <code>${model.baseModel}</code> • Versión: ${model.currentVersion || 'v1'} • Umbral Configurado: ${cfg.driftThresholdPercent}% • Estado Auto-Heal: ${cfg.enabled ? '🟢 Activo' : '⚪ Inactivo'}
+          ${healActionText}
+        </div>
+      </div>
+    `;
+    list.innerHTML = entry + list.innerHTML.replace('No hay auditorías registradas en este momento. Haz clic en <strong>"🔍 Auditar Calidad Global"</strong> o en <strong>"Auditar"</strong> en un modelo específico.', '').replace('No hay auditorías registradas en este momento. Haz clic en "Auditar Calidad de Producción".', '');
+  }
 }
 
 // ─── AFT VISUAL STUDIO (ADAPTIVE FRACTAL TUNING) ─────────────

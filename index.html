@@ -563,46 +563,35 @@
 
       <!-- TAB 7: PRODUCTION INTELLIGENCE -->
       <section id="tab-intelligence" class="tab-content">
-        <div class="tab-header">
+        <div class="tab-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;">
           <div>
             <h2>📈 Production Intelligence & Auto-Heal Engine</h2>
-            <p class="text-dim">Monitorización continua de calidad, auditoría de drift semántico y auto-reentrenamiento en bucle cerrado.</p>
+            <p class="text-dim">Monitorización continua de calidad, auditoría de drift semántico y auto-reentrenamiento multi-modelo en bucle cerrado.</p>
           </div>
-          <button class="btn btn-primary" onclick="auditDriftHealth()">🔍 Auditar Calidad de Producción</button>
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="openAutoHealInfoModal()" style="font-size: 0.76rem; border-color: rgba(16,185,129,0.4); color: #6ee7b7; padding: 0.35rem 0.65rem; height: 32px; display: inline-flex; align-items: center;">
+              ℹ️ ¿Qué es Auto-Heal?
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="auditDriftHealth()" style="font-size: 0.76rem; padding: 0.35rem 0.75rem; height: 32px; display: inline-flex; align-items: center; font-weight: 600;">
+              🔍 Auditar Calidad Global
+            </button>
+          </div>
         </div>
 
-        <!-- AUTO-HEAL CONTROL PANEL -->
+        <!-- MULTI-MODEL AUTO-HEAL CONTROL PANEL -->
         <div class="panel-card mb-4" style="border-left: 4px solid var(--emerald-main);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;">
             <div>
-              <h3 style="font-size: 1.05rem; font-weight: 700;">🛡️ Modo Auto-Heal (Closed-Loop Recovery)</h3>
-              <p class="text-dim text-xs">Cuando el drift supera el umbral, MANTX sintetiza datos específicos con Forge, entrena una nueva versión y solo la despliega si supera en Deimatic Battle al modelo actual.</p>
+              <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff;">🛡️ Gestión Multi-Modelo Auto-Heal (Closed-Loop Recovery)</h3>
+              <p class="text-dim text-xs">Configura y activa de forma independiente el auto-reentrenamiento por modelo. MANTX sintetiza datos y despliega la nueva versión solo si supera al modelo activo.</p>
             </div>
-            <label class="switch" style="cursor: pointer;">
-              <input type="checkbox" id="toggle-autoheal" onchange="toggleAutoHealMode()">
-              <span class="slider" style="background: var(--emerald-dark); padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; color: #fff;" id="autoheal-status-badge">DESHABILITADO</span>
-            </label>
+            <div style="font-size: 0.75rem; color: var(--emerald-light); display: flex; align-items: center; gap: 0.4rem;">
+              <span id="autoheal-active-count-badge" class="badge badge-emerald">0 Modelos con Auto-Heal Activo</span>
+            </div>
           </div>
-          <div class="grid-3" style="font-size: 0.8rem;">
-            <div class="form-group">
-              <label>Nimphy Objetivo:</label>
-              <select id="autoheal-nimphy-select" class="input-select" onchange="loadAutoHealForSelected()"></select>
-            </div>
-            <div class="form-group">
-              <label>Umbral de Drift para Disparo:</label>
-              <select id="autoheal-threshold-select" class="input-select" onchange="saveAutoHealConfig()">
-                <option value="10">10% de Caída Semántica</option>
-                <option value="12" selected>12% de Caída Semántica (Recomendado)</option>
-                <option value="15">15% de Caída Semántica</option>
-                <option value="20">20% de Caída Semántica</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Criterio de Despliegue:</label>
-              <div style="font-size: 0.75rem; color: var(--emerald-light); padding-top: 0.4rem;">
-                ✔ Victoria en Deimatic Battle (Garantía de no-regresión)
-              </div>
-            </div>
+
+          <div id="autoheal-models-grid" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <!-- Dynamically populated via JavaScript with independent config per Nimphy -->
           </div>
         </div>
 
@@ -1529,6 +1518,52 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- AUTO-HEAL INFO MODAL -->
+  <div id="autoheal-info-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.3rem;">🛡️</span>
+          <div>
+            <h3 style="margin: 0; color: #fff;">¿Qué es Auto-Heal & Closed-Loop Recovery?</h3>
+            <p class="text-dim text-xs" style="margin: 0;">Motor autónomo de recuperación de calidad para modelos en producción.</p>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeAutoHealInfoModal()">✕</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.9rem; font-size: 0.82rem; line-height: 1.55; color: var(--text-dim);">
+        
+        <div style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 0.85rem;">
+          <strong style="color: #6ee7b7; font-size: 0.88rem; display: block; margin-bottom: 0.3rem;">💡 Concepto y Propósito</strong>
+          Auto-Heal es un circuito cerrado (Closed-Loop) que monitoriza continuamente las inferencias y la similitud semántica de tus Nimphys en producción frente a su baseline de calidad certificada. Si el rendimiento o la coherencia caen, el sistema se autorepara automáticamente sin intervención humana y a coste $0.
+        </div>
+
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem;">
+          <strong style="color: #fff; font-size: 0.88rem; display: block; margin-bottom: 0.4rem;">🔄 ¿Cómo Funciona el Ciclo Autónomo?</strong>
+          <ol style="margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.4rem;">
+            <li><strong style="color: #a7f3d0;">1. Detección de Drift:</strong> MANTX audita la distancia semántica y latencia frente a las respuestas esperadas del baseline.</li>
+            <li><strong style="color: #a7f3d0;">2. Disparo por Umbral:</strong> Si la desviación supera el umbral configurado individualmente en el modelo (ej: 12%), se activa la recuperación.</li>
+            <li><strong style="color: #a7f3d0;">3. Síntesis de Datos Focalizada:</strong> <em>Synthetic Data Forge</em> genera automáticamente ejemplos de entrenamiento específicos con Constitutional AI para reforzar los puntos ciegos.</li>
+            <li><strong style="color: #a7f3d0;">4. Re-entrenamiento Incremental ($0):</strong> Se orquesta un workflow en GitHub Actions para compilar la nueva versión de pesos (ej: v1.1.0 &rarr; v1.2.0).</li>
+            <li><strong style="color: #a7f3d0;">5. Deimatic Battle de Validación:</strong> Enfrenta el nuevo candidato contra el modelo en producción. <strong>Solo se despliega si supera en score y calidad al modelo actual</strong>, garantizando cero regresiones.</li>
+          </ol>
+        </div>
+
+        <div style="background: rgba(6,182,212,0.06); border: 1px solid rgba(6,182,212,0.25); border-radius: 8px; padding: 0.85rem;">
+          <strong style="color: #38bdf8; font-size: 0.88rem; display: block; margin-bottom: 0.3rem;">🔑 Requisitos Previos</strong>
+          • <strong>GitHub PAT:</strong> Necesario para que MANTX lance los workflows de re-entrenamiento en GitHub Actions.<br>
+          • <strong>Nimphy en Producción:</strong> Tener al menos un modelo con baseline de calidad establecida.
+        </div>
+
+      </div>
+
+      <div style="margin-top: 1.2rem; display: flex; justify-content: flex-end;">
+        <button class="btn btn-primary btn-sm" onclick="closeAutoHealInfoModal()">Entendido</button>
+      </div>
     </div>
   </div>
 
