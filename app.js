@@ -699,6 +699,9 @@ async function confirmCreateAkgPool() {
   showCustomModal('🔑 Pool de Claves Creado', `Pool: ${newPool.name}\nMaster Key: ${newPool.masterApiKey}\nEstrategia: ${newPool.strategy}\nTotal claves añadidas: ${keys.length}\n\nPara usar este pool en tus peticiones:\nAuthorization: Bearer ${newPool.masterApiKey}`);
 }
 
+// ─── AKG POOLS MANAGEMENT & EDITING MODAL ─────────────────────
+let editingPoolKeys = [];
+
 function openAkgEditPoolModal(poolId) {
   const pool = akgPools.find(p => p.poolId === poolId);
   if (!pool) return;
@@ -707,165 +710,224 @@ function openAkgEditPoolModal(poolId) {
   const idInput = document.getElementById('edit-pool-id');
   const nameInput = document.getElementById('edit-pool-name');
   const stratInput = document.getElementById('edit-pool-strategy');
+  const masterKeyInput = document.getElementById('edit-pool-master-key');
+  const subtitleEl = document.getElementById('edit-pool-subtitle');
 
   if (idInput) idInput.value = pool.poolId;
   if (nameInput) nameInput.value = pool.name;
-  if (stratInput) stratInput.value = pool.strategy;
+  if (stratInput) stratInput.value = pool.strategy || 'priority_fallback';
+  if (masterKeyInput) masterKeyInput.value = pool.masterApiKey || `akg-mantx-${pool.poolId}`;
+  if (subtitleEl) subtitleEl.textContent = `Editando parámetros y claves para "${pool.name}".`;
+
+  // Clone keys into mutable working array for editing
+  editingPoolKeys = JSON.parse(JSON.stringify(pool.keys || []));
+
+  // Reset add-new-key form inputs
+  const newVal = document.getElementById('edit-new-key-val');
+  const newAlias = document.getElementById('edit-new-key-alias');
+  const newProv = document.getElementById('edit-new-key-provider');
+  if (newVal) newVal.value = '';
+  if (newAlias) newAlias.value = '';
+  if (newProv) newProv.value = 'auto';
+
+  renderEditPoolKeysList();
   if (modal) modal.classList.remove('hidden');
 }
 
 function closeAkgEditPoolModal() {
   const modal = document.getElementById('akg-edit-pool-modal');
   if (modal) modal.classList.add('hidden');
+  editingPoolKeys = [];
 }
 
-async function confirmSaveEditedPool() {
-  const poolId = document.getElementById('edit-pool-id')?.value;
-  const name = document.getElementById('edit-pool-name')?.value?.trim();
-  const strategy = document.getElementById('edit-pool-strategy')?.value || 'round_robin';
-
-  const pool = akgPools.find(p => p.poolId === poolId);
-  if (!pool) return;
-
-  pool.name = name || pool.name;
-  pool.strategy = strategy;
-
-  closeAkgEditPoolModal();
-  renderAkgPools();
-  await saveAkgPoolsToVault();
-  showCustomModal('✔ Pool Actualizado', `El pool "${pool.name}" ha sido actualizado con estrategia "${strategy}".`);
+function onEditPoolStrategyChange() {
+  renderEditPoolKeysList();
 }
 
-function openAkgAddKeyModal(poolId) {
-  const modal = document.getElementById('akg-add-key-modal');
-  const idInput = document.getElementById('add-key-pool-id');
-  const valInput = document.getElementById('add-key-val');
-  const aliasInput = document.getElementById('add-key-alias');
-  const provInput = document.getElementById('add-key-provider');
+function renderEditPoolKeysList() {
+  const container = document.getElementById('edit-pool-keys-container');
+  const countBadge = document.getElementById('edit-pool-keys-count');
+  if (!container) return;
 
-  if (idInput) idInput.value = poolId;
-  if (valInput) valInput.value = '';
-  if (aliasInput) aliasInput.value = '';
-  if (provInput) provInput.value = 'auto';
-  if (modal) modal.classList.remove('hidden');
-}
+  const strat = document.getElementById('edit-pool-strategy')?.value || 'priority_fallback';
+  if (countBadge) countBadge.textContent = `${editingPoolKeys.length} ${editingPoolKeys.length === 1 ? 'clave' : 'claves'}`;
 
-function closeAkgAddKeyModal() {
-  const modal = document.getElementById('akg-add-key-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-async function confirmAddKeyToPool() {
-  const poolId = document.getElementById('add-key-pool-id')?.value;
-  const keyVal = document.getElementById('add-key-val')?.value?.trim();
-  const alias = document.getElementById('add-key-alias')?.value?.trim();
-  const rawProv = document.getElementById('add-key-provider')?.value || 'auto';
-
-  if (!keyVal) {
-    showCustomModal('⚠️ Campo Requerido', 'Por favor introduce una API key válida.');
+  if (editingPoolKeys.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 1.2rem; background: rgba(0,0,0,0.25); border: 1px dashed var(--border-subtle); border-radius: 8px; font-size: 0.78rem; color: var(--text-dim);">
+        Este pool no tiene claves actualmente. Usa el formulario inferior para añadir al menos una API Key.
+      </div>
+    `;
     return;
   }
 
-  const pool = akgPools.find(p => p.poolId === poolId);
-  if (!pool) return;
+  container.innerHTML = editingPoolKeys.map((k, idx) => {
+    const isFirst = idx === 0;
+    const isLast = idx === editingPoolKeys.length - 1;
+    const prioLabel = strat === 'priority_fallback'
+      ? (idx === 0 ? 'P1 (Primaria)' : `P${idx + 1} (Respaldo ${idx})`)
+      : (strat === 'cost_optimizer' ? `Tier #${idx + 1}` : 'Rotativa');
+    const prioBadgeClass = (strat === 'priority_fallback' && idx === 0) ? 'badge-emerald' : 'badge-mint';
 
-  if (!pool.keys) pool.keys = [];
+    return `
+      <div style="background: rgba(0,0,0,0.35); border: 1px solid ${k.active ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}; border-radius: 8px; padding: 0.6rem 0.8rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 260px;">
+          <span class="badge ${k.provider === 'groq' ? 'badge-emerald' : k.provider === 'gemini' ? 'badge-mint' : 'badge-emerald'}" style="font-size: 0.68rem; font-weight: 700;">
+            ${(k.provider || 'OPENAI').toUpperCase()}
+          </span>
+          <div style="display: flex; flex-direction: column; gap: 0.2rem; flex: 1;">
+            <input type="text" class="input-text" value="${k.alias || ''}" placeholder="Alias de la clave" onchange="updateEditKeyAlias('${k.keyId}', this.value)" style="height: 26px; padding: 0.15rem 0.4rem; font-size: 0.76rem; background: rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.08);">
+            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--emerald-light);">${k.keyMasked || '••••••••'}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.76rem;">
+          <span class="badge ${prioBadgeClass}" style="font-size: 0.70rem; font-weight: 700;">
+            ${prioLabel}
+          </span>
+          
+          <div style="display: flex; gap: 0.2rem;">
+            <button type="button" class="btn btn-outline btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.70rem; height: 26px;" onclick="moveEditKeyRow(${idx}, -1)" ${isFirst ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} title="Subir Prioridad">▲</button>
+            <button type="button" class="btn btn-outline btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.70rem; height: 26px;" onclick="moveEditKeyRow(${idx}, 1)" ${isLast ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} title="Bajar Prioridad">▼</button>
+          </div>
+
+          <button type="button" class="btn btn-outline btn-sm" style="padding: 0.15rem 0.5rem; font-size: 0.70rem; height: 26px; ${k.active ? 'color: var(--emerald-light);' : 'color: #f87171;'}" onclick="toggleEditKeyActive('${k.keyId}')">
+            ${k.active ? '✔ Activa' : '⏸ Pausada'}
+          </button>
+
+          <button type="button" class="btn btn-outline btn-sm" style="padding: 0.15rem 0.45rem; font-size: 0.70rem; height: 26px; color: #f87171; border-color: rgba(248,113,113,0.3);" onclick="deleteEditKeyRow('${k.keyId}')" title="Eliminar Clave">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateEditKeyAlias(keyId, val) {
+  const key = editingPoolKeys.find(k => k.keyId === keyId);
+  if (key) {
+    key.alias = val.trim() || `${key.provider.toUpperCase()} Key`;
+  }
+}
+
+function moveEditKeyRow(index, delta) {
+  const targetIndex = index + delta;
+  if (targetIndex < 0 || targetIndex >= editingPoolKeys.length) return;
+
+  const [moved] = editingPoolKeys.splice(index, 1);
+  editingPoolKeys.splice(targetIndex, 0, moved);
+
+  // Re-assign priorities sequentially
+  editingPoolKeys.forEach((k, i) => {
+    k.priority = i + 1;
+  });
+
+  renderEditPoolKeysList();
+}
+
+function toggleEditKeyActive(keyId) {
+  const key = editingPoolKeys.find(k => k.keyId === keyId);
+  if (key) {
+    key.active = !key.active;
+    renderEditPoolKeysList();
+  }
+}
+
+function deleteEditKeyRow(keyId) {
+  editingPoolKeys = editingPoolKeys.filter(k => k.keyId !== keyId);
+  // Re-assign priorities sequentially
+  editingPoolKeys.forEach((k, i) => {
+    k.priority = i + 1;
+  });
+  renderEditPoolKeysList();
+}
+
+function autoDetectEditNewKeyProvider() {
+  const val = document.getElementById('edit-new-key-val')?.value?.trim();
+  const select = document.getElementById('edit-new-key-provider');
+  if (val && select && select.value === 'auto') {
+    const prov = detectKeyProvider(val);
+    select.value = prov;
+  }
+}
+
+function addKeyToEditPoolList() {
+  const valInput = document.getElementById('edit-new-key-val');
+  const aliasInput = document.getElementById('edit-new-key-alias');
+  const provSelect = document.getElementById('edit-new-key-provider');
+
+  const keyVal = valInput?.value?.trim();
+  const alias = aliasInput?.value?.trim();
+  const rawProv = provSelect?.value || 'auto';
+
+  if (!keyVal) {
+    showCustomModal('⚠️ Campo Requerido', 'Por favor introduce una API key válida antes de añadirla.');
+    return;
+  }
+
   const provider = rawProv === 'auto' ? detectKeyProvider(keyVal) : rawProv;
   const newKey = {
-    keyId: `key_${Date.now()}`,
+    keyId: `key_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     provider,
     keyMasked: maskApiKey(keyVal),
-    alias: alias || `${provider.toUpperCase()} Key ${pool.keys.length + 1}`,
-    priority: pool.keys.length + 1,
+    alias: alias || `${provider.toUpperCase()} Clave #${editingPoolKeys.length + 1}`,
+    priority: editingPoolKeys.length + 1,
     active: true,
     calls: 0,
     rateHits: 0
   };
 
-  pool.keys.push(newKey);
-  pool.keys.sort((a, b) => a.priority - b.priority);
+  editingPoolKeys.push(newKey);
 
-  closeAkgAddKeyModal();
-  renderAkgPools();
-  await saveAkgPoolsToVault();
-  showCustomModal('✔ Clave Añadida', `Se ha registrado la clave "${newKey.alias}" (${newKey.provider.toUpperCase()}) en el pool "${pool.name}" con Prioridad P${newKey.priority}.`);
+  // Clear inputs
+  if (valInput) valInput.value = '';
+  if (aliasInput) aliasInput.value = '';
+  if (provSelect) provSelect.value = 'auto';
+
+  renderEditPoolKeysList();
 }
 
-async function changeKeyPriority(poolId, keyId, newPriority) {
-  const pool = akgPools.find(p => p.poolId === poolId);
-  if (!pool || !pool.keys || pool.keys.length === 0) return;
-
-  const targetPriority = Math.min(Math.max(parseInt(newPriority, 10) || 1, 1), 20);
-  const keyIndex = pool.keys.findIndex(k => k.keyId === keyId);
-  if (keyIndex === -1) return;
-
-  const [movedKey] = pool.keys.splice(keyIndex, 1);
-  movedKey.priority = targetPriority;
-
-  // Insert cleanly at position
-  const targetIndex = Math.min(targetPriority - 1, pool.keys.length);
-  pool.keys.splice(targetIndex, 0, movedKey);
-
-  // Normalize all priorities sequentially (1, 2, 3...) to eliminate any duplicates or gaps
-  pool.keys.forEach((k, idx) => {
-    k.priority = idx + 1;
-  });
-
-  renderAkgPools();
-  await saveAkgPoolsToVault();
-}
-
-async function moveKeyPriority(poolId, keyId, delta) {
-  const pool = akgPools.find(p => p.poolId === poolId);
-  if (!pool || !pool.keys || pool.keys.length === 0) return;
-
-  const idx = pool.keys.findIndex(k => k.keyId === keyId);
-  if (idx === -1) return;
-
-  const newIdx = idx + delta;
-  if (newIdx < 0 || newIdx >= pool.keys.length) return;
-
-  const [movedKey] = pool.keys.splice(idx, 1);
-  pool.keys.splice(newIdx, 0, movedKey);
-
-  // Normalize sequentially (1, 2, 3...)
-  pool.keys.forEach((k, i) => {
-    k.priority = i + 1;
-  });
-
-  renderAkgPools();
-  await saveAkgPoolsToVault();
-}
-
-async function deleteAkgKey(poolId, keyId) {
-  const pool = akgPools.find(p => p.poolId === poolId);
-  if (!pool || !pool.keys) return;
-
-  const key = pool.keys.find(k => k.keyId === keyId);
-  const confirmed = await showCustomConfirm({
-    title: `🗑️ Eliminar Clave API`,
-    message: `<p style="color: #fff;">¿Deseas eliminar la clave <strong>"${key?.alias || keyId}"</strong> del pool "${pool.name}"?</p>`,
-    confirmText: '🗑️ Eliminar Clave',
-    cancelText: 'Cancelar',
-    isDanger: true
-  });
-  if (!confirmed) return;
-
-  pool.keys = pool.keys.filter(k => k.keyId !== keyId);
-  renderAkgPools();
-  await saveAkgPoolsToVault();
-}
-
-async function toggleAkgKeyActive(poolId, keyId) {
-  const pool = akgPools.find(p => p.poolId === poolId);
-  if (!pool || !pool.keys) return;
-
-  const key = pool.keys.find(k => k.keyId === keyId);
-  if (key) {
-    key.active = !key.active;
-    renderAkgPools();
-    await saveAkgPoolsToVault();
+function rotateCurrentPoolMasterKey() {
+  const masterKeyInput = document.getElementById('edit-pool-master-key');
+  if (masterKeyInput) {
+    const newMasterKey = `mantx_live_sk_prod_${Math.random().toString(36).substring(2, 8)}_${Math.random().toString(36).substring(2, 8)}`;
+    masterKeyInput.value = newMasterKey;
   }
+}
+
+async function confirmSaveEditedPool() {
+  const poolId = document.getElementById('edit-pool-id')?.value;
+  const name = document.getElementById('edit-pool-name')?.value?.trim();
+  const strategy = document.getElementById('edit-pool-strategy')?.value || 'priority_fallback';
+  const masterApiKey = document.getElementById('edit-pool-master-key')?.value?.trim();
+
+  const pool = akgPools.find(p => p.poolId === poolId);
+  if (!pool) return;
+
+  if (editingPoolKeys.length === 0) {
+    showCustomModal('⚠️ Claves Requeridas', 'El pool debe contener al menos 1 API Key para operar.');
+    return;
+  }
+
+  pool.name = name || pool.name;
+  pool.strategy = strategy;
+  if (masterApiKey) pool.masterApiKey = masterApiKey;
+  pool.keys = JSON.parse(JSON.stringify(editingPoolKeys));
+
+  closeAkgEditPoolModal();
+  renderAkgPools();
+  renderDashboardStats();
+  await saveAkgPoolsToVault();
+  showCustomModal('✔ Pool Guardado con Éxito', `El pool "${pool.name}" ha sido actualizado con ${pool.keys.length} claves y estrategia "${strategy}".`);
+}
+
+function openAkgAddKeyModal(poolId) {
+  openAkgEditPoolModal(poolId);
+}
+
+function closeAkgAddKeyModal() {
+  closeAkgEditPoolModal();
 }
 
 async function deleteAkgPool(poolId) {
@@ -1160,72 +1222,28 @@ function renderAkgPools() {
 
   container.innerHTML = akgPools.map(p => {
     const keys = p.keys || [];
+    const stratLabel = p.strategy === 'priority_fallback' ? 'Priority Fallback' : p.strategy === 'cost_optimizer' ? 'Cost Optimizer' : 'Round Robin';
+    const stratClass = p.strategy === 'priority_fallback' ? 'badge-emerald' : 'badge-mint';
+
     return `
-      <div class="panel-card mb-4" style="border: 1px solid var(--border-subtle);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.6rem;">
+      <div class="panel-card mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem 1.15rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;">
           <div>
-            <div style="display: flex; align-items: center; gap: 0.6rem;">
-              <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">${p.name}</h3>
-              <span class="badge ${p.strategy === 'priority_fallback' ? 'badge-emerald' : 'badge-mint'}">${p.strategy === 'priority_fallback' ? 'Priority Fallback' : 'Round Robin'}</span>
-              <span class="badge" style="background: rgba(255,255,255,0.08); color: var(--text-dim);">${keys.length} ${keys.length === 1 ? 'clave' : 'claves'}</span>
+            <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
+              <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin: 0;">${p.name}</h3>
+              <span class="badge ${stratClass}" style="font-size: 0.70rem; font-weight: 700;">${stratLabel}</span>
+              <span class="badge" style="background: rgba(255,255,255,0.08); color: var(--text-dim); font-size: 0.70rem;">${keys.length} ${keys.length === 1 ? 'clave' : 'claves'}</span>
             </div>
-            <div style="font-size: 0.8rem; font-family: var(--font-mono); color: var(--emerald-light); margin-top: 0.3rem; display: flex; align-items: center; gap: 0.6rem;">
-              <span>Master Key: <strong>${p.masterApiKey}</strong></span>
-              <button class="btn btn-outline btn-sm" style="padding: 0.15rem 0.45rem; font-size: 0.7rem;" onclick="copyMasterKey('${p.masterApiKey}')">📋 Copiar</button>
+            <div style="font-size: 0.80rem; font-family: var(--font-mono); color: var(--emerald-light); display: flex; align-items: center; gap: 0.5rem;">
+              <span>Master Key: <strong>${p.masterApiKey || `akg-mantx-${p.poolId}`}</strong></span>
+              <button class="btn btn-outline btn-sm" style="padding: 0.15rem 0.45rem; font-size: 0.70rem; height: 24px;" onclick="copyMasterKey('${p.masterApiKey || `akg-mantx-${p.poolId}`}')">📋 Copiar</button>
             </div>
           </div>
 
-          <div style="display: flex; gap: 0.5rem;">
-            <button class="btn btn-primary btn-sm" onclick="openAkgAddKeyModal('${p.poolId}')">➕ Añadir Clave</button>
-            <button class="btn btn-secondary btn-sm" onclick="openAkgEditPoolModal('${p.poolId}')">✏️ Editar</button>
-            <button class="btn btn-outline btn-sm" style="color: #f87171; border-color: rgba(248,113,113,0.3);" onclick="deleteAkgPool('${p.poolId}')">🗑️</button>
+          <div style="display: flex; gap: 0.45rem; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="openAkgEditPoolModal('${p.poolId}')" style="font-size: 0.76rem; padding: 0.3rem 0.75rem; font-weight: 600;">✏️ Editar</button>
+            <button class="btn btn-outline btn-sm" style="color: #f87171; border-color: rgba(248,113,113,0.3); font-size: 0.76rem; padding: 0.3rem 0.55rem;" onclick="deleteAkgPool('${p.poolId}')" title="Eliminar Pool">🗑️</button>
           </div>
-        </div>
-
-        <div style="margin-top: 1rem;">
-          ${keys.length === 0 ? `
-            <div class="empty-state" style="padding: 1rem; font-size: 0.8rem;">
-              Este pool no tiene claves asignadas. Haz clic en <strong>"➕ Añadir Clave"</strong> para registrar tu primera API key.
-            </div>
-          ` : `
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-              ${keys.map(k => `
-                <div style="background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 0.7rem 0.9rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                  <div style="display: flex; align-items: center; gap: 0.7rem;">
-                    <span class="badge ${k.provider === 'groq' ? 'badge-emerald' : k.provider === 'gemini' ? 'badge-mint' : 'badge-emerald'}">${k.provider.toUpperCase()}</span>
-                    <div>
-                      <strong style="font-size: 0.88rem; color: #fff;">${k.alias}</strong>
-                      <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">(${k.keyMasked || '••••••••'})</span>
-                    </div>
-                  </div>
-
-                  <div style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem;">
-                    ${p.strategy === 'priority_fallback' ? `
-                      <div style="display: flex; align-items: center; gap: 0.35rem;">
-                        <span class="badge ${k.priority === 1 ? 'badge-emerald' : 'badge-mint'}" style="font-size: 0.72rem; font-weight: 700;">
-                          ${k.priority === 1 ? 'P1 (Primaria)' : `P${k.priority} (Respaldo ${k.priority - 1})`}
-                        </span>
-                        <button class="btn btn-outline btn-sm" style="padding: 0.15rem 0.45rem; font-size: 0.75rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', -1)" title="Subir Prioridad (▲)">▲</button>
-                        <button class="btn btn-outline btn-sm" style="padding: 0.15rem 0.45rem; font-size: 0.75rem;" onclick="moveKeyPriority('${p.poolId}', '${k.keyId}', 1)" title="Bajar Prioridad (▼)">▼</button>
-                      </div>
-                    ` : `
-                      <span class="badge badge-mint" style="font-size: 0.7rem;">Rotativa</span>
-                    `}
-                    <span style="color: var(--emerald-light);">Calls: ${k.calls || 0}</span>
-                    <span style="color: ${k.rateHits > 0 ? '#f87171' : 'var(--text-muted)'};">429s: ${k.rateHits || 0}</span>
-                    
-                    <button class="btn btn-outline btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; ${k.active ? 'color: var(--emerald-light);' : 'color: #f87171;'}" onclick="toggleAkgKeyActive('${p.poolId}', '${k.keyId}')">
-                      ${k.active ? '✔ Activa' : '⏸ Pausada'}
-                    </button>
-
-                    <button class="btn btn-outline btn-sm" style="padding: 0.2rem 0.45rem; font-size: 0.7rem; color: #f87171; border-color: rgba(248,113,113,0.3);" onclick="deleteAkgKey('${p.poolId}', '${k.keyId}')" title="Eliminar Clave">
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          `}
         </div>
       </div>
     `;
@@ -3882,6 +3900,29 @@ window.deletePublicApiKey = deletePublicApiKey;
 window.copyPublicEndpointUrl = copyPublicEndpointUrl;
 window.copySnippetApiKey = copySnippetApiKey;
 window.onSnippetKeySelectChange = onSnippetKeySelectChange;
+
+// AKG Pools window bindings
+window.openAkgCreateModal = openAkgCreateModal;
+window.closeAkgCreateModal = closeAkgCreateModal;
+window.addCreateKeyRow = addCreateKeyRow;
+window.removeCreateKeyRow = removeCreateKeyRow;
+window.moveCreateRow = moveCreateRow;
+window.autoDetectRowProvider = autoDetectRowProvider;
+window.handleCreateStrategyChange = handleCreateStrategyChange;
+window.confirmCreateAkgPool = confirmCreateAkgPool;
+window.openAkgEditPoolModal = openAkgEditPoolModal;
+window.closeAkgEditPoolModal = closeAkgEditPoolModal;
+window.onEditPoolStrategyChange = onEditPoolStrategyChange;
+window.moveEditKeyRow = moveEditKeyRow;
+window.toggleEditKeyActive = toggleEditKeyActive;
+window.deleteEditKeyRow = deleteEditKeyRow;
+window.updateEditKeyAlias = updateEditKeyAlias;
+window.autoDetectEditNewKeyProvider = autoDetectEditNewKeyProvider;
+window.addKeyToEditPoolList = addKeyToEditPoolList;
+window.rotateCurrentPoolMasterKey = rotateCurrentPoolMasterKey;
+window.confirmSaveEditedPool = confirmSaveEditedPool;
+window.deleteAkgPool = deleteAkgPool;
+window.copyMasterKey = copyMasterKey;
 
 /**
  * Generates the real GitHub Actions YAML for a Nimphy public server.

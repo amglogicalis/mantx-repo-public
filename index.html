@@ -699,26 +699,91 @@
 
   <!-- CUSTOM AKG EDIT POOL MODAL -->
   <div id="akg-edit-pool-modal" class="modal-backdrop hidden">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 740px; max-height: 90vh; overflow-y: auto;">
       <div class="modal-header">
-        <h3>✏️ Editar Pool de Claves AKG</h3>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.3rem;">✏️</span>
+          <div>
+            <h3 style="margin: 0; color: #fff;">Editar Pool de Claves AKG</h3>
+            <p class="text-dim text-xs" style="margin: 0;" id="edit-pool-subtitle">Modifica la estrategia, gestiona las claves y reordena prioridades.</p>
+          </div>
+        </div>
         <button class="btn-close" onclick="closeAkgEditPoolModal()">✕</button>
       </div>
+      
       <input type="hidden" id="edit-pool-id">
-      <div class="form-group mb-2">
-        <label>Nombre del Pool:</label>
-        <input type="text" id="edit-pool-name" class="input-text">
+      
+      <!-- Pool Name & Strategy -->
+      <div class="grid-2 mb-3">
+        <div class="form-group mb-0">
+          <label>Nombre del Pool:</label>
+          <input type="text" id="edit-pool-name" class="input-text" placeholder="Ej: Production-Fast-Inference">
+        </div>
+        <div class="form-group mb-0">
+          <label>Estrategia de Ruteo / Mitigación:</label>
+          <select id="edit-pool-strategy" class="input-select" onchange="onEditPoolStrategyChange()">
+            <option value="priority_fallback">Priority Fallback (Prioridad P1 -> Fallback a P2/P3 ante 429)</option>
+            <option value="round_robin">Round Robin (Rotación Equitativa)</option>
+            <option value="cost_optimizer">Cost Optimizer (Priorizar Proveedor Más Económico)</option>
+          </select>
+        </div>
       </div>
+
+      <!-- Master Key Box -->
+      <div class="form-group mb-3" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem;">
+        <label style="font-size: 0.76rem; color: var(--text-dim); margin-bottom: 0.3rem;">Master API Key de este Pool (Usar en Authorization: Bearer):</label>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <input type="text" id="edit-pool-master-key" class="input-text" readonly style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--emerald-light); background: rgba(0,0,0,0.5);">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="copyMasterKey(document.getElementById('edit-pool-master-key').value)" style="font-size: 0.75rem; white-space: nowrap;">📋 Copiar</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="rotateCurrentPoolMasterKey()" style="font-size: 0.75rem; white-space: nowrap;" title="Generar nueva Master Key para este pool">🔄 Regenerar</button>
+        </div>
+      </div>
+
+      <!-- Keys Manager List -->
       <div class="form-group mb-3">
-        <label>Estrategia de Rotación:</label>
-        <select id="edit-pool-strategy" class="input-select">
-          <option value="round_robin">Round Robin (Rotación Equitativa)</option>
-          <option value="priority_fallback">Priority Fallback (Por Prioridad y Cooldown)</option>
-        </select>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+          <strong style="color: #fff; font-size: 0.88rem;">🔑 Claves en este Pool (Reordenar con ▲/▼, Activar/Pausar o Eliminar):</strong>
+          <span class="badge badge-emerald" id="edit-pool-keys-count">0 claves</span>
+        </div>
+        
+        <div id="edit-pool-keys-container" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 250px; overflow-y: auto; padding-right: 4px;">
+          <!-- Injected dynamically via JS -->
+        </div>
       </div>
-      <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
+
+      <!-- Add New Key Inline Form -->
+      <div style="background: rgba(16,185,129,0.04); border: 1px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 0.85rem; margin-bottom: 1.2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong style="color: #6ee7b7; font-size: 0.82rem;">➕ Añadir Nueva Clave a este Pool:</strong>
+        </div>
+
+        <div class="form-group mb-2">
+          <input type="password" id="edit-new-key-val" class="input-text" placeholder="Pega aquí la nueva API Key (AIza..., gsk_..., sk-..., etc.)" oninput="autoDetectEditNewKeyProvider()">
+        </div>
+
+        <div class="grid-3 mb-2" style="gap: 0.5rem;">
+          <input type="text" id="edit-new-key-alias" class="input-text" placeholder="Alias (ej: Gemini Respaldo)">
+          <select id="edit-new-key-provider" class="input-select">
+            <option value="auto">Auto-Detectar</option>
+            <option value="groq">Groq Cloud (LPU)</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic Claude</option>
+            <option value="codestral">Mistral / Codestral</option>
+            <option value="cerebras">Cerebras CS-3</option>
+            <option value="sambanova">SambaNova SN40L</option>
+            <option value="nvidia">NVIDIA NIM</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="huggingface">HuggingFace</option>
+          </select>
+          <button type="button" class="btn btn-primary btn-sm" onclick="addKeyToEditPoolList()" style="font-size: 0.76rem; font-weight: 600; height: 32px;">➕ Añadir Clave</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.8rem; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem;">
         <button class="btn btn-secondary btn-sm" onclick="closeAkgEditPoolModal()">Cancelar</button>
-        <button class="btn btn-primary btn-sm" onclick="confirmSaveEditedPool()">Guardar Cambios</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmSaveEditedPool()">💾 Guardar Cambios</button>
       </div>
     </div>
   </div>
