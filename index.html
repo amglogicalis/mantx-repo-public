@@ -300,6 +300,34 @@
 
           </div>
         </div>
+
+        <!-- REGLA TERMES ENDPOINTS: MONO-PROVIDER & MONO-MODELO -->
+        <div class="panel-card mb-4" style="background: rgba(6,182,212,0.04); border: 1px solid rgba(6,182,212,0.3); border-left: 4px solid #06b6d4;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">🌐</span>
+              <strong style="font-size: 1.05rem; color: #fff;">Integración con Termes Symbiont: Regla Estricta Mono-Provider & Mono-Modelo</strong>
+            </div>
+            <span class="badge" style="background: rgba(6,182,212,0.15); color: #38bdf8; font-size: 0.70rem;">⚠️ Arquitectura Sin Conflictos</span>
+          </div>
+          <p class="text-dim text-sm" style="line-height: 1.6; margin-bottom: 0.8rem;">
+            Al conectar un endpoint de <strong>Termes Symbiont</strong> (sea mediante URL local <code>http://127.0.0.1:7420/v1</code> o archivo de endpoint dedicado <code>.json</code> / <code>ep_pub_*</code>), es <strong>fundamental e imprescindible que el endpoint esté configurado como Mono-Provider y Mono-Modelo</strong>.
+          </p>
+          <div class="grid-2" style="gap: 0.8rem; font-size: 0.78rem;">
+            <div style="background: rgba(0,0,0,0.35); padding: 0.75rem 0.9rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+              <strong style="color: #f87171; display: block; margin-bottom: 0.3rem;">⚠️ ¿Por qué se producen conflictos si no es mono-modelo?</strong>
+              <div style="color: var(--text-dim); line-height: 1.5;">
+                Si un endpoint expone múltiples proveedores heterogéneos o mezcla modelos distintos en la misma ruta, se originan colisiones en el formateo de tokens, discrepancias en el schema de mensajes, desbordamientos de context window y fallos impredecibles en el entrenamiento o inferencia.
+              </div>
+            </div>
+            <div style="background: rgba(0,0,0,0.35); padding: 0.75rem 0.9rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+              <strong style="color: #34d399; display: block; margin-bottom: 0.3rem;">✔ Configuración Óptima Recomendada:</strong>
+              <div style="color: var(--text-dim); line-height: 1.5;">
+                Vincula cada endpoint a un <strong>único modelo base y un único proveedor específico</strong> (ej: <code>gemini-3.7-flash</code> con <code>Google Gemini Web</code>). MANTX detectará automáticamente el archivo de endpoint mono-modelo y lo aislará para garantizar 100% de estabilidad y reproducibilidad.
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- TAB 3: MARKETPLACE -->
