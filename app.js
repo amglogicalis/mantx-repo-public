@@ -3781,6 +3781,9 @@ jobs:
     timeout-minutes: 355
 
     steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
       - name: ⚙️ Setup Node.js 20
         uses: actions/setup-node@v4
         with:
