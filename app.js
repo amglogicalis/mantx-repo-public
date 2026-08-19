@@ -3251,14 +3251,34 @@ function renderPublicServeContent(nimphyId) {
     <div class="form-group mb-3">
       <label style="display: flex; justify-content: space-between; align-items: center;">
         <span>🌐 URL Pública del Endpoint (HTTPS Global):</span>
-        <span class="text-dim text-xs">Acceso mundial por internet</span>
+        <span class="text-dim text-xs">${isOnline ? 'URL real generada por Cloudflare Tunnel' : 'Disponible cuando el servidor esté activo'}</span>
       </label>
-      <div style="display: flex; gap: 0.4rem;">
-        <input type="text" class="input-text" id="public-endpoint-url-input" value="${cfg.publicUrl}/chat/completions" readonly style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--emerald-light); background: rgba(0,0,0,0.5);">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="copyPublicEndpointUrl('${cfg.publicUrl}/chat/completions')" style="font-size: 0.74rem;">
-          📋 Copiar
-        </button>
-      </div>
+      ${isShutdown || !cfg.publicUrl || cfg.publicUrl.startsWith('—') ? `
+        <div style="display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 0.85rem; background: rgba(239,68,68,0.06); border: 1px dashed rgba(239,68,68,0.25); border-radius: 8px; font-size: 0.78rem; color: #f87171;">
+          <span style="font-size: 1rem;">🔴</span>
+          <span>El servidor está apagado. Pulsa <strong>⚡ Encender</strong> para lanzar el runner de GitHub Actions y obtener la URL pública real (<code style="color:#fde047;">https://XXXXX.trycloudflare.com</code>).</span>
+        </div>
+      ` : cfg.publicUrl.includes('trycloudflare.com') ? `
+        <div style="display: flex; gap: 0.4rem;">
+          <input type="text" class="input-text" id="public-endpoint-url-input" value="${cfg.publicUrl}/v1/chat/completions" readonly style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--emerald-light); background: rgba(0,0,0,0.5);">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="copyPublicEndpointUrl('${cfg.publicUrl}/v1/chat/completions')" style="font-size: 0.74rem;">
+            📋 Copiar
+          </button>
+          <a href="${cfg.publicUrl}/health" target="_blank" class="btn btn-outline btn-sm" style="font-size: 0.74rem; text-decoration: none;">🔗 Health</a>
+        </div>
+      ` : `
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <div style="flex:1; padding: 0.5rem 0.75rem; background: rgba(234,179,8,0.08); border: 1px dashed rgba(234,179,8,0.3); border-radius: 8px; font-size: 0.76rem; color: #fde047;">
+            ⏳ Runner lanzado — esperando URL de Cloudflare… (aparece ~30-60s tras arrancar). Recarga el modal para actualizar.
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="loadPublicServingFromVault('${nimphyId}').then(()=>renderPublicServeContent('${nimphyId}'))" style="font-size: 0.73rem; white-space: nowrap;">🔄 Actualizar</button>
+        </div>
+      `}
+      ${cfg.actionsRunUrl ? `
+        <div style="margin-top: 0.4rem; font-size: 0.74rem; color: var(--text-dim);">
+          Ver runner en Actions: <a href="${cfg.actionsRunUrl}" target="_blank" style="color: var(--emerald-light);">${cfg.actionsRunUrl}</a>
+        </div>
+      ` : ''}
     </div>
 
     <!-- 3. AUTH GATEKEEPER & MULTI-KEY MANAGER -->
@@ -3324,7 +3344,8 @@ function renderPublicServeContent(nimphyId) {
       </div>
     </div>
 
-    <!-- 4. LIVE CODE SNIPPETS WITH DYNAMIC KEY SELECTION -->
+    <!-- 4. LIVE CODE SNIPPETS -->
+    ${isOnline && cfg.publicUrl && cfg.publicUrl.includes('trycloudflare.com') ? `
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.4rem;">
       <h4 style="font-size: 0.82rem; font-weight: 700; color: #fff; margin: 0;">Ejemplos de Invocación en Producción:</h4>
       ${cfg.apiKeys.length > 0 ? `
@@ -3341,8 +3362,8 @@ function renderPublicServeContent(nimphyId) {
 
     <!-- cURL Snippet -->
     <div class="output-box mb-3" style="margin-top: 0; padding: 0.65rem 0.85rem; font-size: 0.74rem;">
-curl -X POST ${cfg.publicUrl}/chat/completions \\
-  -H "Content-Type: application/json" \\${cfg.authRequired ? `\n  -H "Authorization: Bearer ${activeAuthToken}" \\` : ''}
+curl -X POST ${cfg.publicUrl}/v1/chat/completions \\
+  -H "Content-Type: application/json" \\${cfg.authRequired && activeAuthToken ? `\n  -H "Authorization: Bearer ${activeAuthToken}" \\` : ''}
   -d '{
     "model": "${n.name.toLowerCase()}",
     "messages": [
@@ -3358,7 +3379,7 @@ curl -X POST ${cfg.publicUrl}/chat/completions \\
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="${cfg.publicUrl}",
+    base_url="${cfg.publicUrl}/v1",
     api_key="${activeAuthToken || 'no-key-required'}"
 )
 
@@ -3371,6 +3392,15 @@ response = client.chat.completions.create(
 )
 print(response.choices[0].message.content)
     </div>
+    ` : isShutdown ? `
+    <div style="padding: 0.85rem 1rem; background: rgba(0,0,0,0.25); border: 1px dashed var(--border-subtle); border-radius: 8px; font-size: 0.78rem; color: var(--text-dim); text-align: center;">
+      Los snippets de código aparecerán aquí una vez que el servidor esté en línea con su URL pública de Cloudflare.
+    </div>
+    ` : `
+    <div style="padding: 0.85rem 1rem; background: rgba(234,179,8,0.06); border: 1px dashed rgba(234,179,8,0.3); border-radius: 8px; font-size: 0.78rem; color: #fde047; text-align: center;">
+      ⏳ Runner activo — esperando URL de Cloudflare… Los snippets aparecerán cuando el workflow escriba la URL al vault (~30-60s). Pulsa 🔄 Actualizar arriba.
+    </div>
+    `}
   `;
 }
 
