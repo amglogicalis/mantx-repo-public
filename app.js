@@ -1316,9 +1316,7 @@ function setTermesEndpointPreset(preset) {
   const endpointInput = document.getElementById('nimphy-termes-endpoint');
   if (!endpointInput) return;
 
-  if (preset === 'public') {
-    endpointInput.value = 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json';
-  } else if (preset === 'local') {
+  if (preset === 'local') {
     endpointInput.value = 'http://127.0.0.1:7420/v1';
   }
   detectTermesModels(true);
@@ -1352,7 +1350,7 @@ async function detectTermesModels(forceToast = false) {
       alertEl.style.border = '1px solid var(--border-subtle)';
       alertEl.style.color = 'var(--text-dim)';
       alertEl.innerHTML = `
-        ℹ️ Introduce la URL de tu endpoint de Termes (ej: <code>https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_flash.json</code> o <code>http://127.0.0.1:7420/v1</code>) o pulsa en los botones superiores para cargar un preset.
+        ℹ️ Introduce la URL de tu endpoint de Termes (ej: <code>http://127.0.0.1:7420/v1</code> o URL de archivo <code>.json</code>) o pulsa en el botón superior para cargar localhost.
       `;
     }
     populateBaseModelSelect(TERMES_DEFAULT_MODELS);
@@ -2870,7 +2868,7 @@ function applyLabPreset(type) {
     if (nameInput) nameInput.value = 'Multi-Proveedor Shootout (Runner Local $0 vs Termes vs BYOK)';
     if (promptInput) promptInput.value = 'Explica la arquitectura interna de un motor de búsqueda vectorial';
     addLabCandidateRow({ name: 'Runner Local CPU ($0): Qwen 3B RAFT', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Termes Symbiont: Gemini 3.7 Flash AFT', provider: 'termes', termesEndpoint: 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json', model: 'gemini-3.7-flash', method: 'aft', graphRag: true, ecdysis: true, env: 'action_cpu' });
+    addLabCandidateRow({ name: 'Termes Symbiont: Gemini 3.7 Flash AFT', provider: 'termes', model: 'gemini-3.7-flash', method: 'aft', graphRag: true, ecdysis: true, env: 'action_cpu' });
     addLabCandidateRow({ name: 'BYOK Cloud API: Llama 3.3 70B Few-Shot', provider: 'byok', model: 'llama-3.3-70b-versatile', method: 'few_shot_distill', graphRag: true, ecdysis: true, env: 'byok_api' });
   }
 }
@@ -2991,10 +2989,7 @@ function addLabCandidateRow(data = {}) {
     <div class="lab-cand-panel-termes ${defaultProv === 'termes' ? '' : 'hidden'}" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(6,182,212,0.3); border-radius: 6px; padding: 0.5rem; margin-bottom: 0.5rem;">
       <div class="grid-2 mb-1">
         <div class="form-group" style="margin-bottom: 0;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-            <label style="font-size: 0.72rem; color: #22d3ee; margin-bottom: 0;">URL Endpoint Termes:</label>
-            <button type="button" class="btn btn-outline btn-sm" onclick="setLabCandidateTermesDefault('${rowId}')" style="font-size: 0.65rem; padding: 0.1rem 0.3rem; color: #22d3ee; border-color: rgba(6,182,212,0.3);">⚡ Usar Gemini 3.7 Flash</button>
-          </div>
+          <label style="font-size: 0.72rem; color: #22d3ee;">URL Endpoint Termes:</label>
           <input type="text" class="input-text lab-cand-termes-endpoint" value="${defaultTermesEndpoint}" placeholder="http://127.0.0.1:7420/v1 o URL .json" oninput="detectLabCandidateTermes('${rowId}')" style="font-size: 0.78rem;">
         </div>
         <div class="form-group" style="margin-bottom: 0;">
@@ -3054,16 +3049,6 @@ function addLabCandidateRow(data = {}) {
   container.appendChild(rowDiv);
   if (defaultByokKey) detectLabCandidateByok(rowId);
   if (defaultTermesEndpoint) detectLabCandidateTermes(rowId);
-}
-
-function setLabCandidateTermesDefault(rowId) {
-  const row = document.getElementById(rowId);
-  if (!row) return;
-  const endpointInput = row.querySelector('.lab-cand-termes-endpoint');
-  if (endpointInput) {
-    endpointInput.value = 'https://amglogicalis.github.io/termes-repo-public/api/v1/symbiont/ep_pub_gemini_37_flash.json';
-    detectLabCandidateTermes(rowId);
-  }
 }
 
 function getByokModelsForProvider(provider, selectedModel) {
