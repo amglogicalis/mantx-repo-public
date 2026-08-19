@@ -1172,15 +1172,42 @@
     </div>
   </div>
 
-  <!-- NIMPHY API SERVE MODAL -->
+  <!-- NIMPHY API SERVE MODAL (LOCAL & 24/7 PUBLIC SERVING) -->
   <div id="nimphy-api-modal" class="modal-backdrop hidden">
-    <div class="modal-card" style="max-width: 680px;">
-      <div class="modal-header">
-        <h3 id="nimphy-api-modal-title">⚡ Servidor API REST OpenAI-Compatible</h3>
+    <div class="modal-card" style="max-width: 840px; max-height: 92vh; overflow-y: auto;">
+      
+      <div class="modal-header" style="flex-wrap: wrap; gap: 0.6rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <span style="font-size: 1.3rem;">⚡</span>
+          <div>
+            <h3 id="nimphy-api-modal-title" style="margin: 0; color: #fff;">Servidor API REST OpenAI-Compatible</h3>
+            <p class="text-dim text-xs" style="margin: 0;" id="nimphy-api-modal-subtitle">Despliegue local y en la nube 24/7 a coste $0 con autenticación multi-key.</p>
+          </div>
+        </div>
         <button class="btn-close" onclick="closeNimphyApiModal()">✕</button>
       </div>
-      <div id="nimphy-api-modal-body"></div>
-      <div style="display: flex; gap: 0.8rem; justify-content: flex-end; margin-top: 1rem;">
+
+      <!-- 2 Subtabs Navigation -->
+      <div style="display: flex; gap: 0.4rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1rem; padding-bottom: 0.4rem;">
+        <button type="button" class="btn btn-outline btn-sm api-serve-tab active" id="api-tab-btn-local" onclick="switchApiServeTab('local')" style="font-size: 0.78rem;">
+          💻 Despliegue Local (Localhost)
+        </button>
+        <button type="button" class="btn btn-outline btn-sm api-serve-tab" id="api-tab-btn-public" onclick="switchApiServeTab('public')" style="font-size: 0.78rem; border-color: rgba(16,185,129,0.4); color: #6ee7b7;">
+          🌐 Despliegue Público Online (24/7 Cloud Relay)
+        </button>
+      </div>
+
+      <!-- TAB 1: LOCALHOST SERVING -->
+      <div id="api-serve-content-local" class="api-serve-tab-content">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- TAB 2: 24/7 PUBLIC ONLINE SERVING -->
+      <div id="api-serve-content-public" class="api-serve-tab-content hidden">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 1.2rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem;">
         <button class="btn btn-secondary btn-sm" onclick="closeNimphyApiModal()">Cerrar</button>
       </div>
     </div>

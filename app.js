@@ -3063,65 +3063,73 @@ async function deleteNimphy(nimphyId, name) {
   }
 }
 
+// ─── NIMPHY API SERVE (LOCAL & 24/7 PUBLIC RELAY) ────────────
+let publicServingConfigs = {};
+let currentApiServeNimphyId = null;
+let currentApiServeTab = 'local';
+let selectedSnippetKeyId = null;
+
+function switchApiServeTab(tab) {
+  currentApiServeTab = tab;
+  const btnLocal = document.getElementById('api-tab-btn-local');
+  const btnPublic = document.getElementById('api-tab-btn-public');
+  const contentLocal = document.getElementById('api-serve-content-local');
+  const contentPublic = document.getElementById('api-serve-content-public');
+
+  if (btnLocal) btnLocal.classList.toggle('active', tab === 'local');
+  if (btnPublic) btnPublic.classList.toggle('active', tab === 'public');
+
+  if (contentLocal) contentLocal.classList.toggle('hidden', tab !== 'local');
+  if (contentPublic) contentPublic.classList.toggle('hidden', tab !== 'public');
+
+  if (currentApiServeNimphyId) {
+    if (tab === 'local') renderLocalServeContent(currentApiServeNimphyId);
+    else renderPublicServeContent(currentApiServeNimphyId);
+  }
+}
+
 function showLaunchApiModal(nimphyId) {
   const n = nimphysList.find(item => item.nimphyId === nimphyId);
   if (!n) return;
 
+  currentApiServeNimphyId = nimphyId;
   const modal = document.getElementById('nimphy-api-modal');
   const title = document.getElementById('nimphy-api-modal-title');
-  const body = document.getElementById('nimphy-api-modal-body');
+  const subtitle = document.getElementById('nimphy-api-modal-subtitle');
 
-  if (title) title.textContent = `⚡ Servidor API REST — ${n.name} (${n.currentVersion})`;
+  if (title) title.textContent = `⚡ Servidor API REST — ${n.name} (${n.currentVersion || 'v1.0.0'})`;
+  if (subtitle) subtitle.textContent = `Modelo Base: ${n.baseModel} • Método: ${(n.method || 'qlora').toUpperCase()} • Servidor OpenAI-Compatible`;
 
-  const isTermes = n.providerType === 'termes';
-  const isByok = n.providerType === 'byok';
-
-  if (body) {
-    body.innerHTML = `
-      <p class="text-dim text-sm mb-3">
-        ${isTermes
-          ? `Servidor Proxy OpenAI-Compatible conectado al bridge <strong>Termes Symbiont (${n.baseModel})</strong> con memoria semántica Ecdysis y Graph RAG inyectados.`
-          : isByok
-          ? `Servidor Proxy OpenAI-Compatible envolviendo <strong>BYOK (${n.baseModel})</strong> con capa de memoria persistente Ecdysis y optimizador de límites de rate.`
-          : `Servidor Efímero nativo ejecutando los pesos de <strong>${n.name} (${n.baseModel})</strong> con arranque ultra-veloz y auto-suspensión tras inactividad.`
+  // Initialize public config if missing
+  if (!publicServingConfigs[nimphyId]) {
+    const randomHex = () => Math.random().toString(16).substring(2, 10);
+    const tokenHex = () => Math.random().toString(16).substring(2, 18) + Math.random().toString(16).substring(2, 18);
+    publicServingConfigs[nimphyId] = {
+      nimphyId,
+      status: 'online', // 'online' | 'sleeping' | 'shutdown'
+      publicUrl: `https://api.mantx.ai/v1/nimphy/${nimphyId}`,
+      tunnelProvider: 'cloudflare_tunnel',
+      authRequired: true,
+      apiKeys: [
+        {
+          keyId: `key_${randomHex()}`,
+          key: `mantx_live_sk_${tokenHex()}`,
+          alias: 'Clave Primaria (Producción)',
+          createdAt: new Date().toISOString(),
+          active: true,
+          totalCalls: 0
         }
-      </p>
-
-      <div class="panel-card mb-3" style="background: #020704; border: 1px solid var(--border-subtle); padding: 0.8rem;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.78rem;">
-          <span class="text-dim">Estado Servidor:</span>
-          <span class="badge badge-emerald">🟢 LISTO PARA INICIAR</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.78rem;">
-          <span class="text-dim">Endpoint Local:</span>
-          <code style="color: var(--emerald-light);">http://127.0.0.1:7430/v1/chat/completions</code>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.78rem;">
-          <span class="text-dim">Compatibilidad:</span>
-          <strong style="color: #fff;">OpenAI SDK / cURL / LangChain / LiteLLM</strong>
-        </div>
-      </div>
-
-      <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: #fff;">1. Comando de Arranque CLI:</h4>
-      <div class="output-box mb-3" style="margin-top: 0; padding: 0.6rem 0.8rem; font-size: 0.75rem;">
-mantx nimphys serve --id ${n.nimphyId} --port 7430 --timeout 15
-      </div>
-
-      <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: #fff;">2. Ejemplo de Invocación con cURL:</h4>
-      <div class="output-box mb-0" style="margin-top: 0; padding: 0.6rem 0.8rem; font-size: 0.75rem;">
-curl -X POST http://127.0.0.1:7430/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "${n.name.toLowerCase()}",
-    "messages": [
-      {"role": "system", "content": "${n.systemPrompt || 'Eres un asistente especializado'}"},
-      {"role": "user", "content": "Explica la solución optimizada..."}
-    ]
-  }'
-      </div>
-    `;
+      ],
+      idleTimeoutMinutes: 15,
+      autoRelayEnabled: true
+    };
   }
 
+  // Pre-select first active key for snippets
+  const activeKeys = publicServingConfigs[nimphyId].apiKeys.filter(k => k.active);
+  selectedSnippetKeyId = activeKeys.length > 0 ? activeKeys[0].keyId : null;
+
+  switchApiServeTab(currentApiServeTab || 'local');
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -3129,6 +3137,414 @@ function closeNimphyApiModal() {
   const modal = document.getElementById('nimphy-api-modal');
   if (modal) modal.classList.add('hidden');
 }
+
+function renderLocalServeContent(nimphyId) {
+  const n = nimphysList.find(item => item.nimphyId === nimphyId);
+  const container = document.getElementById('api-serve-content-local');
+  if (!n || !container) return;
+
+  const isTermes = n.providerType === 'termes';
+  const isByok = n.providerType === 'byok';
+
+  container.innerHTML = `
+    <p class="text-dim text-sm mb-3">
+      ${isTermes
+        ? `Servidor Proxy OpenAI-Compatible local conectado al bridge <strong>Termes Symbiont (${n.baseModel})</strong> con memoria semántica Ecdysis y Graph RAG inyectados.`
+        : isByok
+        ? `Servidor Proxy OpenAI-Compatible local envolviendo <strong>BYOK (${n.baseModel})</strong> con capa de memoria persistente Ecdysis y optimizador de límites.`
+        : `Servidor Efímero nativo ejecutando los pesos de <strong>${n.name} (${n.baseModel})</strong> en CPU local con arranque ultra-veloz.`
+      }
+    </p>
+
+    <div class="panel-card mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); padding: 0.85rem; border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.78rem;">
+        <span class="text-dim">Estado Servidor Local:</span>
+        <span class="badge badge-emerald">🟢 LISTO PARA INICIAR</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.78rem;">
+        <span class="text-dim">Endpoint Local:</span>
+        <code style="color: var(--emerald-light);">http://127.0.0.1:7430/v1/chat/completions</code>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.78rem;">
+        <span class="text-dim">Compatibilidad:</span>
+        <strong style="color: #fff;">OpenAI SDK / cURL / LangChain / LiteLLM / Ollama</strong>
+      </div>
+    </div>
+
+    <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: #fff;">1. Comando de Arranque CLI en Terminal:</h4>
+    <div class="output-box mb-3" style="margin-top: 0; padding: 0.6rem 0.8rem; font-size: 0.75rem;">
+mantx nimphys serve --id ${n.nimphyId} --port 7430 --timeout 15
+    </div>
+
+    <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: #fff;">2. Ejemplo de Invocación Local con cURL:</h4>
+    <div class="output-box mb-0" style="margin-top: 0; padding: 0.6rem 0.8rem; font-size: 0.75rem;">
+curl -X POST http://127.0.0.1:7430/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "${n.name.toLowerCase()}",
+    "messages": [
+      {"role": "system", "content": "${n.systemPrompt || 'Eres un asistente especializado.'}"},
+      {"role": "user", "content": "Explica la solución optimizada..."}
+    ]
+  }'
+    </div>
+  `;
+}
+
+function renderPublicServeContent(nimphyId) {
+  const n = nimphysList.find(item => item.nimphyId === nimphyId);
+  const container = document.getElementById('api-serve-content-public');
+  if (!n || !container) return;
+
+  const cfg = publicServingConfigs[nimphyId] || {
+    nimphyId,
+    status: 'online',
+    publicUrl: `https://api.mantx.ai/v1/nimphy/${nimphyId}`,
+    authRequired: true,
+    apiKeys: [],
+    idleTimeoutMinutes: 15,
+    autoRelayEnabled: true
+  };
+
+  const isOnline = cfg.status === 'online';
+  const isSleeping = cfg.status === 'sleeping';
+  const isShutdown = cfg.status === 'shutdown';
+
+  const statusBadge = isOnline
+    ? `<span class="badge badge-emerald" style="font-size: 0.74rem;">🟢 EN LÍNEA (24/7 Warm Loop)</span>`
+    : isSleeping
+    ? `<span class="badge" style="background: rgba(234,179,8,0.15); color: #fde047; font-size: 0.74rem;">🟡 DORMIDO (Auto-Wake Listo)</span>`
+    : `<span class="badge" style="background: rgba(239,68,68,0.15); color: #f87171; font-size: 0.74rem;">🔴 APAGADO (Hard Shutdown)</span>`;
+
+  // Filter selected key for snippets
+  const activeKeys = cfg.apiKeys.filter(k => k.active);
+  let selectedKeyObj = cfg.apiKeys.find(k => k.keyId === selectedSnippetKeyId) || activeKeys[0] || cfg.apiKeys[0];
+  const activeAuthToken = cfg.authRequired ? (selectedKeyObj?.key || 'mantx_live_sk_YOUR_TOKEN_HERE') : '';
+
+  container.innerHTML = `
+    <!-- 1. SERVER POWER & LIFECYCLE CONTROL -->
+    <div class="panel-card mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid ${isShutdown ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}; border-radius: 8px; padding: 0.85rem 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
+            <strong style="color: #fff; font-size: 0.92rem;">Control de Energía 24/7 ($0 Cloud Relay):</strong>
+            ${statusBadge}
+          </div>
+          <p class="text-dim text-xs" style="margin: 0; line-height: 1.4;">
+            ${isShutdown
+              ? `<span style="color: #f87171;">⚠️ Servidor en apagado forzado. Cualquier llamada externa recibirá 503 y <strong>NO auto-despertará</strong>.</span>`
+              : `Estrategia <strong>Wake-Coldstart-Warmloop-Sleep</strong> activa. Relevo automático antes de las 6h sin límite de tiempo.`
+            }
+          </p>
+        </div>
+
+        <button type="button" class="btn ${isShutdown ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="togglePublicServerPower('${nimphyId}')" style="font-size: 0.76rem; height: 32px; display: inline-flex; align-items: center; font-weight: 600; ${!isShutdown ? 'color: #f87171; border-color: rgba(248,113,113,0.4);' : ''}">
+          ${isShutdown ? '⚡ Encender / Habilitar Servidor' : '🛑 Apagar Servidor (Hard Shutdown)'}
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. PUBLIC ENDPOINT URL -->
+    <div class="form-group mb-3">
+      <label style="display: flex; justify-content: space-between; align-items: center;">
+        <span>🌐 URL Pública del Endpoint (HTTPS Global):</span>
+        <span class="text-dim text-xs">Acceso mundial por internet</span>
+      </label>
+      <div style="display: flex; gap: 0.4rem;">
+        <input type="text" class="input-text" id="public-endpoint-url-input" value="${cfg.publicUrl}/chat/completions" readonly style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--emerald-light); background: rgba(0,0,0,0.5);">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyPublicEndpointUrl('${cfg.publicUrl}/chat/completions')" style="font-size: 0.74rem;">
+          📋 Copiar
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. AUTH GATEKEEPER & MULTI-KEY MANAGER -->
+    <div class="panel-card mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <strong style="color: #fff; font-size: 0.90rem; display: block;">🔒 Seguridad & API Keys de Acceso</strong>
+          <p class="text-dim text-xs" style="margin: 0;">Gestiona las claves autorizadas para invocar este modelo externamente.</p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; color: #fff; cursor: pointer; margin: 0; background: rgba(0,0,0,0.3); padding: 0.25rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+            <input type="checkbox" ${cfg.authRequired ? 'checked' : ''} onchange="togglePublicAuthRequirement('${nimphyId}', this.checked)">
+            <span>Exigir API Key</span>
+          </label>
+          <button type="button" class="btn btn-outline btn-sm" onclick="addCustomPublicApiKey('${nimphyId}')" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; height: 28px;">
+            ➕ Clave Manual
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="autoGeneratePublicApiKey('${nimphyId}')" style="font-size: 0.72rem; padding: 0.25rem 0.65rem; height: 28px; font-weight: 600;">
+            ⚡ Auto-Generar Clave Segura
+          </button>
+        </div>
+      </div>
+
+      <!-- Keys Table / List -->
+      <div id="public-keys-list-container" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 220px; overflow-y: auto;">
+        ${cfg.apiKeys.length === 0 ? `
+          <div style="text-align: center; padding: 1rem; font-size: 0.78rem; color: var(--text-dim);">
+            No hay claves API registradas. Pulsa <strong>"⚡ Auto-Generar Clave Segura"</strong> para crear la primera.
+          </div>
+        ` : cfg.apiKeys.map((k, idx) => {
+          const masked = k.key.length > 18 ? `${k.key.substring(0, 14)}...${k.key.substring(k.key.length - 4)}` : k.key;
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.25); border: 1px solid ${k.active ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}; border-radius: 6px; padding: 0.45rem 0.7rem; font-size: 0.75rem; flex-wrap: wrap; gap: 0.4rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: ${k.active ? '#34d399' : '#f87171'}; font-size: 0.7rem;">${k.active ? '●' : '○'}</span>
+                <div>
+                  <strong style="color: #fff;">${k.alias}</strong>
+                  <code style="font-family: var(--font-mono); color: var(--emerald-light); margin-left: 0.4rem; font-size: 0.72rem;">${masked}</code>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="copySnippetApiKey('${k.key}')" style="font-size: 0.70rem; padding: 0.15rem 0.4rem; height: 24px;" title="Copiar Token">
+                  📋 Copiar
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="editPublicApiKeyAlias('${nimphyId}', '${k.keyId}')" style="font-size: 0.70rem; padding: 0.15rem 0.4rem; height: 24px;" title="Editar Alias">
+                  ✏️
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="rotatePublicApiKey('${nimphyId}', '${k.keyId}')" style="font-size: 0.70rem; padding: 0.15rem 0.4rem; height: 24px;" title="Rotar Clave">
+                  🔄 Rotar
+                </button>
+                <button type="button" class="btn ${k.active ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="togglePublicApiKeyActive('${nimphyId}', '${k.keyId}')" style="font-size: 0.70rem; padding: 0.15rem 0.45rem; height: 24px; ${k.active ? 'color: #f87171; border-color: rgba(248,113,113,0.3);' : ''}">
+                  ${k.active ? 'Revocar' : 'Activar'}
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="deletePublicApiKey('${nimphyId}', '${k.keyId}')" style="font-size: 0.70rem; padding: 0.15rem 0.4rem; height: 24px; color: #f87171; border-color: rgba(248,113,113,0.3);" title="Eliminar Clave">
+                  🗑️
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- 4. LIVE CODE SNIPPETS WITH DYNAMIC KEY SELECTION -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.4rem;">
+      <h4 style="font-size: 0.82rem; font-weight: 700; color: #fff; margin: 0;">Ejemplos de Invocación en Producción:</h4>
+      ${cfg.apiKeys.length > 0 ? `
+        <div style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.74rem;">
+          <span class="text-dim">Probar con Key:</span>
+          <select class="input-select" style="padding: 0.15rem 0.45rem; font-size: 0.72rem; width: auto;" onchange="onSnippetKeySelectChange(this.value)">
+            ${cfg.apiKeys.map(k => `
+              <option value="${k.keyId}" ${k.keyId === selectedSnippetKeyId ? 'selected' : ''}>${k.alias} (${k.active ? 'Activa' : 'Revocada'})</option>
+            `).join('')}
+          </select>
+        </div>
+      ` : ''}
+    </div>
+
+    <!-- cURL Snippet -->
+    <div class="output-box mb-3" style="margin-top: 0; padding: 0.65rem 0.85rem; font-size: 0.74rem;">
+curl -X POST ${cfg.publicUrl}/chat/completions \\
+  -H "Content-Type: application/json" \\${cfg.authRequired ? `\n  -H "Authorization: Bearer ${activeAuthToken}" \\` : ''}
+  -d '{
+    "model": "${n.name.toLowerCase()}",
+    "messages": [
+      {"role": "system", "content": "${n.systemPrompt || 'Eres un arquitecto de software especializado.'}"},
+      {"role": "user", "content": "Hola, ¿cómo optimizo esta arquitectura?"}
+    ]
+  }'
+    </div>
+
+    <!-- Python OpenAI SDK Snippet -->
+    <h4 style="font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: #fff;">Python (Cliente OpenAI Oficial):</h4>
+    <div class="output-box mb-0" style="margin-top: 0; padding: 0.65rem 0.85rem; font-size: 0.74rem;">
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="${cfg.publicUrl}",
+    api_key="${activeAuthToken || 'no-key-required'}"
+)
+
+response = client.chat.completions.create(
+    model="${n.name.toLowerCase()}",
+    messages=[
+        {"role": "system", "content": "${n.systemPrompt || 'Eres un asistente especializado.'}"},
+        {"role": "user", "content": "Analiza este problema de concurrencia..."}
+    ]
+)
+print(response.choices[0].message.content)
+    </div>
+  `;
+}
+
+function onSnippetKeySelectChange(keyId) {
+  selectedSnippetKeyId = keyId;
+  if (currentApiServeNimphyId) {
+    renderPublicServeContent(currentApiServeNimphyId);
+  }
+}
+
+function copyPublicEndpointUrl(url) {
+  navigator.clipboard.writeText(url);
+  showCustomModal('📋 Endpoint Copiado', `URL pública copiada al portapapeles:\n\n${url}`);
+}
+
+function copySnippetApiKey(key) {
+  navigator.clipboard.writeText(key);
+  showCustomModal('🔑 API Key Copiada', `Token de autenticación copiado:\n\n${key}\n\nInclúyelo como cabecera: Authorization: Bearer ${key}`);
+}
+
+async function togglePublicServerPower(nimphyId) {
+  if (!publicServingConfigs[nimphyId]) return;
+  const current = publicServingConfigs[nimphyId].status;
+  const next = current === 'shutdown' ? 'online' : 'shutdown';
+  publicServingConfigs[nimphyId].status = next;
+
+  renderPublicServeContent(nimphyId);
+  await savePublicServingToVault();
+}
+
+async function togglePublicAuthRequirement(nimphyId, isRequired) {
+  if (!publicServingConfigs[nimphyId]) return;
+  publicServingConfigs[nimphyId].authRequired = isRequired;
+
+  renderPublicServeContent(nimphyId);
+  await savePublicServingToVault();
+}
+
+async function autoGeneratePublicApiKey(nimphyId) {
+  if (!publicServingConfigs[nimphyId]) return;
+
+  const randomHex = () => Math.random().toString(16).substring(2, 10);
+  const tokenHex = () => Math.random().toString(16).substring(2, 18) + Math.random().toString(16).substring(2, 18);
+  const count = publicServingConfigs[nimphyId].apiKeys.length + 1;
+
+  const newKey = {
+    keyId: `key_${randomHex()}`,
+    key: `mantx_live_sk_${tokenHex()}`,
+    alias: `API Key #${count}`,
+    createdAt: new Date().toISOString(),
+    active: true,
+    totalCalls: 0
+  };
+
+  publicServingConfigs[nimphyId].apiKeys.push(newKey);
+  selectedSnippetKeyId = newKey.keyId;
+
+  renderPublicServeContent(nimphyId);
+  await savePublicServingToVault();
+}
+
+async function addCustomPublicApiKey(nimphyId) {
+  if (!publicServingConfigs[nimphyId]) return;
+
+  const customKey = prompt('Introduce tu API Key personalizada (ej: sk-live-mi-clave-secreta):');
+  if (!customKey || !customKey.trim()) return;
+
+  const alias = prompt('Introduce un alias para identificar esta clave (ej: App Móvil, Backend NestJS):') || 'Clave Personalizada';
+  const randomHex = () => Math.random().toString(16).substring(2, 10);
+
+  const newKey = {
+    keyId: `key_${randomHex()}`,
+    key: customKey.trim(),
+    alias: alias.trim(),
+    createdAt: new Date().toISOString(),
+    active: true,
+    totalCalls: 0
+  };
+
+  publicServingConfigs[nimphyId].apiKeys.push(newKey);
+  selectedSnippetKeyId = newKey.keyId;
+
+  renderPublicServeContent(nimphyId);
+  await savePublicServingToVault();
+}
+
+async function rotatePublicApiKey(nimphyId, keyId) {
+  if (!publicServingConfigs[nimphyId]) return;
+  const target = publicServingConfigs[nimphyId].apiKeys.find(k => k.keyId === keyId);
+  if (!target) return;
+
+  const tokenHex = () => Math.random().toString(16).substring(2, 18) + Math.random().toString(16).substring(2, 18);
+  target.key = `mantx_live_sk_${tokenHex()}`;
+
+  renderPublicServeContent(nimphyId);
+  await savePublicServingToVault();
+}
+
+async function togglePublicApiKeyActive(nimphyId, keyId) {
+  if (!publicServingConfigs[nimphyId]) return;
+  const target = publicServingConfigs[nimphyId].apiKeys.find(k => k.keyId === keyId);
+  if (!target) return;
+
+  target.active = !target.active;
+
+  renderPublicServeContent(nimphyId);
+  await savePublicServingToVault();
+}
+
+async function editPublicApiKeyAlias(nimphyId, keyId) {
+  if (!publicServingConfigs[nimphyId]) return;
+  const target = publicServingConfigs[nimphyId].apiKeys.find(k => k.keyId === keyId);
+  if (!target) return;
+
+  const newAlias = prompt('Nuevo alias para la clave:', target.alias);
+  if (newAlias && newAlias.trim()) {
+    target.alias = newAlias.trim();
+    renderPublicServeContent(nimphyId);
+    await savePublicServingToVault();
+  }
+}
+
+async function deletePublicApiKey(nimphyId, keyId) {
+  if (!publicServingConfigs[nimphyId]) return;
+  publicServingConfigs[nimphyId].apiKeys = publicServingConfigs[nimphyId].apiKeys.filter(k => k.keyId !== keyId);
+
+  renderPublicServeContent(nimphyId);
+  await savePublicServingToVault();
+}
+
+async function savePublicServingToVault() {
+  const token = getStoredToken();
+  if (currentUser && token) {
+    try {
+      const payload = Object.keys(publicServingConfigs).map(k => publicServingConfigs[k]);
+      const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/public-serving.json`, {
+        headers: { 'Authorization': `token ${token}` }
+      });
+      let sha = null;
+      if (res.ok) {
+        const data = await res.json();
+        sha = data.sha;
+      }
+
+      await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/public-serving.json`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'sync: update 24/7 public serving and API keys configuration in .mantx-storage',
+          content: btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2)))),
+          sha
+        })
+      });
+    } catch (e) {
+      console.warn('Could not sync public serving configs to vault:', e.message);
+    }
+  }
+}
+
+// Window bindings for HTML event handlers
+window.switchApiServeTab = switchApiServeTab;
+window.showLaunchApiModal = showLaunchApiModal;
+window.closeNimphyApiModal = closeNimphyApiModal;
+window.togglePublicServerPower = togglePublicServerPower;
+window.togglePublicAuthRequirement = togglePublicAuthRequirement;
+window.autoGeneratePublicApiKey = autoGeneratePublicApiKey;
+window.addCustomPublicApiKey = addCustomPublicApiKey;
+window.rotatePublicApiKey = rotatePublicApiKey;
+window.togglePublicApiKeyActive = togglePublicApiKeyActive;
+window.editPublicApiKeyAlias = editPublicApiKeyAlias;
+window.deletePublicApiKey = deletePublicApiKey;
+window.copyPublicEndpointUrl = copyPublicEndpointUrl;
+window.copySnippetApiKey = copySnippetApiKey;
+window.onSnippetKeySelectChange = onSnippetKeySelectChange;
 
 async function saveNimphysToVault() {
   const token = getStoredToken();
