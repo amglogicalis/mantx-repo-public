@@ -105,14 +105,68 @@ const DEFAULT_LAB_EXPERIMENTS = [
   {
     labId: 'lab_exp_default_1',
     name: 'Multi-Method Convergence Benchmark',
-    evalPrompt: 'Implementa un debounce concurrente en TypeScript con tipado genérico estricto',
-    bestExperimentId: 'exp_1',
+    status: 'completed',
+    datasetsByMethod: {
+      raft: [{ name: 'concurrency_ts_qa.jsonl', size: 14200, type: 'text/plain' }],
+      qlora: [{ name: 'concurrency_ts_sft.jsonl', size: 18400, type: 'text/plain' }],
+      lora: [{ name: 'concurrency_ts_sft.jsonl', size: 18400, type: 'text/plain' }]
+    },
+    ragFiles: [{ name: 'concurrency_specs.md', size: 8500, type: 'text/plain' }],
+    ragRawText: 'Especificaciones de concurrencia y límites de memoria en V8.',
+    datasetsPurged: false,
+    purgedMethods: [],
+    bestExperimentId: 'cand_1',
+    bestCandidateName: 'Qwen 2.5 Coder 3B + RAFT (Docs)',
+    comparisonSummary: '🏆 Ganador: Qwen 2.5 Coder 3B + RAFT con Score 99/100 y Loss de convergencia 0.46.',
     experiments: [
-      { experimentId: 'exp_1', name: 'Qwen 2.5 Coder 3B + RAFT (Docs)', finalLoss: 0.46, benchmarkScore: 99, durationMinutes: 16 },
-      { experimentId: 'exp_2', name: 'Qwen 2.5 Coder 3B + QLoRA 4-bit', finalLoss: 0.58, benchmarkScore: 95, durationMinutes: 12 },
-      { experimentId: 'exp_3', name: 'Llama 3.2 3B + LoRA Standard', finalLoss: 0.69, benchmarkScore: 92, durationMinutes: 14 }
+      {
+        candidateId: 'cand_1',
+        name: 'Qwen 2.5 Coder 3B + RAFT (Docs)',
+        baseModel: 'qwen-2.5-coder-3b',
+        providerType: 'local_runner',
+        method: 'raft',
+        graphRagEnabled: true,
+        ecdysisMemoryEnabled: true,
+        systemPrompt: 'Arquitecto sénior especializado en sistemas concurrentes y asíncronos.',
+        finalLoss: 0.46,
+        benchmarkScore: 99,
+        inferenceSpeedTokPerSec: 22,
+        latencyP95Ms: 380,
+        durationMinutes: 16
+      },
+      {
+        candidateId: 'cand_2',
+        name: 'Qwen 2.5 Coder 3B + QLoRA 4-bit',
+        baseModel: 'qwen-2.5-coder-3b',
+        providerType: 'local_runner',
+        method: 'qlora',
+        graphRagEnabled: false,
+        ecdysisMemoryEnabled: true,
+        systemPrompt: '',
+        finalLoss: 0.58,
+        benchmarkScore: 95,
+        inferenceSpeedTokPerSec: 24,
+        latencyP95Ms: 360,
+        durationMinutes: 12
+      },
+      {
+        candidateId: 'cand_3',
+        name: 'Llama 3.2 3B + LoRA Standard',
+        baseModel: 'llama-3.2-3b-instruct',
+        providerType: 'local_runner',
+        method: 'lora',
+        graphRagEnabled: false,
+        ecdysisMemoryEnabled: true,
+        systemPrompt: '',
+        finalLoss: 0.69,
+        benchmarkScore: 92,
+        inferenceSpeedTokPerSec: 21,
+        latencyP95Ms: 410,
+        durationMinutes: 14
+      }
     ],
-    createdAt: '2026-08-16T14:00:00Z'
+    createdAt: '2026-08-16T14:00:00Z',
+    completedAt: '2026-08-16T14:16:00Z'
   }
 ];
 
@@ -3796,7 +3850,6 @@ function removeLabCandidateRow(rowId) {
 
 async function executeLaboratoryMatrix() {
   const name = document.getElementById('lab-input-name')?.value?.trim() || 'Matriz de Convergencia Multimétodo';
-  const prompt = document.getElementById('lab-input-prompt')?.value?.trim() || 'Evaluación comparativa de razonamiento y convergencia';
   const container = document.getElementById('lab-candidates-container');
   const btnRun = document.getElementById('btn-run-matrix-eval');
 
@@ -3919,12 +3972,13 @@ async function executeLaboratoryMatrix() {
 
     const score = Math.min(99.9, Math.max(70, baseCapacity + bonus + (Math.random() * 1.2 - 0.6)));
     const loss = Math.max(0.25, Math.min(0.95, 0.68 - lossDiff + (Math.random() * 0.05 - 0.025)));
-    const speed = isByok || isTermes ? 78 + Math.floor(Math.random() * 15) : 18;
-    const latency = isByok || isTermes ? 230 + Math.floor(Math.random() * 60) : 410 + Math.floor(Math.random() * 70);
+    const speed = isByok || isTermes ? 78 + Math.floor(Math.random() * 15) : 22;
+    const latency = isByok || isTermes ? 230 + Math.floor(Math.random() * 60) : 380 + Math.floor(Math.random() * 60);
 
     return {
       candidateId: cand.candidateId,
       name: cand.name,
+      nimphyId: cand.nimphyId,
       providerType: cand.providerType,
       baseModel: cand.baseModel,
       method: cand.method,
@@ -3943,19 +3997,21 @@ async function executeLaboratoryMatrix() {
   const sorted = [...results].sort((a, b) => (b.benchmarkScore - b.finalLoss * 20) - (a.benchmarkScore - a.finalLoss * 20));
   const best = sorted[0] || results[0];
 
-  const totalFiles = uploadedLabFiles.length;
-  const contextDesc = totalFiles > 0 ? `${totalFiles} archivos adjuntos + prompt` : (contextSnippet ? 'Texto de prueba adjunto' : 'Sin contexto adicional');
-
   const newExp = {
     labId: `lab_${Date.now()}`,
     name,
-    evalPrompt: prompt,
-    datasetContext: contextDesc,
+    status: 'completed',
+    datasetsByMethod: JSON.parse(JSON.stringify(labDatasetsByMethod)),
+    ragFiles: JSON.parse(JSON.stringify(labRagFiles)),
+    ragRawText: document.getElementById('lab-rag-raw-docs')?.value?.trim() || '',
+    datasetsPurged: false,
+    purgedMethods: [],
     experiments: results,
     bestExperimentId: best.candidateId,
     bestCandidateName: best.name,
     comparisonSummary: `🏆 Ganador: ${best.name} con Score ${best.benchmarkScore}/100 y Loss de convergencia ${best.finalLoss}.`,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    completedAt: new Date().toISOString()
   };
 
   labExperiments.unshift(newExp);
@@ -3965,10 +4021,10 @@ async function executeLaboratoryMatrix() {
     btnRun.textContent = '🚀 Ejecutar Matriz en Laboratorio';
   }
 
-  renderLabMatrix();
+  renderLabExperimentsList();
   await saveLabExperimentsToVault();
 
-  showCustomModal(`🧪 Matriz de Laboratorio Completada`, `${newExp.comparisonSummary}\n\nContexto evaluado: ${contextDesc}.\n\nPuedes convertir directamente la configuración ganadora en un nuevo Niphy pulsando el botón "🚀 Producir Niphy desde Ganador".`);
+  showCustomModal(`🧪 Experimento Registrado con Éxito`, `${newExp.comparisonSummary}\n\nEl experimento se ha guardado en el historial con estado "🟢 Terminado". Haz clic en la tarjeta del experimento para abrir el panel de métricas, liberar datasets de caché o desplegar candidatos a producción.`);
 }
 
 async function saveLabExperimentsToVault() {
@@ -4002,96 +4058,420 @@ async function saveLabExperimentsToVault() {
 }
 
 function renderLabMatrix() {
-  const container = document.getElementById('lab-matrix-results');
+  renderLabExperimentsList();
+}
+
+function renderLabExperimentsList() {
+  const container = document.getElementById('lab-history-container');
   if (!container) return;
 
   if (!labExperiments || labExperiments.length === 0) {
     container.innerHTML = `
-      <div class="empty-state" style="padding: 1.5rem;">
-        <div style="font-size: 1.8rem; margin-bottom: 0.4rem;">🧪</div>
-        <strong style="color: #fff;">Aún no has ejecutado comparativas en el laboratorio.</strong><br>
-        Haz clic en <strong>"🧪 Configurar & Lanzar Matriz"</strong> para comparar métodos (QLoRA vs RAFT vs AFT), arquitecturas y memoria en paralelo.
+      <div style="text-align: center; padding: 2.2rem 1.5rem; background: rgba(0,0,0,0.25); border: 1px dashed var(--border-subtle); border-radius: 8px;">
+        <div style="font-size: 1.8rem; margin-bottom: 0.3rem;">🧪</div>
+        <strong style="color: #fff; font-size: 0.92rem; display: block; margin-bottom: 0.2rem;">No hay experimentos de laboratorio registrados</strong>
+        <p class="text-dim text-xs" style="max-width: 440px; margin: 0 auto 0.8rem auto;">
+          Diseña y ejecuta una matriz comparativa multirama para auditar convergencia, loss y calidad de pesos de tus arquitecturas a $0.
+        </p>
+        <button class="btn btn-primary btn-sm" onclick="openLabMatrixModal()" style="font-size: 0.75rem;">➕ Diseñar Nueva Matriz de Laboratorio</button>
       </div>
     `;
     return;
   }
 
-  const latest = labExperiments[0];
-  const experimentsList = latest.experiments || [];
-  const winner = experimentsList.find(e => e.candidateId === (latest.bestExperimentId || 'cand_1')) || experimentsList[0];
+  container.innerHTML = labExperiments.map((exp, idx) => {
+    const isCompleted = exp.status === 'completed' || !exp.status;
+    const candidatesCount = exp.experiments ? exp.experiments.length : 0;
+    const bestCand = exp.experiments ? exp.experiments.find(e => e.candidateId === exp.bestExperimentId) || exp.experiments[0] : null;
 
-  container.innerHTML = `
-    <div style="margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-      <div>
-        <div style="font-size: 0.95rem; font-weight: 700; color: #fff;">★ Benchmark: ${latest.name}</div>
-        <div class="text-dim text-xs" style="margin-top: 0.2rem;">Prompt: "${latest.evalPrompt.slice(0, 70)}..."</div>
-      </div>
-      ${winner ? `<button class="btn btn-primary btn-sm" onclick="convertWinnerToNimphyFromLab('${latest.labId}')" style="font-size: 0.75rem;">🚀 Producir Niphy desde Ganador</button>` : ''}
-    </div>
+    // Calculate cached files
+    let totalCachedFiles = 0;
+    let totalCachedBytes = 0;
+    if (exp.datasetsByMethod && !exp.datasetsPurged) {
+      Object.keys(exp.datasetsByMethod).forEach(m => {
+        if (!exp.purgedMethods?.includes(m)) {
+          const files = exp.datasetsByMethod[m] || [];
+          totalCachedFiles += files.length;
+          totalCachedBytes += files.reduce((acc, f) => acc + (f.size || 0), 0);
+        }
+      });
+    }
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.8rem; margin-bottom: 0.8rem;">
-      ${experimentsList.map((exp, idx) => {
-        const isWinner = exp.candidateId === (latest.bestExperimentId || 'cand_1');
-        return `
-          <div style="background: ${isWinner ? 'rgba(16,185,129,0.08)' : 'rgba(0,0,0,0.35)'}; border: 1px solid ${isWinner ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.8rem; display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <strong style="font-size: 0.88rem; color: #fff;">${exp.name}</strong>
-                ${isWinner ? '<span class="badge badge-emerald">🏆 GANADOR</span>' : `<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-dim);">#${idx + 1}</span>`}
-              </div>
+    const dateFormatted = new Date(exp.createdAt).toLocaleString('es-ES', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
 
-              <div style="font-size: 0.75rem; color: var(--text-dim); line-height: 1.6; margin-bottom: 0.6rem;">
-                • <strong>Modelo:</strong> ${exp.baseModel}<br>
-                • <strong>Método:</strong> ${(exp.method || 'raft').toUpperCase()}<br>
-                • <strong>Score Benchmark:</strong> <strong style="color: var(--emerald-light); font-size: 0.82rem;">${exp.benchmarkScore}/100</strong><br>
-                • <strong>Loss Final:</strong> <strong style="color: var(--emerald-light);">${exp.finalLoss}</strong><br>
-                • <strong>Velocidad / Latencia:</strong> ${exp.inferenceSpeedTokPerSec} tok/s (${exp.latencyP95Ms}ms P95)
-              </div>
+    return `
+      <div class="panel-card" style="background: #020704; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; margin-bottom: 0; transition: transform 0.15s ease, border-color 0.15s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
+              <strong style="font-size: 0.92rem; color: #fff;">🧪 ${exp.name}</strong>
+              <span class="badge ${isCompleted ? 'badge-mint' : 'badge-yellow'}" style="font-size: 0.68rem;">
+                ${isCompleted ? '🟢 Terminado' : '🟡 En proceso...'}
+              </span>
             </div>
-
-            <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
-              ${exp.graphRagEnabled ? '<span class="badge" style="font-size: 0.6rem; background: rgba(6,182,212,0.1); color: #38bdf8;">🕸️ Graph RAG</span>' : ''}
-              ${exp.ecdysisMemoryEnabled ? '<span class="badge" style="font-size: 0.6rem; background: rgba(16,185,129,0.1); color: #34d399;">🧠 Ecdysis</span>' : ''}
-              <span class="badge" style="font-size: 0.6rem; background: rgba(255,255,255,0.06); color: var(--text-dim);">$0 Actions</span>
+            <div class="text-dim text-xs" style="font-family: var(--font-code); font-size: 0.70rem;">
+              ID: ${exp.labId} • Registrado el ${dateFormatted}
             </div>
           </div>
-        `;
-      }).join('')}
-    </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="openLabDetailsModal('${exp.labId}')" style="font-size: 0.74rem; padding: 0.25rem 0.6rem;">
+            🔍 Ver Resultados y Candidatos
+          </button>
+        </div>
 
-    <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: #a7f3d0; border-left: 3px solid var(--emerald-main);">
-      ${latest.comparisonSummary || 'Evaluación multimétodo completada con éxito.'}
-    </div>
-  `;
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.76rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
+          <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+            <span class="badge" style="background: rgba(255,255,255,0.05); color: #fff; font-size: 0.68rem;">📊 ${candidatesCount} Ramas Evaluadas</span>
+            ${bestCand ? `<span class="badge" style="background: rgba(16,185,129,0.12); color: #6ee7b7; font-size: 0.68rem;">🏆 Mejor: ${bestCand.name} (${bestCand.benchmarkScore}/100)</span>` : ''}
+          </div>
+
+          <div>
+            ${exp.datasetsPurged ? `
+              <span class="badge" style="background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); font-size: 0.68rem;">
+                🗑️ Datasets Desechados (Espacio Liberado)
+              </span>
+            ` : totalCachedFiles > 0 ? `
+              <span class="badge badge-mint" style="font-size: 0.68rem;">
+                💾 ${totalCachedFiles} Datasets en Caché (${Math.round(totalCachedBytes / 1024)} KB)
+              </span>
+            ` : `
+              <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-dim); font-size: 0.68rem;">
+                ⚪ Sin Datasets en Caché
+              </span>
+            `}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-function convertWinnerToNimphyFromLab(labId) {
-  const exp = labExperiments.find(e => e.labId === labId) || labExperiments[0];
-  if (!exp || !exp.experiments) return;
+function openLabDetailsModal(labId) {
+  const exp = labExperiments.find(e => e.labId === labId);
+  if (!exp) return;
 
-  const winner = exp.experiments.find(e => e.candidateId === exp.bestExperimentId) || exp.experiments[0];
-  if (!winner) return;
+  const modal = document.getElementById('lab-details-modal');
+  const titleEl = document.getElementById('lab-details-title');
+  const badgeEl = document.getElementById('lab-details-status-badge');
+  const subtitleEl = document.getElementById('lab-details-subtitle');
+  const summaryBox = document.getElementById('lab-details-summary-box');
+  const cacheActions = document.getElementById('lab-details-cache-actions');
+  const cacheList = document.getElementById('lab-details-cache-list');
+  const candidatesCountEl = document.getElementById('lab-details-candidates-count');
+  const candidatesGrid = document.getElementById('lab-details-candidates-grid');
 
+  if (titleEl) titleEl.textContent = `🧪 ${exp.name}`;
+  const isCompleted = exp.status === 'completed' || !exp.status;
+  if (badgeEl) {
+    badgeEl.textContent = isCompleted ? '🟢 Terminado' : '🟡 En proceso...';
+    badgeEl.className = `badge ${isCompleted ? 'badge-mint' : 'badge-yellow'}`;
+  }
+
+  const dateFormatted = new Date(exp.createdAt).toLocaleString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+  if (subtitleEl) subtitleEl.textContent = `ID de Experimento: ${exp.labId} • Registrado el ${dateFormatted}`;
+
+  if (summaryBox) {
+    summaryBox.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem;">
+        <strong style="color: #6ee7b7; font-size: 0.86rem;">🏆 Veredicto de Convergencia del Laboratorio:</strong>
+      </div>
+      <div>${exp.comparisonSummary || 'Evaluación multimétodo completada con éxito.'}</div>
+    `;
+  }
+
+  // Render Cache Management
+  if (cacheActions && cacheList) {
+    const methodsWithFiles = Object.keys(exp.datasetsByMethod || {}).filter(m => exp.datasetsByMethod[m]?.length > 0);
+    const hasActiveDatasets = !exp.datasetsPurged && methodsWithFiles.some(m => !exp.purgedMethods?.includes(m));
+
+    if (hasActiveDatasets) {
+      cacheActions.innerHTML = `
+        <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; border-color: rgba(239,68,68,0.3); font-size: 0.70rem; padding: 0.15rem 0.45rem;" onclick="purgeAllLabDatasets('${exp.labId}')">
+          🗑️ Desechar Todos los Datasets (Liberar Espacio)
+        </button>
+      `;
+    } else {
+      cacheActions.innerHTML = `<span class="badge" style="background: rgba(239,68,68,0.1); color: #f87171; font-size: 0.68rem;">Espacio Liberado</span>`;
+    }
+
+    if (exp.datasetsPurged) {
+      cacheList.innerHTML = `
+        <div class="text-xs text-dim" style="font-style: italic; color: #f87171; padding: 0.2rem 0;">
+          🗑️ Todos los datasets y documentos de este experimento fueron desechados de la caché para ahorrar almacenamiento.
+        </div>
+      `;
+    } else if (methodsWithFiles.length === 0) {
+      cacheList.innerHTML = `
+        <div class="text-xs text-dim" style="font-style: italic; padding: 0.2rem 0;">
+          ⚪ No se cargaron datasets en memoria durante este experimento.
+        </div>
+      `;
+    } else {
+      cacheList.innerHTML = methodsWithFiles.map(m => {
+        const isPurged = exp.purgedMethods?.includes(m);
+        const files = exp.datasetsByMethod[m] || [];
+        const totalKb = Math.round(files.reduce((acc, f) => acc + (f.size || 0), 0) / 1024);
+        const fileNames = files.map(f => f.name).join(', ');
+
+        if (isPurged) {
+          return `
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(239,68,68,0.2); border-radius: 6px; padding: 0.35rem 0.6rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.74rem;">
+              <span style="color: #f87171;">• <strong>${LAB_METHOD_NAMES[m] || m.toUpperCase()}:</strong> 🗑️ Dataset Desechado</span>
+              <span class="badge" style="background: rgba(239,68,68,0.1); color: #f87171; font-size: 0.65rem;">Liberado</span>
+            </div>
+          `;
+        }
+
+        return `
+          <div style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.6rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.74rem;">
+            <div>
+              <strong style="color: var(--emerald-light);">• ${LAB_METHOD_NAMES[m] || m.toUpperCase()}:</strong>
+              <span style="color: #fff; font-family: var(--font-code);"> ${fileNames}</span>
+              <span class="text-dim text-xs"> (${totalKb} KB)</span>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; border-color: rgba(239,68,68,0.3); font-size: 0.68rem; padding: 0.1rem 0.35rem;" onclick="purgeLabDatasetMethod('${exp.labId}', '${m}')">
+              🗑️ Desechar
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  // Render Candidates Grid
+  const candidatesList = exp.experiments || [];
+  if (candidatesCountEl) candidatesCountEl.textContent = `${candidatesList.length} Candidato(s)`;
+
+  if (candidatesGrid) {
+    candidatesGrid.innerHTML = candidatesList.map((cand, idx) => {
+      const isWinner = cand.candidateId === (exp.bestExperimentId || 'cand_1');
+      const isCatalog = cand.providerType === 'trained_nimphy';
+
+      // Provider Label
+      let providerLabel = 'Runner Local ($0 Open Weights)';
+      if (cand.providerType === 'termes') providerLabel = 'Termes Symbiont (Endpoint URL)';
+      else if (cand.providerType === 'byok') providerLabel = 'BYOK Cloud API';
+      else if (cand.providerType === 'trained_nimphy') providerLabel = 'Niphy del Catálogo';
+
+      return `
+        <div class="panel-card" style="background: ${isWinner ? 'rgba(16,185,129,0.05)' : '#020704'}; border: 1px solid ${isWinner ? 'rgba(16,185,129,0.4)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.85rem; margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.4rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <strong style="font-size: 0.90rem; color: #fff;">${cand.name}</strong>
+              ${isWinner ? '<span class="badge badge-emerald" style="font-size: 0.65rem;">🏆 GANADOR DEL BENCHMARK</span>' : `<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-dim); font-size: 0.65rem;">#${idx + 1}</span>`}
+            </div>
+            
+            <div>
+              ${isCatalog ? `
+                <button type="button" class="btn btn-outline btn-sm" style="font-size: 0.72rem; color: #6ee7b7; border-color: rgba(16,185,129,0.4);" onclick="bridgeLabCandidateToRetrain('${exp.labId}', '${cand.candidateId}')">
+                  🔄 Re-entrenar Niphy con esta Configuración
+                </button>
+              ` : `
+                <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.72rem;" onclick="bridgeLabCandidateToProduce('${exp.labId}', '${cand.candidateId}')">
+                  🚀 Producir Nuevo Niphy desde esta Rama
+                </button>
+              `}
+            </div>
+          </div>
+
+          <!-- Technical Metrics Grid -->
+          <div class="grid-4 mb-2" style="font-size: 0.74rem;">
+            <div style="background: rgba(0,0,0,0.3); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+              <span class="text-dim" style="display: block; font-size: 0.68rem;">Score Calidad:</span>
+              <strong style="color: var(--emerald-light); font-size: 0.85rem;">${cand.benchmarkScore}/100</strong>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+              <span class="text-dim" style="display: block; font-size: 0.68rem;">Loss Final:</span>
+              <strong style="color: var(--emerald-light); font-size: 0.85rem;">${cand.finalLoss}</strong>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+              <span class="text-dim" style="display: block; font-size: 0.68rem;">Velocidad:</span>
+              <strong style="color: #fff; font-size: 0.85rem;">${cand.inferenceSpeedTokPerSec} tok/s</strong>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+              <span class="text-dim" style="display: block; font-size: 0.68rem;">Latencia P95:</span>
+              <strong style="color: #fff; font-size: 0.85rem;">${cand.latencyP95Ms} ms</strong>
+            </div>
+          </div>
+
+          <!-- Hyperparameters and Config Details -->
+          <div style="font-size: 0.74rem; color: var(--text-dim); line-height: 1.6; background: rgba(0,0,0,0.25); border-radius: 6px; padding: 0.5rem 0.7rem;">
+            <div style="display: flex; gap: 1.2rem; flex-wrap: wrap;">
+              <div>• <strong>Modelo Base:</strong> <span style="color: #fff;">${cand.baseModel || 'qwen-2.5-coder-3b'}</span></div>
+              <div>• <strong>Proveedor:</strong> <span style="color: #fff;">${providerLabel}</span></div>
+              <div>• <strong>Método:</strong> <span style="color: var(--emerald-light); font-weight: 600;">${LAB_METHOD_NAMES[cand.method] || cand.method.toUpperCase()}</span></div>
+              <div>• <strong>Graph RAG:</strong> ${cand.graphRagEnabled ? '<span style="color: #38bdf8;">🕸️ Activado</span>' : '<span style="color: var(--text-dim);">⚪ Inactivo</span>'}</div>
+              <div>• <strong>Memoria Ecdysis:</strong> ${cand.ecdysisMemoryEnabled ? '<span style="color: #34d399;">🧠 Activada</span>' : '<span style="color: var(--text-dim);">⚪ Inactiva</span>'}</div>
+            </div>
+            ${cand.systemPrompt ? `
+              <div style="margin-top: 0.35rem; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 0.3rem;">
+                <strong>Directiva / System Prompt:</strong> <span style="font-style: italic; color: #fff;">"${cand.systemPrompt}"</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeLabDetailsModal() {
+  const modal = document.getElementById('lab-details-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function purgeLabDatasetMethod(labId, method) {
+  const exp = labExperiments.find(e => e.labId === labId);
+  if (!exp) return;
+
+  if (!exp.purgedMethods) exp.purgedMethods = [];
+  if (!exp.purgedMethods.includes(method)) exp.purgedMethods.push(method);
+  if (exp.datasetsByMethod && exp.datasetsByMethod[method]) {
+    delete exp.datasetsByMethod[method];
+  }
+
+  await saveLabExperimentsToVault();
+  openLabDetailsModal(labId);
+  renderLabExperimentsList();
+  showCustomModal('🗑️ Espacio Liberado', `Se ha desechado de la caché el dataset del método "${LAB_METHOD_NAMES[method] || method}".`);
+}
+
+async function purgeAllLabDatasets(labId) {
+  const exp = labExperiments.find(e => e.labId === labId);
+  if (!exp) return;
+
+  exp.datasetsPurged = true;
+  exp.datasetsByMethod = {};
+  exp.ragFiles = [];
+  exp.ragRawText = '';
+
+  await saveLabExperimentsToVault();
+  openLabDetailsModal(labId);
+  renderLabExperimentsList();
+  showCustomModal('🗑️ Espacio Totalmente Liberado', `Se han desechado todos los datasets y documentos de este experimento de la memoria y almacenamiento.`);
+}
+
+function bridgeLabCandidateToRetrain(labId, candidateId) {
+  const exp = labExperiments.find(e => e.labId === labId);
+  if (!exp) return;
+  const cand = exp.experiments?.find(c => c.candidateId === candidateId);
+  if (!cand) return;
+
+  // Check if dataset was discarded
+  const isDiscarded = exp.datasetsPurged || (exp.purgedMethods && exp.purgedMethods.includes(cand.method)) || !exp.datasetsByMethod?.[cand.method]?.length;
+  if (isDiscarded) {
+    showCustomModal('🚫 Dataset No Disponible en Caché', `El dataset de entrenamiento para el método "${LAB_METHOD_NAMES[cand.method] || cand.method}" fue desechado de la memoria/caché para liberar espacio.\n\nNo se puede auto-rellenar el dataset. Si deseas re-entrenar este Niphy, deberás adjuntar su archivo manualmente en el formulario.`);
+    return;
+  }
+
+  closeLabDetailsModal();
+  switchTab('nimphys');
+
+  // Find target nimphy in catalog
+  const targetNimphy = nimphysList.find(n => n.nimphyId === cand.nimphyId || n.name.toLowerCase() === cand.name.toLowerCase()) || nimphysList[0];
+  if (!targetNimphy) {
+    showCustomModal('⚠️ Niphy No Encontrado', 'No se encontró el Niphy correspondiente en el catálogo activo para re-entrenar.');
+    return;
+  }
+
+  openRetrainModal(targetNimphy.nimphyId);
+
+  const methodSelect = document.getElementById('retrain-method');
+  if (methodSelect) {
+    methodSelect.value = cand.method;
+    onRetrainMethodChange();
+  }
+
+  const versionInput = document.getElementById('retrain-version');
+  if (versionInput) versionInput.value = ''; // Clean / free for user input
+
+  // Preload cached files from lab
+  uploadedRetrainFiles = JSON.parse(JSON.stringify(exp.datasetsByMethod[cand.method] || []));
+  renderRetrainFilesList();
+  updateRetrainTokenEstimate();
+
+  // If RAG was active and present
+  const ragToggle = document.getElementById('retrain-toggle-graph-rag');
+  if (ragToggle) {
+    ragToggle.checked = Boolean(cand.graphRagEnabled);
+    toggleRetrainGraphRagContainer();
+  }
+  if (cand.graphRagEnabled && exp.ragFiles?.length) {
+    uploadedRetrainRagFiles = JSON.parse(JSON.stringify(exp.ragFiles));
+    renderRetrainRagFilesList();
+    updateRetrainRagTokenEstimate();
+    const ragDocs = document.getElementById('retrain-rag-raw-docs');
+    if (ragDocs) ragDocs.value = exp.ragRawText || '';
+  }
+
+  showCustomModal('🔄 Re-entrenamiento Precargado desde Lab', `Se han cargado el método "${LAB_METHOD_NAMES[cand.method]}", el dataset de la prueba y la configuración de Graph RAG.\n\nIndica la "Nueva Versión Objetivo" que desees asignar y pulsa "🚀 Re-entrenar Niphy".`);
+}
+
+function bridgeLabCandidateToProduce(labId, candidateId) {
+  const exp = labExperiments.find(e => e.labId === labId);
+  if (!exp) return;
+  const cand = exp.experiments?.find(c => c.candidateId === candidateId);
+  if (!cand) return;
+
+  // Check if dataset was discarded
+  const isDiscarded = exp.datasetsPurged || (exp.purgedMethods && exp.purgedMethods.includes(cand.method)) || !exp.datasetsByMethod?.[cand.method]?.length;
+  if (isDiscarded) {
+    showCustomModal('🚫 Dataset No Disponible en Caché', `El dataset de entrenamiento para el método "${LAB_METHOD_NAMES[cand.method] || cand.method}" fue desechado de la memoria/caché para liberar espacio.\n\nNo se puede auto-rellenar el dataset. Si deseas producir este Niphy, deberás adjuntar su archivo manualmente en el formulario.`);
+    return;
+  }
+
+  closeLabDetailsModal();
+  switchTab('nimphys');
   openCreateNimphyModal();
+
   const nameInput = document.getElementById('nimphy-name');
   const providerSelect = document.getElementById('nimphy-provider-type');
   const methodSelect = document.getElementById('nimphy-method');
+  const baseModelSelect = document.getElementById('nimphy-base-model');
   const graphRagCheck = document.getElementById('nimphy-toggle-graph-rag');
   const ecdysisCheck = document.getElementById('nimphy-toggle-ecdysis');
+  const versionInput = document.getElementById('nimphy-version');
 
-  const cleanName = winner.name.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 25);
-  if (nameInput) nameInput.value = `${cleanName || 'LabChampion'}-Niphy`;
+  const cleanName = cand.name.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 22);
+  if (nameInput) nameInput.value = `${cleanName || 'LabModel'}-Niphy`;
+  if (versionInput) versionInput.value = 'v1.0.0';
+
   if (providerSelect) {
-    providerSelect.value = winner.providerType || 'local_runner';
+    providerSelect.value = cand.providerType || 'local_runner';
     onNimphyProviderChange();
   }
-  const baseModelSelect = document.getElementById('nimphy-base-model');
-  if (baseModelSelect) baseModelSelect.value = winner.baseModel;
-  if (methodSelect) methodSelect.value = winner.method;
-  if (graphRagCheck) graphRagCheck.checked = Boolean(winner.graphRagEnabled);
-  if (ecdysisCheck) ecdysisCheck.checked = Boolean(winner.ecdysisMemoryEnabled);
+  if (baseModelSelect) baseModelSelect.value = cand.baseModel;
+  if (methodSelect) {
+    methodSelect.value = cand.method;
+    onNimphyMethodChange();
+  }
+  if (graphRagCheck) {
+    graphRagCheck.checked = Boolean(cand.graphRagEnabled);
+    toggleNimphyGraphRagContainer();
+  }
+  if (ecdysisCheck) ecdysisCheck.checked = Boolean(cand.ecdysisMemoryEnabled);
 
-  showCustomModal('🏆 Configuración Ganadora Cargada', `Se han pre-rellenado los campos con el ganador del laboratorio: "${winner.name}" (Score: ${winner.benchmarkScore}%, Loss: ${winner.finalLoss}).\n\nPuedes ajustar cualquier detalle final y pulsar "+ Producir Niphy".`);
+  // Preload cached files from lab
+  uploadedNimphyFiles = JSON.parse(JSON.stringify(exp.datasetsByMethod[cand.method] || []));
+  renderNimphyFilesList();
+  updateNimphyTokenEstimate();
+
+  if (cand.graphRagEnabled && exp.ragFiles?.length) {
+    uploadedNimphyRagFiles = JSON.parse(JSON.stringify(exp.ragFiles));
+    renderNimphyRagFilesList();
+    updateNimphyRagTokenEstimate();
+    const ragDocs = document.getElementById('nimphy-rag-raw-docs');
+    if (ragDocs) ragDocs.value = exp.ragRawText || '';
+  }
+
+  showCustomModal('🚀 Parámetros del Lab Precargados', `Se han pre-configurado el modelo base, método, dataset y documentos RAG de la rama "${cand.name}".\n\nPuedes ajustar cualquier detalle final y pulsar "+ Producir Niphy".`);
 }
 
 // ─── PRODUCTION INTELLIGENCE & AUTO-HEAL ─────────────────────

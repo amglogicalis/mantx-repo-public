@@ -508,13 +508,14 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;">
               <div>
                 <span class="panel-title" style="margin-bottom: 0;">🧪 Nimphys Laboratory Matrix Studio</span>
-                <div class="text-dim text-xs" style="margin-top: 0.2rem;">Compara simultáneamente cómo convergen modelos, métodos (QLoRA vs RAFT vs AFT) y augmentaciones.</div>
+                <div class="text-dim text-xs" style="margin-top: 0.2rem;">Historial de experimentos y benchmarks de convergencia multirama ($0 Compute).</div>
               </div>
-              <button class="btn btn-primary btn-sm" onclick="openLabMatrixModal()">🧪 Configurar & Lanzar Matriz</button>
+              <button class="btn btn-primary btn-sm" onclick="openLabMatrixModal()">➕ Diseñar Nueva Matriz de Laboratorio</button>
             </div>
 
-            <div id="lab-matrix-results">
-              <!-- Injected via JavaScript -->
+            <!-- SCROLLABLE EXPERIMENTS LOG LIST -->
+            <div id="lab-history-container" style="max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding-right: 0.2rem;">
+              <!-- Injected dynamically via renderLabExperimentsList() -->
             </div>
           </div>
         </div>
@@ -1164,15 +1165,9 @@
         <button class="btn-close" onclick="closeLabMatrixModal()">✕</button>
       </div>
 
-      <div class="grid-2 mb-3">
-        <div class="form-group" style="margin-bottom: 0;">
-          <label>Nombre del Benchmark / Experimento:</label>
-          <input type="text" id="lab-input-name" class="input-text" placeholder="Nombre del experimento...">
-        </div>
-        <div class="form-group" style="margin-bottom: 0;">
-          <label>Tarea / Prompt de Evaluación:</label>
-          <input type="text" id="lab-input-prompt" class="input-text" placeholder="Tarea o consulta de prueba para evaluar los modelos...">
-        </div>
+      <div class="form-group mb-3">
+        <label>Nombre del Benchmark / Experimento de Laboratorio:</label>
+        <input type="text" id="lab-input-name" class="input-text" placeholder="Ej: Multi-Method Convergence Benchmark v1...">
       </div>
 
       <!-- 1. DYNAMIC IN-MEMORY DATASET / TEMPLATE UPLOADER PER METHOD -->
@@ -1260,6 +1255,58 @@
       <div style="display: flex; gap: 0.8rem; justify-content: flex-end; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem;">
         <button class="btn btn-secondary btn-sm" onclick="closeLabMatrixModal()">Cancelar</button>
         <button class="btn btn-primary btn-sm" id="btn-run-matrix-eval" onclick="executeLaboratoryMatrix()">🚀 Ejecutar Matriz en Laboratorio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NIMPHYS LABORATORY EXPERIMENT DETAILS MODAL -->
+  <div id="lab-details-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 980px; max-height: 92vh; overflow-y: auto;">
+      <div class="modal-header" style="flex-wrap: wrap; gap: 0.6rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
+            <h3 id="lab-details-title" style="margin-bottom: 0;">🧪 Multi-Method Convergence Benchmark</h3>
+            <span id="lab-details-status-badge" class="badge badge-mint" style="font-size: 0.72rem;">🟢 Terminado</span>
+          </div>
+          <p class="text-dim text-xs" id="lab-details-subtitle">Resultados de convergencia, métricas estadísticas y opciones de despliegue a producción.</p>
+        </div>
+        <button class="btn-close" onclick="closeLabDetailsModal()">✕</button>
+      </div>
+
+      <!-- Comparison Summary Card -->
+      <div id="lab-details-summary-box" class="mb-3" style="background: rgba(16,185,129,0.06); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem; font-size: 0.82rem; color: #fff; line-height: 1.5;">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- Dataset Cache Management Panel -->
+      <div class="form-group mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.8rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1rem;">💾</span>
+            <strong style="color: var(--emerald-light); font-size: 0.85rem;">Caché de Datasets del Experimento:</strong>
+          </div>
+          <div id="lab-details-cache-actions" style="display: flex; gap: 0.4rem;">
+            <!-- Injected via JavaScript: Button to purge all datasets -->
+          </div>
+        </div>
+        <div id="lab-details-cache-list" style="display: flex; flex-direction: column; gap: 0.35rem;">
+          <!-- Injected via JavaScript: List of datasets with discard button per method -->
+        </div>
+      </div>
+
+      <!-- Candidates Matrix List -->
+      <div class="form-group mb-0">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+          <strong style="color: #fff; font-size: 0.88rem;">📊 Ramas Candidatas Evaluadas en este Experimento:</strong>
+          <span class="text-dim text-xs" id="lab-details-candidates-count">0 Candidatos</span>
+        </div>
+        <div id="lab-details-candidates-grid" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <!-- Injected via JavaScript: Candidate cards with re-train / produce buttons -->
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem;">
+        <button class="btn btn-secondary btn-sm" onclick="closeLabDetailsModal()">Cerrar</button>
       </div>
     </div>
   </div>
