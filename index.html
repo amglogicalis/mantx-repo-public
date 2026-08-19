@@ -341,6 +341,12 @@
             <button class="btn btn-secondary btn-sm" onclick="openHfGrantModal()">🤗 Detector HuggingFace ZeroGPU</button>
             <div class="filter-group">
               <input type="text" id="market-search" class="input-text" placeholder="Buscar modelo o especialización...">
+              <select id="market-filter-env" class="input-select">
+                <option value="">Todos los Entornos</option>
+                <option value="gh_actions">🟢 GitHub Actions ($0 CPU)</option>
+                <option value="hf_mandatory">🤗 Obligatorio HuggingFace (GPU)</option>
+                <option value="cloud_byok">🌐 Cloud BYOK / API</option>
+              </select>
               <select id="market-filter-spec" class="input-select">
                 <option value="">Todas las Especialidades</option>
                 <option value="code">Código & Scripts</option>

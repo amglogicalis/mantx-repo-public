@@ -2,30 +2,35 @@
 // Complete SPA Dashboard: Marketplace, Onboarding, Nimphys Lab, Auto-Heal Closed-Loop, ZeroGPU Grant & AKG Gateway
 
 const DEFAULT_MODELS = [
-  // Sub-1B
-  { id: 'smollm2-135m-instruct', name: 'SmolLM2 135M Instruct (GGUF Q4)', family: 'smollm', params: '135M', context: '4K', speed: '45 tok/s', size: '140 MB', spec: ['chat', 'general'], desc: 'Ultra-ligero y ultra-veloz en CPU. Mínimo consumo de recursos.' },
-  { id: 'smollm2-360m-instruct', name: 'SmolLM2 360M Instruct (GGUF Q4)', family: 'smollm', params: '360M', context: '4K', speed: '38 tok/s', size: '290 MB', spec: ['chat', 'general'], desc: 'Excelente balance entre compacidad y coherencia gramatical.' },
-  { id: 'tinyllama-1.1b-chat', name: 'TinyLlama 1.1B Chat (GGUF Q4)', family: 'llama', params: '1.1B', context: '2K', speed: '28 tok/s', size: '670 MB', spec: ['chat', 'general'], desc: 'Entrenado en 3T tokens. Fluidez conversacional en Actions.' },
-  { id: 'llama-3.2-1b-instruct', name: 'Llama 3.2 1B Instruct (GGUF Q4)', family: 'llama', params: '1.1B', context: '8K', speed: '26 tok/s', size: '740 MB', spec: ['chat', 'general'], desc: 'Ultraligero de Meta. Ideal para clasificación y agentes livianos.' },
-  { id: 'deepseek-coder-1.3b', name: 'DeepSeek Coder 1.3B (GGUF Q4)', family: 'deepseek', params: '1.3B', context: '16K', speed: '28 tok/s', size: '820 MB', spec: ['code'], desc: 'Autocompletado veloz y generación de scripts modulares.' },
-  { id: 'qwen-2.5-coder-1.5b', name: 'Qwen 2.5 Coder 1.5B (GGUF Q4)', family: 'qwen', params: '1.5B', context: '32K', speed: '22 tok/s', size: '980 MB', spec: ['code'], desc: 'Especialista en código y scripts con ventana de 32k tokens.' },
-  { id: 'smollm2-1.7b-instruct', name: 'SmolLM2 1.7B Instruct (GGUF Q4)', family: 'smollm', params: '1.7B', context: '8K', speed: '24 tok/s', size: '1.10 GB', spec: ['reasoning', 'chat'], desc: 'SOTA en la categoría sub-2B de HuggingFace con gran capacidad de razonamiento.' },
-  { id: 'stablelm-2-1.6b-chat', name: 'StableLM 2 1.6B Chat (GGUF Q4)', family: 'stablelm', params: '1.6B', context: '4K', speed: '25 tok/s', size: '1.05 GB', spec: ['chat', 'general'], desc: 'Modelo conversacional multilingüe de Stability AI.' },
+  // ── SUB-4B: COMPATIBLES CON GITHUB ACTIONS ($0 CPU RUNNER) ──
+  { id: 'smollm2-135m-instruct', name: 'SmolLM2 135M Instruct (GGUF Q4)', family: 'smollm', params: '135M', context: '4K', speed: '45 tok/s', size: '140 MB', spec: ['chat', 'general'], runtimeEnv: 'gh_actions', desc: 'Ultra-ligero y ultra-veloz en CPU. Mínimo consumo de recursos en GitHub Actions.' },
+  { id: 'smollm2-360m-instruct', name: 'SmolLM2 360M Instruct (GGUF Q4)', family: 'smollm', params: '360M', context: '4K', speed: '38 tok/s', size: '290 MB', spec: ['chat', 'general'], runtimeEnv: 'gh_actions', desc: 'Excelente balance entre compacidad y coherencia gramatical a coste $0.' },
+  { id: 'tinyllama-1.1b-chat', name: 'TinyLlama 1.1B Chat (GGUF Q4)', family: 'llama', params: '1.1B', context: '2K', speed: '28 tok/s', size: '670 MB', spec: ['chat', 'general'], runtimeEnv: 'gh_actions', desc: 'Entrenado en 3T tokens. Fluidez conversacional nativa en Actions CPU.' },
+  { id: 'llama-3.2-1b-instruct', name: 'Llama 3.2 1B Instruct (GGUF Q4)', family: 'llama', params: '1.1B', context: '8K', speed: '26 tok/s', size: '740 MB', spec: ['chat', 'general'], runtimeEnv: 'gh_actions', desc: 'Ultraligero de Meta. Ideal para clasificación y agentes livianos en CPU.' },
+  { id: 'deepseek-coder-1.3b', name: 'DeepSeek Coder 1.3B (GGUF Q4)', family: 'deepseek', params: '1.3B', context: '16K', speed: '28 tok/s', size: '820 MB', spec: ['code'], runtimeEnv: 'gh_actions', desc: 'Autocompletado veloz y generación de scripts modulares en GitHub Actions.' },
+  { id: 'qwen-2.5-coder-1.5b', name: 'Qwen 2.5 Coder 1.5B (GGUF Q4)', family: 'qwen', params: '1.5B', context: '32K', speed: '22 tok/s', size: '980 MB', spec: ['code'], runtimeEnv: 'gh_actions', desc: 'Especialista en código y scripts con ventana de 32k tokens en CPU.' },
+  { id: 'smollm2-1.7b-instruct', name: 'SmolLM2 1.7B Instruct (GGUF Q4)', family: 'smollm', params: '1.7B', context: '8K', speed: '24 tok/s', size: '1.10 GB', spec: ['reasoning', 'chat'], runtimeEnv: 'gh_actions', desc: 'SOTA en la categoría sub-2B de HuggingFace con gran capacidad de razonamiento.' },
+  { id: 'stablelm-2-1.6b-chat', name: 'StableLM 2 1.6B Chat (GGUF Q4)', family: 'stablelm', params: '1.6B', context: '4K', speed: '25 tok/s', size: '1.05 GB', spec: ['chat', 'general'], runtimeEnv: 'gh_actions', desc: 'Modelo conversacional multilingüe de Stability AI en CPU.' },
+  { id: 'gemma-2-2b-it', name: 'Google Gemma 2 2B IT (GGUF Q4)', family: 'gemma', params: '2.6B', context: '8K', speed: '18 tok/s', size: '1.60 GB', spec: ['chat', 'general'], runtimeEnv: 'gh_actions', desc: 'Modelo versátil de Google optimizado para seguimiento de instrucciones en CPU.' },
+  { id: 'llama-3.2-3b-instruct', name: 'Llama 3.2 3B Instruct (GGUF Q4)', family: 'llama', params: '3.2B', context: '8K', speed: '15 tok/s', size: '1.85 GB', spec: ['chat', 'reasoning'], runtimeEnv: 'gh_actions', desc: 'Equilibrio perfecto entre razonamiento y velocidad en CPU de Actions.' },
+  { id: 'qwen-2.5-coder-3b', name: 'Qwen 2.5 Coder 3B Instruct (GGUF Q4)', family: 'qwen', params: '3.0B', context: '32K', speed: '13 tok/s', size: '1.92 GB', spec: ['code', 'reasoning'], runtimeEnv: 'gh_actions', desc: 'Máxima potencia para generación y refactor de código en GitHub Actions.' },
+  { id: 'starcoder2-3b', name: 'StarCoder2 3B (GGUF Q4)', family: 'starcoder', params: '3.0B', context: '16K', speed: '14 tok/s', size: '1.85 GB', spec: ['code'], runtimeEnv: 'gh_actions', desc: 'Entrenado por BigCode en +600 lenguajes con alta fidelidad.' },
+  { id: 'ministral-3b-instruct', name: 'Ministral 3B Instruct (GGUF Q4)', family: 'mistral', params: '3.0B', context: '32K', speed: '15 tok/s', size: '2.10 GB', spec: ['reasoning', 'chat', 'code'], runtimeEnv: 'gh_actions', desc: 'Modelo de vanguardia de Mistral AI con atención deslizante.' },
+  { id: 'phi-3.5-mini-instruct', name: 'Phi 3.5 Mini Instruct 3.8B (GGUF Q4)', family: 'phi', params: '3.8B', context: '128K', speed: '11 tok/s', size: '2.15 GB', spec: ['reasoning', 'math'], runtimeEnv: 'gh_actions', desc: 'Razonamiento lógico y matemático con ventana masiva de 128k en Actions.' },
 
-  // Medium (2B - 3.8B)
-  { id: 'gemma-2-2b-it', name: 'Google Gemma 2 2B IT (GGUF Q4)', family: 'gemma', params: '2.6B', context: '8K', speed: '18 tok/s', size: '1.60 GB', spec: ['chat', 'general'], desc: 'Modelo versátil de Google optimizado para seguimiento de instrucciones.' },
-  { id: 'llama-3.2-3b-instruct', name: 'Llama 3.2 3B Instruct (GGUF Q4)', family: 'llama', params: '3.2B', context: '8K', speed: '15 tok/s', size: '1.85 GB', spec: ['chat', 'reasoning'], desc: 'Equilibrio perfecto entre razonamiento y velocidad en CPU.' },
-  { id: 'qwen-2.5-coder-3b', name: 'Qwen 2.5 Coder 3B Instruct (GGUF Q4)', family: 'qwen', params: '3.0B', context: '32K', speed: '13 tok/s', size: '1.92 GB', spec: ['code', 'reasoning'], desc: 'Máxima potencia para generación y refactor de código.' },
-  { id: 'starcoder2-3b', name: 'StarCoder2 3B (GGUF Q4)', family: 'starcoder', params: '3.0B', context: '16K', speed: '14 tok/s', size: '1.85 GB', spec: ['code'], desc: 'Entrenado por BigCode en +600 lenguajes con alta fidelidad.' },
-  { id: 'ministral-3b-instruct', name: 'Ministral 3B Instruct (GGUF Q4)', family: 'mistral', params: '3.0B', context: '32K', speed: '15 tok/s', size: '2.10 GB', spec: ['reasoning', 'chat', 'code'], desc: 'Modelo de vanguardia de Mistral AI con atención deslizante.' },
-  { id: 'phi-3.5-mini-instruct', name: 'Phi 3.5 Mini Instruct 3.8B (GGUF Q4)', family: 'phi', params: '3.8B', context: '128K', speed: '11 tok/s', size: '2.15 GB', spec: ['reasoning', 'math'], desc: 'Razonamiento lógico y matemático con ventana masiva de 128k.' },
+  // ── +7B / 14B: OBLIGACIÓN HUGGINGFACE (ZEROGPU / GPU SPACE) ──
+  { id: 'qwen-2.5-coder-7b', name: 'Qwen 2.5 Coder 7B Instruct', family: 'qwen', params: '7.6B', context: '32K', speed: '24 tok/s (GPU)', size: '4.8 GB', spec: ['code', 'reasoning'], runtimeEnv: 'hf_mandatory', desc: 'Referencia global en generación de código. Requiere aceleración GPU en HuggingFace.' },
+  { id: 'mistral-7b-instruct-v0.3', name: 'Mistral 7B Instruct v0.3', family: 'mistral', params: '7.3B', context: '32K', speed: '22 tok/s (GPU)', size: '4.9 GB', spec: ['chat', 'reasoning', 'code'], runtimeEnv: 'hf_mandatory', desc: 'SOTA en seguimiento de directivas complejas. Obligatorio HuggingFace ZeroGPU / GPU dedicada.' },
+  { id: 'codestral-22b', name: 'Mistral Codestral 22B', family: 'mistral', params: '22.2B', context: '32K', speed: '16 tok/s (GPU)', size: '13.5 GB', spec: ['code', 'reasoning'], runtimeEnv: 'hf_mandatory', desc: 'Especialista masivo en refactorización arquitectónica. Requiere HuggingFace Space GPU.' },
+  { id: 'qwen-2.5-coder-14b', name: 'Qwen 2.5 Coder 14B Instruct', family: 'qwen', params: '14.7B', context: '32K', speed: '18 tok/s (GPU)', size: '9.2 GB', spec: ['code', 'reasoning', 'math'], runtimeEnv: 'hf_mandatory', desc: 'Arquitectura pesada de altísima fidelidad. Obligatorio despliegue en HuggingFace.' },
+  { id: 'deepseek-coder-33b', name: 'DeepSeek Coder 33B Instruct', family: 'deepseek', params: '33.0B', context: '16K', speed: '12 tok/s (GPU)', size: '20.5 GB', spec: ['code', 'math'], runtimeEnv: 'hf_mandatory', desc: 'Modelo gigante para auditoría y síntesis de software. Obligatorio HuggingFace GPU.' },
 
-  // Cloud BYOK
-  { id: 'gemini-2.0-flash', name: 'Google Gemini 2.0 Flash (BYOK)', family: 'gemini', params: 'Cloud', context: '1M', speed: '75 tok/s', size: '0 MB', spec: ['code', 'reasoning', 'math'], desc: 'Inferencia ultra-veloz de Google con ventana de 1M tokens.' },
-  { id: 'deepseek-v3', name: 'DeepSeek V3 / R1 (BYOK)', family: 'deepseek', params: '671B MoE', context: '64K', speed: '55 tok/s', size: '0 MB', spec: ['code', 'reasoning', 'math'], desc: 'Modelo insignia de DeepSeek con razonamiento avanzado.' },
-  { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B (Groq LPU BYOK)', family: 'llama', params: '70B', context: '128K', speed: '120 tok/s', size: '0 MB', spec: ['reasoning', 'chat'], desc: 'Ejecución a velocidad récord en hardware LPU de Groq.' },
-  { id: 'gpt-4o-mini', name: 'OpenAI GPT-4o Mini (BYOK)', family: 'openai', params: 'Cloud', context: '128K', speed: '80 tok/s', size: '0 MB', spec: ['chat', 'general'], desc: 'Modelo compacto y rentable de OpenAI para evaluación.' },
-  { id: 'claude-3-5-sonnet', name: 'Anthropic Claude 3.5 Sonnet (BYOK)', family: 'anthropic', params: 'Cloud', context: '200K', speed: '60 tok/s', size: '0 MB', spec: ['code', 'reasoning'], desc: 'Líder en generación de código y comprensión contextual.' }
+  // ── CLOUD BYOK / API DIRECTA ──
+  { id: 'gemini-2.0-flash', name: 'Google Gemini 2.0 Flash (BYOK)', family: 'gemini', params: 'Cloud', context: '1M', speed: '75 tok/s', size: '0 MB', spec: ['code', 'reasoning', 'math'], runtimeEnv: 'cloud_byok', desc: 'Inferencia ultra-veloz de Google con ventana de 1M tokens.' },
+  { id: 'deepseek-v3', name: 'DeepSeek V3 / R1 (BYOK)', family: 'deepseek', params: '671B MoE', context: '64K', speed: '55 tok/s', size: '0 MB', spec: ['code', 'reasoning', 'math'], runtimeEnv: 'cloud_byok', desc: 'Modelo insignia de DeepSeek con razonamiento avanzado.' },
+  { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B (Groq LPU BYOK)', family: 'llama', params: '70B', context: '128K', speed: '120 tok/s', size: '0 MB', spec: ['reasoning', 'chat'], runtimeEnv: 'cloud_byok', desc: 'Ejecución a velocidad récord en hardware LPU de Groq.' },
+  { id: 'gpt-4o-mini', name: 'OpenAI GPT-4o Mini (BYOK)', family: 'openai', params: 'Cloud', context: '128K', speed: '80 tok/s', size: '0 MB', spec: ['chat', 'general'], runtimeEnv: 'cloud_byok', desc: 'Modelo compacto y rentable de OpenAI para evaluación.' },
+  { id: 'claude-3-5-sonnet', name: 'Anthropic Claude 3.5 Sonnet (BYOK)', family: 'anthropic', params: 'Cloud', context: '200K', speed: '60 tok/s', size: '0 MB', spec: ['code', 'reasoning'], runtimeEnv: 'cloud_byok', desc: 'Líder en generación de código y comprensión contextual.' }
 ];
 
 const STORAGE_REPO = '.mantx-storage';
@@ -1021,51 +1026,84 @@ function renderMarketplace() {
   if (!container) return;
 
   const search = (document.getElementById('market-search')?.value || '').toLowerCase();
+  const envFilter = document.getElementById('market-filter-env')?.value || '';
   const spec = document.getElementById('market-filter-spec')?.value || '';
 
   const filtered = DEFAULT_MODELS.filter(m => {
+    if (envFilter && m.runtimeEnv !== envFilter) return false;
     if (spec && !m.spec.includes(spec)) return false;
     if (search && !m.name.toLowerCase().includes(search) && !m.desc.toLowerCase().includes(search)) return false;
     return true;
   });
 
-  container.innerHTML = filtered.map(m => `
-    <div class="panel-card">
-      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.6rem;">
-        <span class="badge badge-emerald">${m.family.toUpperCase()}</span>
-        <span style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--emerald-light);">${m.speed}</span>
-      </div>
-      <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem;">${m.name}</h3>
-      <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.9rem; line-height: 1.4;">${m.desc}</p>
-      
-      <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.6rem;">
-        <span><strong>Context:</strong> ${m.context}</span>
-        <span><strong>Size:</strong> ${m.size}</span>
-        <span><strong>Params:</strong> ${m.params}</span>
-      </div>
+  container.innerHTML = filtered.map(m => {
+    // Environment Badge
+    let envBadge = '';
+    if (m.runtimeEnv === 'gh_actions') {
+      envBadge = `<span class="badge" style="background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); font-size: 0.68rem; font-weight: 600;">🟢 Compatible GitHub Actions ($0 CPU)</span>`;
+    } else if (m.runtimeEnv === 'hf_mandatory') {
+      envBadge = `<span class="badge" style="background: rgba(234,179,8,0.12); color: #fde047; border: 1px solid rgba(234,179,8,0.3); font-size: 0.68rem; font-weight: 600;">🤗 Obligatorio HuggingFace (GPU)</span>`;
+    } else {
+      envBadge = `<span class="badge" style="background: rgba(56,189,248,0.12); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); font-size: 0.68rem; font-weight: 600;">🌐 Cloud BYOK / API Directa</span>`;
+    }
 
-      <div style="display: flex; gap: 0.5rem;">
-        <button class="btn btn-primary btn-sm btn-block" onclick="selectModelForBattle('${m.id}')">⚔️ Enfrentar</button>
-        <button class="btn btn-secondary btn-sm" onclick="showModelRuntimePlan('${m.id}', '${m.name}')">📄 Info</button>
+    return `
+      <div class="panel-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.3rem;">
+            ${envBadge}
+            <span style="font-size: 0.76rem; font-family: var(--font-mono); color: var(--emerald-light);">${m.speed}</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem;">
+            <span class="badge badge-emerald" style="font-size: 0.65rem;">${m.family.toUpperCase()}</span>
+            <h3 style="font-size: 1.0rem; font-weight: 700; color: #fff; margin: 0;">${m.name}</h3>
+          </div>
+
+          <p style="font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.8rem; line-height: 1.45;">${m.desc}</p>
+          
+          <div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.6rem; background: rgba(0,0,0,0.25); padding: 0.45rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
+            <span><strong>Context:</strong> <span style="color: #fff;">${m.context}</span></span>
+            <span><strong>Size:</strong> <span style="color: #fff;">${m.size}</span></span>
+            <span><strong>Params:</strong> <span style="color: #fff;">${m.params}</span></span>
+          </div>
+        </div>
+
+        <div>
+          <button type="button" class="btn btn-secondary btn-sm btn-block" onclick="showModelRuntimePlan('${m.id}', '${m.name}')" style="font-size: 0.76rem; padding: 0.35rem 0.6rem;">
+            📄 Ver Especificaciones & Runtime
+          </button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 document.getElementById('market-search')?.addEventListener('input', renderMarketplace);
+document.getElementById('market-filter-env')?.addEventListener('change', renderMarketplace);
 document.getElementById('market-filter-spec')?.addEventListener('change', renderMarketplace);
 
-function selectModelForBattle(modelId) {
-  const input = document.getElementById('battle-candidates');
-  if (input) {
-    input.value = input.value ? `${input.value},${modelId}` : modelId;
-    switchTab('battles');
-    updateBattleEstimates();
-  }
-}
-
 function showModelRuntimePlan(modelId, modelName) {
-  const content = `# Especificaciones y Runtime MANTX\nModelo: ${modelName} (${modelId})\n\nHardware Target:   GitHub Actions CPU (Runner Ubuntu)\nEngine:            llama.cpp (GGUF Q4)\nMemoria Estimada:  ~2.4 GB RAM\n\nComando de terminal para planificar:\nmantx runtime plan --model ${modelId} --env action_cpu\n\nGenerar Action Workflow YAML:\nmantx runtime workflow --model ${modelId} --name "Runner ${modelName}"`;
+  const model = DEFAULT_MODELS.find(m => m.id === modelId);
+  const isGh = model?.runtimeEnv === 'gh_actions';
+  const isHf = model?.runtimeEnv === 'hf_mandatory';
+
+  let targetHardware = 'GitHub Actions CPU (Runner Ubuntu Standard — 6h Compute $0)';
+  let engine = 'llama.cpp GGUF Q4 (Cuantización 4-bit)';
+  let recommendation = '✔ Apto para fine-tuning y ejecución autónoma en workflows de GitHub Actions sin coste.';
+
+  if (isHf) {
+    targetHardware = 'HuggingFace Space / ZeroGPU (Acelerador Nvidia T4 / A10G Obligatorio)';
+    engine = 'vLLM / Transformers FP16 / BF16 (Parámetros Grandes)';
+    recommendation = '⚠️ Debido al tamaño de parámetros (+7B), este modelo requiere aceleración GPU en HuggingFace o una instancia ZeroGPU gratuita.';
+  } else if (!isGh) {
+    targetHardware = 'Proveedor Cloud BYOK (Groq, Google Gemini, OpenAI, Anthropic, DeepSeek)';
+    engine = 'API Gateway REST / OpenAI Compatible';
+    recommendation = '✔ Inferencia gestionada en la nube mediante tus propias API keys con mitigación 429.';
+  }
+
+  const content = `# 🗂️ Ficha Técnica y Runtime: ${modelName}\n\n• **ID del Modelo:** \`${modelId}\`\n• **Familia:** ${model?.family?.toUpperCase() || 'LLM'}\n• **Parámetros:** ${model?.params || 'N/A'}\n• **Ventana de Contexto:** ${model?.context || 'N/A'}\n• **Peso / Memoria:** ${model?.size || 'N/A'}\n• **Velocidad Estimada:** ${model?.speed || 'N/A'}\n\n---\n\n### 🖥️ Entorno de Ejecución:\n• **Hardware Target:** ${targetHardware}\n• **Motor de Inferencia:** ${engine}\n• **Diagnóstico:** ${recommendation}\n\n---\n\n### 💻 Comandos CLI de MANTX:\n\`\`\`bash\n# Planificar hardware target\nmantx runtime plan --model ${modelId} --env ${isHf ? 'hf_zerogpu' : isGh ? 'action_cpu' : 'byok'}\n\n# Generar workflow de GitHub Actions\nmantx runtime workflow --model ${modelId} --name "Runner-${modelId}"\n\`\`\``;
+
   showCustomModal(`📄 Especificaciones: ${modelName}`, content);
 }
 
