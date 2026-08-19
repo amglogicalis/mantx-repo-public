@@ -999,6 +999,18 @@ function switchTab(tabId) {
 
   if (targetContent) targetContent.classList.add('active');
   if (targetTab) targetTab.classList.add('active');
+
+  if (tabId === 'intelligence') {
+    renderAutoHealOptions();
+    renderIntelligenceHistory();
+  } else if (tabId === 'nimphys') {
+    renderNimphys();
+    renderLabMatrix();
+  } else if (tabId === 'akg') {
+    renderAkgPools();
+  } else if (tabId === 'marketplace') {
+    renderMarketplace();
+  }
 }
 
 document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -5004,6 +5016,134 @@ function closeAutoHealInfoModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+function openAddAutoHealModal() {
+  const modal = document.getElementById('add-autoheal-modal');
+  const select = document.getElementById('add-autoheal-nimphy-select');
+  if (!modal) return;
+
+  if (select) {
+    if (!nimphysList || nimphysList.length === 0) {
+      select.innerHTML = `<option value="nimphy_custom">Niphy Principal (Producción)</option>`;
+    } else {
+      select.innerHTML = nimphysList.map(n => `
+        <option value="${n.nimphyId}">${n.name} (${n.currentVersion || 'v1.0.0'}) — [${n.baseModel}]</option>
+      `).join('');
+    }
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closeAddAutoHealModal() {
+  const modal = document.getElementById('add-autoheal-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function saveNewAutoHealRule() {
+  const select = document.getElementById('add-autoheal-nimphy-select');
+  const thresholdSelect = document.getElementById('add-autoheal-threshold');
+  const methodSelect = document.getElementById('add-autoheal-method');
+  const activeCheck = document.getElementById('add-autoheal-active');
+
+  const nimphyId = select?.value || (nimphysList[0]?.nimphyId || 'nimphy_custom');
+  const threshold = Number(thresholdSelect?.value) || 12;
+  const method = methodSelect?.value || 'qlora';
+  const isEnabled = activeCheck ? activeCheck.checked : true;
+
+  const foundModel = nimphysList.find(n => n.nimphyId === nimphyId);
+  const name = foundModel?.name || nimphyId;
+  const baseModel = foundModel?.baseModel || 'qwen-2.5-coder-3b';
+  const currentVersion = foundModel?.currentVersion || 'v1.0.0';
+
+  autoHealMap[nimphyId] = {
+    nimphyId,
+    name,
+    baseModel,
+    currentVersion,
+    enabled: isEnabled,
+    driftThresholdPercent: threshold,
+    retrainMethod: method,
+    autoDeployOnlyIfWinsBattle: true,
+    lastScore: 95,
+    lastAudit: 'Sin auditoría reciente'
+  };
+
+  closeAddAutoHealModal();
+  renderAutoHealModelsGrid();
+  await saveAutoHealToVault();
+}
+
+function openEditAutoHealModal(nimphyId) {
+  const modal = document.getElementById('edit-autoheal-modal');
+  const idInput = document.getElementById('edit-autoheal-nimphy-id');
+  const subtitle = document.getElementById('edit-autoheal-subtitle');
+  const thresholdSelect = document.getElementById('edit-autoheal-threshold');
+  const methodSelect = document.getElementById('edit-autoheal-method');
+  const activeCheck = document.getElementById('edit-autoheal-active');
+
+  if (!modal) return;
+
+  const cfg = autoHealMap[nimphyId] || {
+    nimphyId,
+    enabled: true,
+    driftThresholdPercent: 12,
+    retrainMethod: 'qlora'
+  };
+
+  const foundModel = nimphysList.find(n => n.nimphyId === nimphyId);
+  const modelName = foundModel?.name || cfg.name || nimphyId;
+
+  if (idInput) idInput.value = nimphyId;
+  if (subtitle) subtitle.textContent = `Editando regla para ${modelName} (${nimphyId}).`;
+  if (thresholdSelect) thresholdSelect.value = String(cfg.driftThresholdPercent || 12);
+  if (methodSelect) methodSelect.value = cfg.retrainMethod || 'qlora';
+  if (activeCheck) activeCheck.checked = Boolean(cfg.enabled);
+
+  modal.classList.remove('hidden');
+}
+
+function closeEditAutoHealModal() {
+  const modal = document.getElementById('edit-autoheal-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function saveEditedAutoHealRule() {
+  const idInput = document.getElementById('edit-autoheal-nimphy-id');
+  const thresholdSelect = document.getElementById('edit-autoheal-threshold');
+  const methodSelect = document.getElementById('edit-autoheal-method');
+  const activeCheck = document.getElementById('edit-autoheal-active');
+
+  const nimphyId = idInput?.value;
+  if (!nimphyId) return;
+
+  if (!autoHealMap[nimphyId]) {
+    const found = nimphysList.find(n => n.nimphyId === nimphyId);
+    autoHealMap[nimphyId] = {
+      nimphyId,
+      name: found?.name || nimphyId,
+      baseModel: found?.baseModel || 'qwen-2.5-coder-3b',
+      currentVersion: found?.currentVersion || 'v1.0.0',
+      autoDeployOnlyIfWinsBattle: true
+    };
+  }
+
+  autoHealMap[nimphyId].driftThresholdPercent = Number(thresholdSelect?.value) || 12;
+  autoHealMap[nimphyId].retrainMethod = methodSelect?.value || 'qlora';
+  autoHealMap[nimphyId].enabled = Boolean(activeCheck?.checked);
+
+  closeEditAutoHealModal();
+  renderAutoHealModelsGrid();
+  await saveAutoHealToVault();
+}
+
+async function deleteAutoHealRule(nimphyId) {
+  if (autoHealMap[nimphyId]) {
+    delete autoHealMap[nimphyId];
+  }
+  renderAutoHealModelsGrid();
+  await saveAutoHealToVault();
+}
+
 function renderAutoHealOptions() {
   renderAutoHealModelsGrid();
 }
@@ -5013,14 +5153,40 @@ function renderAutoHealModelsGrid() {
   const countBadge = document.getElementById('autoheal-active-count-badge');
   if (!container) return;
 
-  if (!nimphysList || nimphysList.length === 0) {
+  // Combine tracked rules from autoHealMap and nimphysList
+  const ruleIds = Object.keys(autoHealMap);
+
+  // If autoHealMap is completely empty, initialize from nimphysList default
+  if (ruleIds.length === 0 && nimphysList && nimphysList.length > 0) {
+    nimphysList.slice(0, 3).forEach((n, idx) => {
+      autoHealMap[n.nimphyId] = {
+        nimphyId: n.nimphyId,
+        name: n.name,
+        baseModel: n.baseModel,
+        currentVersion: n.currentVersion || 'v1.0.0',
+        enabled: idx === 0, // First enabled by default
+        driftThresholdPercent: 12,
+        retrainMethod: n.method || 'qlora',
+        autoDeployOnlyIfWinsBattle: true,
+        lastScore: n.versions?.[n.versions.length - 1]?.benchmarkScore || 96,
+        lastAudit: 'Sin auditoría reciente'
+      };
+    });
+  }
+
+  const allActiveRuleIds = Object.keys(autoHealMap);
+
+  if (allActiveRuleIds.length === 0) {
     container.innerHTML = `
-      <div style="text-align: center; padding: 1.8rem 1rem; background: rgba(0,0,0,0.25); border: 1px dashed var(--border-subtle); border-radius: 8px;">
-        <span style="font-size: 1.5rem;">🧬</span>
-        <strong style="color: #fff; font-size: 0.88rem; display: block; margin-top: 0.3rem;">No hay Nimphys registrados en producción</strong>
-        <p class="text-dim text-xs" style="max-width: 420px; margin: 0.2rem auto 0.6rem auto;">
-          Entrena tu primer modelo en la pestaña <strong>Nimphys, Forge & Lab</strong> para activar el circuito cerrado de recuperación automática.
+      <div style="text-align: center; padding: 2.2rem 1rem; background: rgba(0,0,0,0.25); border: 1px dashed var(--border-subtle); border-radius: 8px;">
+        <span style="font-size: 1.6rem;">🛡️</span>
+        <strong style="color: #fff; font-size: 0.92rem; display: block; margin-top: 0.4rem;">No hay reglas de Auto-Heal configuradas</strong>
+        <p class="text-dim text-xs" style="max-width: 440px; margin: 0.2rem auto 0.8rem auto;">
+          Añade una regla de recuperación en circuito cerrado para monitorizar y re-entrenar tus modelos cuando sufran degradación o drift semántico.
         </p>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openAddAutoHealModal()" style="font-size: 0.76rem;">
+          ➕ Añadir Primera Regla Auto-Heal
+        </button>
       </div>
     `;
     if (countBadge) countBadge.textContent = '0 Modelos con Auto-Heal Activo';
@@ -5029,24 +5195,18 @@ function renderAutoHealModelsGrid() {
 
   let activeCount = 0;
 
-  container.innerHTML = nimphysList.map(n => {
-    // Ensure default config exists for this nimphy
-    if (!autoHealMap[n.nimphyId]) {
-      autoHealMap[n.nimphyId] = {
-        enabled: false,
-        driftThresholdPercent: 12,
-        autoDeployOnlyIfWinsBattle: true,
-        lastScore: n.versions?.[n.versions.length - 1]?.benchmarkScore || 95,
-        lastAudit: 'Sin auditoría reciente'
-      };
-    }
-
-    const cfg = autoHealMap[n.nimphyId];
+  container.innerHTML = allActiveRuleIds.map(ruleId => {
+    const cfg = autoHealMap[ruleId];
     if (cfg.enabled) activeCount++;
 
-    const isLocal = n.providerType === 'local_runner';
-    const isTermes = n.providerType === 'termes';
-    const isByok = n.providerType === 'byok_remote';
+    const foundNimphy = nimphysList.find(n => n.nimphyId === ruleId);
+    const displayName = foundNimphy?.name || cfg.name || ruleId;
+    const displayVersion = foundNimphy?.currentVersion || cfg.currentVersion || 'v1.0.0';
+    const displayBase = foundNimphy?.baseModel || cfg.baseModel || 'qwen-2.5-coder-3b';
+    const retrainMethod = (cfg.retrainMethod || foundNimphy?.method || 'qlora').toUpperCase();
+
+    const isTermes = foundNimphy?.providerType === 'termes' || ruleId.includes('termes');
+    const isByok = foundNimphy?.providerType === 'byok_remote' || ruleId.includes('byok');
     const providerBadge = isTermes
       ? `<span class="badge" style="background: rgba(6,182,212,0.12); color: #38bdf8; font-size: 0.65rem;">🌐 Termes Symbiont</span>`
       : isByok
@@ -5055,45 +5215,56 @@ function renderAutoHealModelsGrid() {
 
     return `
       <div class="panel-card" style="background: rgba(0,0,0,0.35); border: 1px solid ${cfg.enabled ? 'rgba(16,185,129,0.35)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.9rem 1.1rem; transition: border-color 0.2s ease;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.7rem;">
           
           <!-- Nimphy Identity -->
-          <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 220px;">
+          <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 240px;">
             <div>
-              <div style="display: flex; align-items: center; gap: 0.45rem;">
-                <strong style="color: #fff; font-size: 0.92rem;">${n.name}</strong>
-                <span class="badge badge-emerald" style="font-size: 0.65rem;">${n.currentVersion || 'v1.0.0'}</span>
+              <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                <strong style="color: #fff; font-size: 0.94rem;">${displayName}</strong>
+                <span class="badge badge-emerald" style="font-size: 0.65rem;">${displayVersion}</span>
                 ${providerBadge}
+                <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-dim); font-size: 0.65rem;">Auto-Train: ${retrainMethod}</span>
               </div>
-              <div style="font-size: 0.73rem; color: var(--text-dim); margin-top: 0.15rem;">
-                Modelo Base: <code style="color: #a7f3d0;">${n.baseModel}</code> • Método: <strong>${(n.method || 'qlora').toUpperCase()}</strong>
+              <div style="font-size: 0.73rem; color: var(--text-dim); margin-top: 0.2rem;">
+                Modelo Base: <code style="color: #a7f3d0;">${displayBase}</code> • ID: <span style="font-family: var(--font-mono);">${ruleId}</span>
               </div>
             </div>
           </div>
 
-          <!-- Controls: Threshold & Auto-Deploy Rule -->
-          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <!-- Controls: Threshold, Audit, Edit, Delete, Toggle -->
+          <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
             
-            <!-- Drift Threshold Select -->
+            <!-- Drift Threshold Select (Silent change) -->
             <div style="display: flex; align-items: center; gap: 0.35rem;">
-              <span style="font-size: 0.72rem; color: var(--text-dim);">Umbral Drift:</span>
-              <select class="input-select" style="padding: 0.2rem 0.5rem; font-size: 0.74rem; width: auto;" onchange="updateAutoHealThresholdForModel('${n.nimphyId}', this.value)">
-                <option value="8" ${cfg.driftThresholdPercent === 8 ? 'selected' : ''}>8% de Caída (Estricto)</option>
-                <option value="10" ${cfg.driftThresholdPercent === 10 ? 'selected' : ''}>10% de Caída</option>
-                <option value="12" ${cfg.driftThresholdPercent === 12 ? 'selected' : ''}>12% de Caída (Recomendado)</option>
-                <option value="15" ${cfg.driftThresholdPercent === 15 ? 'selected' : ''}>15% de Caída</option>
-                <option value="20" ${cfg.driftThresholdPercent === 20 ? 'selected' : ''}>20% de Caída</option>
+              <span style="font-size: 0.72rem; color: var(--text-dim);">Umbral:</span>
+              <select class="input-select" style="padding: 0.2rem 0.45rem; font-size: 0.74rem; width: auto;" onchange="updateAutoHealThresholdForModel('${ruleId}', this.value)">
+                <option value="8" ${cfg.driftThresholdPercent === 8 ? 'selected' : ''}>8% (Estricto)</option>
+                <option value="10" ${cfg.driftThresholdPercent === 10 ? 'selected' : ''}>10%</option>
+                <option value="12" ${cfg.driftThresholdPercent === 12 ? 'selected' : ''}>12% (Recomendado)</option>
+                <option value="15" ${cfg.driftThresholdPercent === 15 ? 'selected' : ''}>15%</option>
+                <option value="20" ${cfg.driftThresholdPercent === 20 ? 'selected' : ''}>20%</option>
               </select>
             </div>
 
-            <!-- Health Status & Individual Audit Button -->
-            <button type="button" class="btn btn-outline btn-sm" onclick="auditSingleNimphyHealth('${n.nimphyId}')" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; height: 28px;">
+            <!-- Health Audit Button -->
+            <button type="button" class="btn btn-outline btn-sm" onclick="auditSingleNimphyHealth('${ruleId}')" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; height: 28px;" title="Auditar salud y drift en tiempo real">
               🔍 Auditar
             </button>
 
-            <!-- Auto-Heal Toggle Switch -->
+            <!-- Edit Button -->
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditAutoHealModal('${ruleId}')" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; height: 28px;" title="Modificar regla Auto-Heal">
+              ✏️ Modificar
+            </button>
+
+            <!-- Delete Button -->
+            <button type="button" class="btn btn-outline btn-sm" onclick="deleteAutoHealRule('${ruleId}')" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; height: 28px; color: #f87171; border-color: rgba(248,113,113,0.3);" title="Eliminar regla Auto-Heal">
+              🗑️
+            </button>
+
+            <!-- Auto-Heal Toggle Switch (Silent change) -->
             <label class="switch" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; margin: 0;">
-              <input type="checkbox" ${cfg.enabled ? 'checked' : ''} onchange="toggleAutoHealForModel('${n.nimphyId}', this.checked)">
+              <input type="checkbox" ${cfg.enabled ? 'checked' : ''} onchange="toggleAutoHealForModel('${ruleId}', this.checked)">
               <span class="badge ${cfg.enabled ? 'badge-emerald' : 'badge-outline'}" style="font-size: 0.72rem; min-width: 96px; text-align: center; padding: 0.25rem 0.6rem;">
                 ${cfg.enabled ? '🟢 AUTO-HEAL' : '⚪ DESACTIVADO'}
               </span>
@@ -5113,15 +5284,16 @@ function renderAutoHealModelsGrid() {
 async function toggleAutoHealForModel(nimphyId, isChecked) {
   if (!autoHealMap[nimphyId]) {
     autoHealMap[nimphyId] = {
+      nimphyId,
       enabled: isChecked,
       driftThresholdPercent: 12,
+      retrainMethod: 'qlora',
       autoDeployOnlyIfWinsBattle: true
     };
   } else {
     autoHealMap[nimphyId].enabled = isChecked;
   }
 
-  // Update UI silently without any annoying popups
   renderAutoHealModelsGrid();
   await saveAutoHealToVault();
 }
@@ -5129,8 +5301,10 @@ async function toggleAutoHealForModel(nimphyId, isChecked) {
 async function updateAutoHealThresholdForModel(nimphyId, value) {
   if (!autoHealMap[nimphyId]) {
     autoHealMap[nimphyId] = {
+      nimphyId,
       enabled: false,
       driftThresholdPercent: Number(value) || 12,
+      retrainMethod: 'qlora',
       autoDeployOnlyIfWinsBattle: true
     };
   } else {
@@ -5175,6 +5349,21 @@ async function saveAutoHealToVault() {
     }
   }
 }
+
+// Explicit window assignments for HTML onclick reliability
+window.openAutoHealInfoModal = openAutoHealInfoModal;
+window.closeAutoHealInfoModal = closeAutoHealInfoModal;
+window.openAddAutoHealModal = openAddAutoHealModal;
+window.closeAddAutoHealModal = closeAddAutoHealModal;
+window.saveNewAutoHealRule = saveNewAutoHealRule;
+window.openEditAutoHealModal = openEditAutoHealModal;
+window.closeEditAutoHealModal = closeEditAutoHealModal;
+window.saveEditedAutoHealRule = saveEditedAutoHealRule;
+window.deleteAutoHealRule = deleteAutoHealRule;
+window.toggleAutoHealForModel = toggleAutoHealForModel;
+window.updateAutoHealThresholdForModel = updateAutoHealThresholdForModel;
+window.auditDriftHealth = auditDriftHealth;
+window.auditSingleNimphyHealth = auditSingleNimphyHealth;
 
 function renderIntelligenceHistory() {
   const list = document.getElementById('intelligence-history-list');

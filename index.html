@@ -583,10 +583,13 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;">
             <div>
               <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff;">🛡️ Gestión Multi-Modelo Auto-Heal (Closed-Loop Recovery)</h3>
-              <p class="text-dim text-xs">Configura y activa de forma independiente el auto-reentrenamiento por modelo. MANTX sintetiza datos y despliega la nueva versión solo si supera al modelo activo.</p>
+              <p class="text-dim text-xs">Configura, añade, modifica y elimina reglas de auto-reentrenamiento por modelo. MANTX sintetiza datos y despliega la nueva versión solo si supera al modelo activo.</p>
             </div>
-            <div style="font-size: 0.75rem; color: var(--emerald-light); display: flex; align-items: center; gap: 0.4rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
               <span id="autoheal-active-count-badge" class="badge badge-emerald">0 Modelos con Auto-Heal Activo</span>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openAddAutoHealModal()" style="font-size: 0.76rem; padding: 0.35rem 0.7rem; height: 30px; display: inline-flex; align-items: center; font-weight: 600;">
+                ➕ Añadir Regla Auto-Heal
+              </button>
             </div>
           </div>
 
@@ -1563,6 +1566,125 @@
 
       <div style="margin-top: 1.2rem; display: flex; justify-content: flex-end;">
         <button class="btn btn-primary btn-sm" onclick="closeAutoHealInfoModal()">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD AUTO-HEAL RULE MODAL -->
+  <div id="add-autoheal-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.3rem;">🛡️</span>
+          <div>
+            <h3 style="margin: 0; color: #fff;">Añadir Regla Auto-Heal</h3>
+            <p class="text-dim text-xs" style="margin: 0;">Configura la recuperación autónoma en bucle cerrado para un modelo en producción.</p>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeAddAutoHealModal()">✕</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.9rem;">
+        <div class="form-group mb-0">
+          <label>Seleccionar Nimphy Objetivo:</label>
+          <select id="add-autoheal-nimphy-select" class="input-select">
+            <!-- Injected via JS -->
+          </select>
+        </div>
+
+        <div class="grid-2" style="gap: 0.8rem;">
+          <div class="form-group mb-0">
+            <label>Umbral de Drift para Disparo:</label>
+            <select id="add-autoheal-threshold" class="input-select">
+              <option value="8">8% de Caída Semántica (Estricto)</option>
+              <option value="10">10% de Caída Semántica</option>
+              <option value="12" selected>12% de Caída Semántica (Recomendado)</option>
+              <option value="15">15% de Caída Semántica</option>
+              <option value="20">20% de Caída Semántica</option>
+            </select>
+          </div>
+          <div class="form-group mb-0">
+            <label>Método de Re-entrenamiento:</label>
+            <select id="add-autoheal-method" class="input-select">
+              <option value="qlora" selected>QLoRA 4-bit ($0 CPU / GPU)</option>
+              <option value="lora">LoRA Standard</option>
+              <option value="raft">RAFT (Retrieval-Augmented)</option>
+              <option value="graph_rag">Graph RAG (Arzor Ecdysis)</option>
+              <option value="aft">AFT (Adaptive Fractal Tuning)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem; font-size: 0.76rem; color: var(--text-dim); line-height: 1.5;">
+          🛡️ <strong>Garantía de Cero Regresiones:</strong> Cuando se active el disparo, MANTX sintetizará datos con <em>Forge</em>, entrenará una versión incremental a coste $0 y solo la promocionará a producción si supera al modelo activo en una <em>Deimatic Battle</em>.
+        </div>
+
+        <div class="form-group mb-0" style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="checkbox" id="add-autoheal-active" checked style="width: 16px; height: 16px; cursor: pointer;">
+          <label for="add-autoheal-active" style="cursor: pointer; margin-bottom: 0; color: #fff; font-size: 0.82rem;">
+            Activar regla Auto-Heal inmediatamente
+          </label>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.2rem; display: flex; justify-content: flex-end; gap: 0.6rem;">
+        <button class="btn btn-secondary btn-sm" onclick="closeAddAutoHealModal()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="saveNewAutoHealRule()">💾 Guardar Regla Auto-Heal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT AUTO-HEAL RULE MODAL -->
+  <div id="edit-autoheal-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.3rem;">✏️</span>
+          <div>
+            <h3 style="margin: 0; color: #fff;">Modificar Regla Auto-Heal</h3>
+            <p class="text-dim text-xs" style="margin: 0;" id="edit-autoheal-subtitle">Editando configuración de Auto-Heal.</p>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeEditAutoHealModal()">✕</button>
+      </div>
+
+      <input type="hidden" id="edit-autoheal-nimphy-id">
+
+      <div style="display: flex; flex-direction: column; gap: 0.9rem;">
+        <div class="grid-2" style="gap: 0.8rem;">
+          <div class="form-group mb-0">
+            <label>Umbral de Drift para Disparo:</label>
+            <select id="edit-autoheal-threshold" class="input-select">
+              <option value="8">8% de Caída Semántica (Estricto)</option>
+              <option value="10">10% de Caída Semántica</option>
+              <option value="12">12% de Caída Semántica (Recomendado)</option>
+              <option value="15">15% de Caída Semántica</option>
+              <option value="20">20% de Caída Semántica</option>
+            </select>
+          </div>
+          <div class="form-group mb-0">
+            <label>Método de Re-entrenamiento:</label>
+            <select id="edit-autoheal-method" class="input-select">
+              <option value="qlora">QLoRA 4-bit ($0 CPU / GPU)</option>
+              <option value="lora">LoRA Standard</option>
+              <option value="raft">RAFT (Retrieval-Augmented)</option>
+              <option value="graph_rag">Graph RAG (Arzor Ecdysis)</option>
+              <option value="aft">AFT (Adaptive Fractal Tuning)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group mb-0" style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="checkbox" id="edit-autoheal-active" style="width: 16px; height: 16px; cursor: pointer;">
+          <label for="edit-autoheal-active" style="cursor: pointer; margin-bottom: 0; color: #fff; font-size: 0.82rem;">
+            Auto-Heal Activo (Closed-Loop habilitado)
+          </label>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.2rem; display: flex; justify-content: flex-end; gap: 0.6rem;">
+        <button class="btn btn-secondary btn-sm" onclick="closeEditAutoHealModal()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="saveEditedAutoHealRule()">💾 Guardar Cambios</button>
       </div>
     </div>
   </div>
