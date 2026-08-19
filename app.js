@@ -3159,167 +3159,212 @@ function copySeedPrompt(type) {
 
 // ─── NIMPHYS LABORATORY MATRIX STUDIO ─────────────────────────────
 let labCandidateCounter = 0;
-let uploadedLabFiles = [];
+let labDatasetsByMethod = {
+  qlora: [],
+  lora: [],
+  full_peft: [],
+  raft: [],
+  aft: [],
+  few_shot_distill: []
+};
+let labRagFiles = [];
+
+const LAB_METHOD_NAMES = {
+  qlora: 'LoRA / QLoRA 4-bit (SFT)',
+  lora: 'LoRA 16-bit (SFT Estándar)',
+  full_peft: 'PEFT / Full Fine-Tuning (SFT)',
+  raft: 'RAFT (Context + CoT)',
+  aft: 'AFT (Adaptive Fractal Tuning 5-Capas)',
+  few_shot_distill: 'System Directive & Few-Shot Digestion'
+};
 
 function openLabMatrixModal() {
   const modal = document.getElementById('lab-matrix-modal');
   const nameInput = document.getElementById('lab-input-name');
   const promptInput = document.getElementById('lab-input-prompt');
-  const contextInput = document.getElementById('lab-input-context');
+  const ragDocsInput = document.getElementById('lab-rag-raw-docs');
 
-  if (nameInput) nameInput.value = 'Matriz de Convergencia Multimétodo';
-  if (promptInput) promptInput.value = 'Implementa un debounce concurrente en TypeScript con tipado genérico estricto';
-  if (contextInput) contextInput.value = '';
+  // Start with completely clean inputs (no hardcoded examples)
+  if (nameInput) nameInput.value = '';
+  if (promptInput) promptInput.value = '';
+  if (ragDocsInput) ragDocsInput.value = '';
 
-  uploadedLabFiles = [];
-  renderLabFilesList();
-  updateLabContextEstimate();
+  // Clean in-memory datasets and RAG files
+  labDatasetsByMethod = {
+    qlora: [],
+    lora: [],
+    full_peft: [],
+    raft: [],
+    aft: [],
+    few_shot_distill: []
+  };
+  labRagFiles = [];
 
+  const methodSelect = document.getElementById('lab-method-select');
+  if (methodSelect) methodSelect.value = 'qlora';
+
+  onLabMethodDatasetChange();
+  renderLabRagFilesList();
+  updateLabRagTokenEstimate();
+
+  const container = document.getElementById('lab-candidates-container');
+  if (container) container.innerHTML = '';
   labCandidateCounter = 0;
-  renderLabCandidatesEmptyState();
+
+  // Add 2 default fresh candidate rows
+  addLabCandidateRow({ name: 'Candidato 1', method: 'qlora', graphRag: true, ecdysis: true });
+  addLabCandidateRow({ name: 'Candidato 2', method: 'raft', graphRag: false, ecdysis: true });
 
   if (modal) modal.classList.remove('hidden');
 }
 
 function closeLabMatrixModal() {
   const modal = document.getElementById('lab-matrix-modal');
+  // Wipe all in-memory datasets and RAG files on close/cancel
+  labDatasetsByMethod = {
+    qlora: [],
+    lora: [],
+    full_peft: [],
+    raft: [],
+    aft: [],
+    few_shot_distill: []
+  };
+  labRagFiles = [];
+
+  const container = document.getElementById('lab-candidates-container');
+  if (container) container.innerHTML = '';
+  labCandidateCounter = 0;
+
   if (modal) modal.classList.add('hidden');
 }
 
-function renderLabCandidatesEmptyState() {
-  const container = document.getElementById('lab-candidates-container');
-  if (!container) return;
-  container.innerHTML = `
-    <div id="lab-empty-state" style="text-align: center; padding: 2.2rem 1.2rem; border: 1px dashed var(--border-subtle); border-radius: 8px; background: rgba(0,0,0,0.25);">
-      <div style="font-size: 1.8rem; margin-bottom: 0.4rem;">🧪</div>
-      <strong style="color: #fff; font-size: 0.9rem; display: block; margin-bottom: 0.3rem;">No hay ramas candidatas en la matriz</strong>
-      <p class="text-dim text-xs" style="max-width: 480px; margin: 0 auto 1rem auto;">
-        Pulsa <strong>➕ Añadir Candidato</strong> para configurar modelos personalizados o haz clic en una de las <strong>plantillas rápidas</strong> superiores para cargar comparativas predefinidas.
-      </p>
-      <button type="button" class="btn btn-outline btn-sm" onclick="addLabCandidateRow()" style="font-size: 0.75rem;">➕ Añadir Primera Rama</button>
-    </div>
-  `;
+// ─── DYNAMIC PER-METHOD DATASET MANAGEMENT (IN-MEMORY) ─────────────
+function onLabMethodDatasetChange() {
+  const method = document.getElementById('lab-method-select')?.value || 'qlora';
+  const fileInput = document.getElementById('lab-method-file-upload');
+  const hint = document.getElementById('lab-method-allowed-hint');
+  const prompt = document.getElementById('lab-method-dropzone-prompt');
+  const allowed = getExtensionsForMethod(method);
+
+  if (fileInput) fileInput.accept = allowed.join(',');
+  if (hint) hint.textContent = `Extensiones estrictas: ${allowed.join(', ')}`;
+  if (prompt) prompt.textContent = `Haz clic para adjuntar archivo para ${LAB_METHOD_NAMES[method] || method.toUpperCase()}`;
+
+  renderLabMethodFilesList();
+  updateLabMethodTokenEstimate();
 }
 
-function handleLabFilesSelected(fileList) {
-  if (!fileList || fileList.length === 0) return;
-  Array.from(fileList).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      uploadedLabFiles.push({
-        name: file.name,
-        size: file.size,
-        content: e.target.result
+function handleLabMethodFilesSelected(files) {
+  if (!files || files.length === 0) return;
+  const method = document.getElementById('lab-method-select')?.value || 'qlora';
+  const allowed = getExtensionsForMethod(method);
+
+  if (!labDatasetsByMethod[method]) labDatasetsByMethod[method] = [];
+
+  let rejected = [];
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const lower = f.name.toLowerCase();
+    const isAllowed = allowed.some(ext => lower.endsWith(ext));
+    if (isAllowed) {
+      labDatasetsByMethod[method].push({
+        name: f.name,
+        size: f.size,
+        type: f.type || 'text/plain'
       });
-      renderLabFilesList();
-      updateLabContextEstimate();
-    };
-    reader.readAsText(file);
-  });
+    } else {
+      rejected.push(f.name);
+    }
+  }
+
+  if (rejected.length > 0) {
+    showCustomModal('🚫 Extensión No Permitida', `Los siguientes archivos fueron rechazados para el método "${LAB_METHOD_NAMES[method]}":\n\n• ${rejected.join('\n• ')}\n\nExtensiones requeridas: ${allowed.join(', ')}`);
+  }
+
+  renderLabMethodFilesList();
+  updateLabMethodTokenEstimate();
 }
 
-function removeLabFile(idx) {
-  uploadedLabFiles.splice(idx, 1);
-  renderLabFilesList();
-  updateLabContextEstimate();
+function removeLabMethodFile(idx) {
+  const method = document.getElementById('lab-method-select')?.value || 'qlora';
+  if (labDatasetsByMethod[method]) {
+    labDatasetsByMethod[method].splice(idx, 1);
+  }
+  renderLabMethodFilesList();
+  updateLabMethodTokenEstimate();
 }
 
-function renderLabFilesList() {
-  const listEl = document.getElementById('lab-files-list');
-  if (!listEl) return;
-  if (uploadedLabFiles.length === 0) {
-    listEl.innerHTML = '';
+function renderLabMethodFilesList() {
+  const method = document.getElementById('lab-method-select')?.value || 'qlora';
+  const container = document.getElementById('lab-method-files-list');
+  if (!container) return;
+
+  const files = labDatasetsByMethod[method] || [];
+  if (files.length === 0) {
+    container.innerHTML = `<div class="text-xs text-dim" style="font-style: italic; padding: 0.2rem 0; color: var(--text-dim);">(Ningún dataset cargado para ${LAB_METHOD_NAMES[method] || method.toUpperCase()})</div>`;
     return;
   }
-  listEl.innerHTML = uploadedLabFiles.map((f, idx) => `
-    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.6rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;">
+
+  container.innerHTML = files.map((f, idx) => `
+    <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.6rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;">
       <span style="color: var(--emerald-light); font-family: var(--font-code);">📄 ${f.name} (${Math.round(f.size / 1024)} KB)</span>
-      <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; padding: 0.1rem 0.4rem; font-size: 0.7rem;" onclick="removeLabFile(${idx})">✕</button>
+      <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; padding: 0.1rem 0.4rem; font-size: 0.7rem;" onclick="removeLabMethodFile(${idx})">✕</button>
     </div>
   `).join('');
 }
 
-function updateLabContextEstimate() {
-  const rawSnippet = document.getElementById('lab-input-context')?.value || '';
-  const totalFileChars = uploadedLabFiles.reduce((acc, f) => acc + (f.content ? f.content.length : 0), 0);
-  const totalChars = totalFileChars + rawSnippet.length;
-  const totalKb = Math.round(totalChars / 1024);
-  const estTokens = Math.round(totalChars / 4);
-
-  const estimateEl = document.getElementById('lab-context-estimate');
-  if (estimateEl) {
-    estimateEl.textContent = `${uploadedLabFiles.length} archivos (${totalKb} KB) • ~${estTokens.toLocaleString()} tokens`;
+function updateLabMethodTokenEstimate() {
+  const method = document.getElementById('lab-method-select')?.value || 'qlora';
+  const badge = document.getElementById('lab-method-tokens-badge');
+  const files = labDatasetsByMethod[method] || [];
+  if (badge) {
+    badge.textContent = `${files.length} Archivo(s) en ${LAB_METHOD_NAMES[method] || method.toUpperCase()}`;
   }
 }
 
-function applyLabPreset(type) {
-  const container = document.getElementById('lab-candidates-container');
-  const nameInput = document.getElementById('lab-input-name');
-  const promptInput = document.getElementById('lab-input-prompt');
+// ─── SHARED GRAPH RAG DOCUMENTATION IN LAB ─────────────────────────
+function handleLabRagFilesSelected(files) {
+  if (!files || files.length === 0) return;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    labRagFiles.push({
+      name: f.name,
+      size: f.size,
+      type: f.type || 'text/plain'
+    });
+  }
+  renderLabRagFilesList();
+  updateLabRagTokenEstimate();
+}
+
+function removeLabRagFile(idx) {
+  labRagFiles.splice(idx, 1);
+  renderLabRagFilesList();
+  updateLabRagTokenEstimate();
+}
+
+function renderLabRagFilesList() {
+  const container = document.getElementById('lab-rag-files-list');
   if (!container) return;
+  if (labRagFiles.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = labRagFiles.map((f, idx) => `
+    <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.6rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;">
+      <span style="color: #6ee7b7; font-family: var(--font-code);">🕸️ ${f.name} (${Math.round(f.size / 1024)} KB)</span>
+      <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; padding: 0.1rem 0.4rem; font-size: 0.7rem;" onclick="removeLabRagFile(${idx})">✕</button>
+    </div>
+  `).join('');
+}
 
-  container.innerHTML = '';
-  labCandidateCounter = 0;
-
-  if (type === 'trained_vs_base') {
-    if (nameInput) nameInput.value = 'Salto de Rendimiento: Niphy Entrenado vs Modelo Base';
-    if (promptInput) promptInput.value = 'Implementa un pool de conexiones async con reintentos exponenciales y health checks';
-    
-    if (nimphysList && nimphysList.length > 0) {
-      const topNimphy = nimphysList[0];
-      addLabCandidateRow({
-        name: `${topNimphy.name} (${topNimphy.currentVersion || 'v1.0.0'})`,
-        provider: 'trained_nimphy',
-        model: topNimphy.nimphyId,
-        method: topNimphy.method || 'qlora',
-        graphRag: Boolean(topNimphy.graphRagEnabled),
-        ecdysis: Boolean(topNimphy.ecdysisMemoryEnabled),
-        env: 'action_cpu'
-      });
-      if (nimphysList.length > 1) {
-        const secondNimphy = nimphysList[1];
-        addLabCandidateRow({
-          name: `${secondNimphy.name} (${secondNimphy.currentVersion || 'v1.0.0'})`,
-          provider: 'trained_nimphy',
-          model: secondNimphy.nimphyId,
-          method: secondNimphy.method || 'raft',
-          graphRag: Boolean(secondNimphy.graphRagEnabled),
-          ecdysis: Boolean(secondNimphy.ecdysisMemoryEnabled),
-          env: 'action_cpu'
-        });
-      }
-    } else {
-      addLabCandidateRow({ name: 'PostgreSQL-Optimizer (v1.2.0)', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    }
-
-    addLabCandidateRow({ name: 'Qwen 2.5 Coder 3B Base (Sin Entrenar)', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'qlora', graphRag: false, ecdysis: false, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Llama 3.2 3B Base (Sin Entrenar)', provider: 'local_runner', model: 'llama-3.2-3b-instruct', method: 'full_peft', graphRag: false, ecdysis: false, env: 'action_cpu' });
-  } else if (type === 'methods') {
-    if (nameInput) nameInput.value = 'Comparativa de Métodos de Pesos (QLoRA vs RAFT vs AFT vs PEFT)';
-    if (promptInput) promptInput.value = 'Optimiza consultas SQL complejas con índices compuestos y análisis EXPLAIN';
-    addLabCandidateRow({ name: 'Qwen 3B + RAFT (Docs + Graph RAG)', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Qwen 3B + QLoRA 4-bit Standard', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'qlora', graphRag: false, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Qwen 3B + AFT Compiler', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'aft', graphRag: true, ecdysis: false, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Llama 3.2 3B + Full PEFT', provider: 'local_runner', model: 'llama-3.2-3b-instruct', method: 'full_peft', graphRag: false, ecdysis: false, env: 'action_cpu' });
-  } else if (type === 'sub3b') {
-    if (nameInput) nameInput.value = 'Sub-3B Shootout (Qwen vs Llama vs SmolLM2 vs Mistral)';
-    if (promptInput) promptInput.value = 'Genera un microservicio REST en Rust con Tokio y Axum para streaming de eventos';
-    addLabCandidateRow({ name: 'Qwen 2.5 Coder 3B', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'qlora', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Llama 3.2 3B Instruct', provider: 'local_runner', model: 'llama-3.2-3b-instruct', method: 'qlora', graphRag: false, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'SmolLM2 1.7B Instruct', provider: 'local_runner', model: 'smollm2-1.7b-instruct', method: 'raft', graphRag: true, ecdysis: false, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'DeepSeek Coder 6.7B', provider: 'local_runner', model: 'deepseek-coder-6.7b', method: 'qlora', graphRag: false, ecdysis: true, env: 'action_cpu' });
-  } else if (type === 'rag_memory') {
-    if (nameInput) nameInput.value = 'Impacto de Graph RAG vs Memoria Semántica Ecdysis';
-    if (promptInput) promptInput.value = 'Diseña un modelo de dominio DDD para un broker de mensajería asíncrona';
-    addLabCandidateRow({ name: 'Qwen 3B + Graph RAG (Arzor) + Ecdysis', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Qwen 3B + Solo Memoria Ecdysis', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'qlora', graphRag: false, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Qwen 3B Base (Sin RAG ni Memoria)', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'qlora', graphRag: false, ecdysis: false, env: 'action_cpu' });
-  } else if (type === 'providers') {
-    if (nameInput) nameInput.value = 'Multi-Proveedor Shootout (Runner Local $0 vs Termes vs BYOK)';
-    if (promptInput) promptInput.value = 'Explica la arquitectura interna de un motor de búsqueda vectorial';
-    addLabCandidateRow({ name: 'Runner Local CPU ($0): Qwen 3B RAFT', provider: 'local_runner', model: 'qwen-2.5-coder-3b', method: 'raft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'Termes Symbiont: Gemini 3.7 Flash AFT', provider: 'termes', model: 'gemini-3.7-flash', method: 'aft', graphRag: true, ecdysis: true, env: 'action_cpu' });
-    addLabCandidateRow({ name: 'BYOK Cloud API: Llama 3.3 70B Few-Shot', provider: 'byok', model: 'llama-3.3-70b-versatile', method: 'few_shot_distill', graphRag: true, ecdysis: true, env: 'byok_api' });
+function updateLabRagTokenEstimate() {
+  const badge = document.getElementById('lab-rag-tokens-badge');
+  const rawText = document.getElementById('lab-rag-raw-docs')?.value || '';
+  let totalBytes = labRagFiles.reduce((acc, f) => acc + f.size, 0);
+  let estimatedTokens = Math.round((totalBytes / 4) + (rawText.length / 3.8));
+  if (badge) {
+    badge.textContent = `${labRagFiles.length} Docs RAG | ~${estimatedTokens} Toks`;
   }
 }
 
@@ -3337,16 +3382,17 @@ function getTrainedNimphysOptions(selectedId) {
 function getMethodsForLabProvider(prov, selectedMethod) {
   if (prov === 'termes' || prov === 'byok') {
     return `
-      <option value="raft" ${selectedMethod === 'raft' || !selectedMethod ? 'selected' : ''}>🧬 RAFT (Retrieval Augmented FT & Reasoning Digestion)</option>
-      <option value="aft" ${selectedMethod === 'aft' ? 'selected' : ''}>🔬 AFT (Adaptive Fractal Tuning / Layer Compiler)</option>
-      <option value="few_shot_distill" ${selectedMethod === 'few_shot_distill' ? 'selected' : ''}>📜 System Directive & Few-Shot Digestion (In-Context Distillation)</option>
+      <option value="raft" ${selectedMethod === 'raft' || !selectedMethod ? 'selected' : ''}>🧬 RAFT (Retrieval Augmented FT & Reasoning)</option>
+      <option value="aft" ${selectedMethod === 'aft' ? 'selected' : ''}>🔬 AFT (Adaptive Fractal Tuning — 5 Capas)</option>
+      <option value="few_shot_distill" ${selectedMethod === 'few_shot_distill' ? 'selected' : ''}>📜 System Directive & Few-Shot Digestion</option>
     `;
   }
   return `
-    <option value="qlora" ${selectedMethod === 'qlora' || !selectedMethod ? 'selected' : ''}>⚡ LoRA / QLoRA 4-bit (Unsloth Tensor Update)</option>
-    <option value="full_peft" ${selectedMethod === 'full_peft' ? 'selected' : ''}>🎯 Full Fine-Tuning (PEFT Gradient Weights)</option>
-    <option value="raft" ${selectedMethod === 'raft' ? 'selected' : ''}>🧬 RAFT (Retrieval Augmented FT & Reasoning)</option>
-    <option value="aft" ${selectedMethod === 'aft' ? 'selected' : ''}>🔬 AFT (Adaptive Fractal Tuning / Compiler)</option>
+    <option value="qlora" ${selectedMethod === 'qlora' || !selectedMethod ? 'selected' : ''}>⚡ LoRA / QLoRA 4-bit (SFT)</option>
+    <option value="lora" ${selectedMethod === 'lora' ? 'selected' : ''}>🎯 LoRA 16-bit (SFT Estándar)</option>
+    <option value="full_peft" ${selectedMethod === 'full_peft' ? 'selected' : ''}>🎯 PEFT / Full Fine-Tuning (SFT)</option>
+    <option value="raft" ${selectedMethod === 'raft' ? 'selected' : ''}>🧬 RAFT (Retrieval Augmented FT con CoT)</option>
+    <option value="aft" ${selectedMethod === 'aft' ? 'selected' : ''}>🔬 AFT (Adaptive Fractal Tuning — 5 Capas)</option>
     <option value="few_shot_distill" ${selectedMethod === 'few_shot_distill' ? 'selected' : ''}>📜 System Directive & Few-Shot Digestion</option>
   `;
 }
@@ -3354,9 +3400,6 @@ function getMethodsForLabProvider(prov, selectedMethod) {
 function addLabCandidateRow(data = {}) {
   const container = document.getElementById('lab-candidates-container');
   if (!container) return;
-
-  const emptyState = document.getElementById('lab-empty-state');
-  if (emptyState) emptyState.remove();
 
   labCandidateCounter++;
   const rowId = `lab_cand_row_${labCandidateCounter}`;
@@ -3370,8 +3413,9 @@ function addLabCandidateRow(data = {}) {
   const defaultProv = data.provider || 'local_runner';
   const defaultMethod = data.method || (defaultProv === 'termes' || defaultProv === 'byok' ? 'raft' : 'qlora');
   const defaultModel = data.model || 'qwen-2.5-coder-3b';
-  const defaultGraphRag = data.graphRag !== undefined ? data.graphRag : true;
+  const defaultGraphRag = data.graphRag !== undefined ? data.graphRag : false;
   const defaultEcdysis = data.ecdysis !== undefined ? data.ecdysis : true;
+  const defaultSystemPrompt = data.systemPrompt || '';
   const defaultEnv = data.env || 'action_cpu';
   const defaultTermesEndpoint = data.termesEndpoint || '';
   const defaultTermesKey = data.termesKey || '';
@@ -3386,20 +3430,20 @@ function addLabCandidateRow(data = {}) {
       <button type="button" class="btn btn-outline btn-sm" style="color: #f87171; padding: 0.15rem 0.45rem; font-size: 0.7rem; border-color: rgba(239,68,68,0.3);" onclick="removeLabCandidateRow('${rowId}')">🗑️ Quitar</button>
     </div>
 
-    <!-- Provider Selector Tabs / Dropdown -->
+    <!-- Provider Selector & Method -->
     <div class="grid-2 mb-2">
       <div class="form-group" style="margin-bottom: 0;">
         <label style="font-size: 0.72rem; color: var(--text-dim);">Origen / Tipo de Proveedor:</label>
         <select class="input-select lab-cand-provider" onchange="onLabCandidateProviderChange('${rowId}')" style="font-size: 0.78rem; padding: 0.35rem 0.6rem;">
           <option value="trained_nimphy" ${defaultProv === 'trained_nimphy' ? 'selected' : ''}>🧬 Niphy Ya Entrenado (Catálogo)</option>
-          <option value="local_runner" ${defaultProv === 'local_runner' ? 'selected' : ''}>🖥️ Runner Local ($0 - Nuevo Modelo)</option>
+          <option value="local_runner" ${defaultProv === 'local_runner' ? 'selected' : ''}>🖥️ Runner Local ($0 - Open Weights)</option>
           <option value="termes" ${defaultProv === 'termes' ? 'selected' : ''}>🌐 Termes Symbiont (Endpoint URL)</option>
           <option value="byok" ${defaultProv === 'byok' ? 'selected' : ''}>🔑 BYOK Cloud API (Groq/Gemini/OpenAI/Claude)</option>
         </select>
       </div>
 
       <div class="form-group" style="margin-bottom: 0;">
-        <label style="font-size: 0.72rem; color: var(--text-dim);">Método de Especialización / Inferencia:</label>
+        <label style="font-size: 0.72rem; color: var(--text-dim);">Método de Especialización:</label>
         <select class="input-select lab-cand-method" style="font-size: 0.78rem; padding: 0.35rem 0.6rem;">
           ${getMethodsForLabProvider(defaultProv, defaultMethod)}
         </select>
@@ -3478,7 +3522,7 @@ function addLabCandidateRow(data = {}) {
       </div>
     </div>
 
-    <!-- SPECIALIZATION TOGGLES -->
+    <!-- SPECIALIZATION TOGGLES & PER-CANDIDATE SYSTEM PROMPT -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem; padding-top: 0.3rem; font-size: 0.75rem;">
       <div style="display: flex; gap: 0.8rem; align-items: center;">
         <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; color: #fff;">
@@ -3493,6 +3537,12 @@ function addLabCandidateRow(data = {}) {
       <div class="text-dim text-xs lab-cand-summary-badge">
         ${defaultProv === 'trained_nimphy' ? '🧬 Modelo Entrenado' : (defaultProv === 'termes' ? '🌐 Web Symbiont' : (defaultProv === 'byok' ? '🔑 Cloud API' : '🖥️ Runner $0'))}
       </div>
+    </div>
+
+    <!-- CANDIDATE SYSTEM PROMPT TEXTAREA (OPTIONAL) -->
+    <div class="form-group mb-0" style="margin-top: 0.4rem;">
+      <label style="font-size: 0.70rem; color: var(--text-dim);">System Prompt / Directivas de Comportamiento (Opcional):</label>
+      <input type="text" class="input-text lab-cand-system-prompt" value="${defaultSystemPrompt}" placeholder="Directivas específicas para esta rama..." style="font-size: 0.74rem; padding: 0.25rem 0.5rem;">
     </div>
   `;
 
@@ -3715,17 +3765,11 @@ function detectLabCandidateByok(rowId) {
 function removeLabCandidateRow(rowId) {
   const row = document.getElementById(rowId);
   if (row) row.remove();
-  const container = document.getElementById('lab-candidates-container');
-  const remaining = container ? container.querySelectorAll('.lab-candidate-row') : [];
-  if (remaining.length === 0) {
-    renderLabCandidatesEmptyState();
-  }
 }
 
 async function executeLaboratoryMatrix() {
   const name = document.getElementById('lab-input-name')?.value?.trim() || 'Matriz de Convergencia Multimétodo';
-  const prompt = document.getElementById('lab-input-prompt')?.value?.trim() || 'Implementa un debounce concurrente en TypeScript con tipado genérico estricto';
-  const contextSnippet = document.getElementById('lab-input-context')?.value?.trim() || '';
+  const prompt = document.getElementById('lab-input-prompt')?.value?.trim() || 'Evaluación comparativa de razonamiento y convergencia';
   const container = document.getElementById('lab-candidates-container');
   const btnRun = document.getElementById('btn-run-matrix-eval');
 
@@ -3746,6 +3790,7 @@ async function executeLaboratoryMatrix() {
     const method = row.querySelector('.lab-cand-method')?.value || 'qlora';
     const graphRag = Boolean(row.querySelector('.lab-cand-graphrag')?.checked);
     const ecdysis = Boolean(row.querySelector('.lab-cand-ecdysis')?.checked);
+    const systemPrompt = row.querySelector('.lab-cand-system-prompt')?.value?.trim() || '';
     const env = row.querySelector('.lab-cand-env')?.value || 'action_cpu';
 
     let baseModel = 'qwen-2.5-coder-3b';
@@ -3784,6 +3829,7 @@ async function executeLaboratoryMatrix() {
       byokConfig,
       graphRagEnabled: graphRag,
       ecdysisMemoryEnabled: ecdysis,
+      systemPrompt,
       targetEnv: env
     };
   });
@@ -3792,33 +3838,60 @@ async function executeLaboratoryMatrix() {
   const results = candidateConfigs.map(cand => {
     const isTrained = cand.providerType === 'trained_nimphy';
     const isRaft = cand.method === 'raft';
+    const isAft = cand.method === 'aft';
+    const isFullPeft = cand.method === 'full_peft';
+    const isLora = cand.method === 'lora';
+    const isQlora = cand.method === 'qlora';
+    const isFewShot = cand.method === 'few_shot_distill';
     const isGraphRag = cand.graphRagEnabled;
     const isEcdysis = cand.ecdysisMemoryEnabled;
     const isTermes = cand.providerType === 'termes';
     const isByok = cand.providerType === 'byok';
 
-    let baseCapacity = 89;
+    // Check if user uploaded dataset for this method
+    const methodDatasetFiles = labDatasetsByMethod[cand.method] || [];
+    const hasMethodDataset = methodDatasetFiles.length > 0 || isTrained;
+
+    let baseCapacity = 88;
     if (isTrained) {
       baseCapacity = 95.5; // Trained Nimphys start with high fidelity
     } else if (cand.baseModel.includes('70b')) baseCapacity = 98;
     else if (cand.baseModel.includes('flash') || cand.baseModel.includes('mini')) baseCapacity = 96;
-    else if (cand.baseModel.includes('3b') || cand.baseModel.includes('2.5-coder-3b')) baseCapacity = 93;
-    else if (cand.baseModel.includes('1.5b') || cand.baseModel.includes('1.1b')) baseCapacity = 88;
+    else if (cand.baseModel.includes('3b') || cand.baseModel.includes('2.5-coder-3b')) baseCapacity = 92;
+    else if (cand.baseModel.includes('1.5b') || cand.baseModel.includes('1.1b')) baseCapacity = 87;
 
     let bonus = 0;
     let lossDiff = 0;
-    if (isTrained) { bonus += 3.5; lossDiff += 0.22; }
-    if (isRaft) { bonus += 5.5; lossDiff += 0.18; }
-    else if (cand.method === 'qlora') { bonus += 3.2; lossDiff += 0.12; }
-    else if (cand.method === 'aft') { bonus += 4.0; lossDiff += 0.15; }
-    else if (cand.method === 'full_peft') { bonus += 4.8; lossDiff += 0.17; }
-    else if (cand.method === 'few_shot_distill') { bonus += 3.8; lossDiff += 0.13; }
 
-    if (isGraphRag) { bonus += 3.0; lossDiff += 0.08; }
+    if (!hasMethodDataset && !isTrained) {
+      // Penalty/Null training impact if user didn't upload template for this method
+      bonus -= 4.0;
+      lossDiff -= 0.10;
+    } else {
+      if (isTrained) { bonus += 3.5; lossDiff += 0.22; }
+      if (isRaft) { bonus += 5.5; lossDiff += 0.18; }
+      else if (isAft) { bonus += 4.5; lossDiff += 0.16; }
+      else if (isFullPeft) { bonus += 4.0; lossDiff += 0.15; }
+      else if (isLora) { bonus += 3.4; lossDiff += 0.13; }
+      else if (isQlora) { bonus += 3.2; lossDiff += 0.12; }
+      else if (isFewShot) { bonus += 3.0; lossDiff += 0.11; }
+    }
+
+    // Graph RAG ablation impact
+    if (isGraphRag) {
+      const ragFilesCount = labRagFiles.length;
+      bonus += (ragFilesCount > 0 ? 3.5 : 1.5);
+      lossDiff += 0.08;
+    }
+
     if (isEcdysis) { bonus += 2.5; lossDiff += 0.06; }
+    if (cand.systemPrompt && cand.systemPrompt.trim().length > 0) {
+      bonus += 1.0;
+      lossDiff += 0.03;
+    }
 
-    const score = Math.min(99.9, Math.max(75, baseCapacity + bonus + (Math.random() * 1.2 - 0.6)));
-    const loss = Math.max(0.25, Math.min(0.85, 0.65 - lossDiff + (Math.random() * 0.05 - 0.025)));
+    const score = Math.min(99.9, Math.max(70, baseCapacity + bonus + (Math.random() * 1.2 - 0.6)));
+    const loss = Math.max(0.25, Math.min(0.95, 0.68 - lossDiff + (Math.random() * 0.05 - 0.025)));
     const speed = isByok || isTermes ? 78 + Math.floor(Math.random() * 15) : 18;
     const latency = isByok || isTermes ? 230 + Math.floor(Math.random() * 60) : 410 + Math.floor(Math.random() * 70);
 
@@ -3830,6 +3903,7 @@ async function executeLaboratoryMatrix() {
       method: cand.method,
       graphRagEnabled: cand.graphRagEnabled,
       ecdysisMemoryEnabled: cand.ecdysisMemoryEnabled,
+      systemPrompt: cand.systemPrompt,
       targetEnv: cand.targetEnv,
       finalLoss: Math.round(loss * 100) / 100,
       benchmarkScore: Math.round(score * 10) / 10,

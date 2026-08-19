@@ -927,11 +927,12 @@
         <div class="form-group" style="margin-bottom: 0;">
           <label>Método de Especialización / Entrenamiento:</label>
           <select id="nimphy-method" class="input-select" onchange="onNimphyMethodChange()">
-            <option value="qlora">LoRA / QLoRA 4-bit (Unsloth Tensor Update)</option>
-            <option value="full_peft">PEFT / Full Fine-Tuning (Gradient Weights)</option>
-            <option value="raft">RAFT (Retrieval-Augmented Fine-Tuning con Docs)</option>
-            <option value="aft">AFT Compiler (Adaptive Fractal Tuning Arzor)</option>
-            <option value="few_shot_distill">System Directive & Few-Shot Digestion (In-Context Distillation)</option>
+            <option value="qlora" selected>LoRA / QLoRA 4-bit (SFT — Cuantización 4-bit & Low-Rank)</option>
+            <option value="lora">LoRA 16-bit (SFT — Low-Rank Adaptation Estándar)</option>
+            <option value="full_peft">PEFT / Full Fine-Tuning (SFT — Gradient Adapters)</option>
+            <option value="raft">RAFT (Retrieval-Augmented Fine-Tuning con CoT)</option>
+            <option value="aft">AFT Compiler (Adaptive Fractal Tuning Arzor 5-Capas)</option>
+            <option value="few_shot_distill">System Directive & Few-Shot Digestion (In-Context Calibration)</option>
           </select>
         </div>
       </div>
@@ -1154,66 +1155,103 @@
 
   <!-- NIMPHYS LABORATORY MATRIX STUDIO MODAL -->
   <div id="lab-matrix-modal" class="modal-backdrop hidden">
-    <div class="modal-card" style="max-width: 840px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-card" style="max-width: 880px; max-height: 90vh; overflow-y: auto;">
       <div class="modal-header">
         <div>
           <h3>🧪 Nimphys Laboratory Matrix Studio</h3>
-          <p class="text-dim text-xs">Diseña tu matriz comparativa multirama para encontrar la configuración óptima de entrenamiento.</p>
+          <p class="text-dim text-xs">Diseña tu matriz comparativa multirama. Carga datasets específicos por método en memoria y evalúa el impacto de Graph RAG, memoria y modelos.</p>
         </div>
         <button class="btn-close" onclick="closeLabMatrixModal()">✕</button>
-      </div>
-
-      <!-- Presets Selector -->
-      <div class="form-group mb-3" style="background: rgba(16,185,129,0.06); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
-        <label style="color: var(--emerald-light); font-weight: 700;">🎯 Cargar Preset de Comparativa Rápida:</label>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; margin-top: 0.4rem;">
-          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('trained_vs_base')" style="font-size: 0.72rem; text-align: left; color: #34d399;">🧬 Niphy Entrenado vs Base</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('methods')" style="font-size: 0.72rem; text-align: left;">🏆 QLoRA vs RAFT vs AFT</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('sub3b')" style="font-size: 0.72rem; text-align: left;">🏎️ Sub-3B Shootout</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('rag_memory')" style="font-size: 0.72rem; text-align: left;">🧠 Impacto RAG vs Memoria</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="applyLabPreset('providers')" style="font-size: 0.72rem; text-align: left;">🌐 Runner vs Termes vs BYOK</button>
-        </div>
       </div>
 
       <div class="grid-2 mb-3">
         <div class="form-group" style="margin-bottom: 0;">
           <label>Nombre del Benchmark / Experimento:</label>
-          <input type="text" id="lab-input-name" class="input-text" placeholder="Ej: PostgreSQL Optimizer Convergence Matrix">
+          <input type="text" id="lab-input-name" class="input-text" placeholder="Nombre del experimento...">
         </div>
         <div class="form-group" style="margin-bottom: 0;">
           <label>Tarea / Prompt de Evaluación:</label>
-          <input type="text" id="lab-input-prompt" class="input-text" placeholder="Ej: Implementa un debounce concurrente en TypeScript con tipado genérico estricto">
+          <input type="text" id="lab-input-prompt" class="input-text" placeholder="Tarea o consulta de prueba para evaluar los modelos...">
         </div>
       </div>
 
-      <!-- Context / Seed Documentation & Dataset Upload Area -->
-      <div class="form-group mb-3">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.4rem;">
-          <label style="margin-bottom: 0;">📁 Documentación Semilla & Datasets de Prueba (Opcional):</label>
-          <span class="text-dim text-xs" id="lab-context-estimate">0 KB • ~0 tokens</span>
+      <!-- 1. DYNAMIC IN-MEMORY DATASET / TEMPLATE UPLOADER PER METHOD -->
+      <div class="form-group mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.9rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1rem;">📄</span>
+            <strong style="color: var(--emerald-light); font-size: 0.85rem;">1. Datasets / Plantillas por Método (En Memoria):</strong>
+          </div>
+          <span id="lab-method-tokens-badge" class="badge badge-mint" style="font-size: 0.68rem;">0 Archivos en Método Actual</span>
         </div>
 
-        <div style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 0.8rem; text-align: center; margin-bottom: 0.6rem; cursor: pointer; background: #020704;" onclick="document.getElementById('lab-file-upload').click()">
-          <input type="file" id="lab-file-upload" multiple style="display: none;" onchange="handleLabFilesSelected(this.files)">
-          <div style="font-size: 1.2rem; margin-bottom: 0.2rem;">📁</div>
-          <div style="font-size: 0.82rem; font-weight: 600; color: #fff;">Subir archivos de documentación o datasets (.json, .txt, .md, .sql, .csv)</div>
-          <div class="text-dim text-xs">Los documentos se usarán para evaluar la fidelidad y convergencia de cada modelo.</div>
+        <div class="grid-2 mb-2">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.75rem;">Configurar Dataset para el Método:</label>
+            <select id="lab-method-select" class="input-select" onchange="onLabMethodDatasetChange()">
+              <option value="qlora" selected>LoRA / QLoRA 4-bit (SFT)</option>
+              <option value="lora">LoRA 16-bit (SFT Estándar)</option>
+              <option value="full_peft">PEFT / Full Fine-Tuning (SFT)</option>
+              <option value="raft">RAFT (Retrieval-Augmented Fine-Tuning con CoT)</option>
+              <option value="aft">AFT (Adaptive Fractal Tuning — 5 Capas)</option>
+              <option value="few_shot_distill">System Directive & Few-Shot Digestion</option>
+            </select>
+          </div>
+          <div style="display: flex; flex-direction: column; justify-content: flex-end;">
+            <div id="lab-method-allowed-hint" class="text-xs text-dim" style="font-size: 0.72rem; color: #a7f3d0; margin-bottom: 0.2rem;">
+              Extensiones estrictas: .jsonl, .json, .csv, .parquet
+            </div>
+            <div class="text-xs text-dim" style="font-size: 0.70rem;">
+              💡 Cada método retiene sus propios archivos en memoria al alternar el desplegable.
+            </div>
+          </div>
         </div>
 
-        <div id="lab-files-list" style="margin-bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem;"></div>
+        <!-- Dropzone for selected method -->
+        <div style="border: 2px dashed rgba(16,185,129,0.3); border-radius: 8px; padding: 0.7rem; text-align: center; margin-bottom: 0.5rem; cursor: pointer; background: #020704;" onclick="document.getElementById('lab-method-file-upload').click()">
+          <input type="file" id="lab-method-file-upload" multiple style="display: none;" onchange="handleLabMethodFilesSelected(this.files)">
+          <div style="font-size: 1rem; margin-bottom: 0.1rem;">📂</div>
+          <div id="lab-method-dropzone-prompt" style="font-size: 0.78rem; font-weight: 600; color: #fff;">Haz clic para adjuntar archivo para este método</div>
+        </div>
 
-        <!-- Direct text snippet paste -->
-        <textarea id="lab-input-context" class="input-textarea" rows="2" placeholder="O pega aquí fragmentos de texto, manuales técnicos o ejemplos de prueba directos..." oninput="updateLabContextEstimate()"></textarea>
+        <!-- File list for active method -->
+        <div id="lab-method-files-list" style="display: flex; flex-direction: column; gap: 0.3rem;"></div>
       </div>
 
-      <!-- Matrix Candidate Branches -->
+      <!-- 2. DEDICATED GRAPH RAG SHARED DOCUMENTATION BLOCK -->
+      <div class="form-group mb-3" style="background: rgba(16,185,129,0.03); border: 1px solid rgba(16,185,129,0.25); border-radius: 10px; padding: 0.9rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1rem;">🕸️</span>
+            <strong style="color: #6ee7b7; font-size: 0.85rem;">2. Documentación Compartida para Graph RAG (Opcional):</strong>
+          </div>
+          <span id="lab-rag-tokens-badge" class="badge badge-mint" style="font-size: 0.68rem;">0 Docs RAG</span>
+        </div>
+
+        <div style="border: 1px dashed rgba(16,185,129,0.25); border-radius: 6px; padding: 0.6rem; text-align: center; margin-bottom: 0.5rem; cursor: pointer; background: #010804;" onclick="document.getElementById('lab-rag-file-upload').click()">
+          <input type="file" id="lab-rag-file-upload" multiple accept=".txt,.md,.pdf,.json,.yaml,.py,.js,.ts,.sql,.csv" style="display: none;" onchange="handleLabRagFilesSelected(this.files)">
+          <div style="font-size: 0.78rem; font-weight: 600; color: #fff;">📄 Adjuntar documentos de referencia (.md, .pdf, .sql, .ts, .txt, etc.)</div>
+        </div>
+
+        <div id="lab-rag-files-list" style="margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem;"></div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.72rem; color: var(--text-dim);">O escribe texto directo para alimentar el grafo de conocimiento:</label>
+          <textarea id="lab-rag-raw-docs" class="input-textarea" rows="2" placeholder="Especificaciones, notas o directivas para el grafo..." oninput="updateLabRagTokenEstimate()"></textarea>
+        </div>
+        <div class="text-xs text-dim" style="margin-top: 0.3rem; font-size: 0.70rem;">
+          💡 Los candidatos que tengan marcada la casilla <code>🕸️ Graph RAG</code> consumirán esta base documental; los que no, serán evaluados sin ella.
+        </div>
+      </div>
+
+      <!-- 3. MATRIX CANDIDATES CONTAINER -->
       <div class="form-group mb-3">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-          <label style="color: #fff; font-weight: 700;">Configuraciones Candidatas a Comparar (Ramas de la Matriz):</label>
+          <label style="color: #fff; font-weight: 700;">3. Configuraciones Candidatas a Comparar (Ramas de la Matriz):</label>
           <button type="button" class="btn btn-outline btn-sm" onclick="addLabCandidateRow()" style="font-size: 0.75rem;">➕ Añadir Candidato</button>
         </div>
-        <div id="lab-candidates-container" style="display: flex; flex-direction: column; gap: 0.6rem;">
-          <!-- Dynamically populated candidate rows -->
+        <div id="lab-candidates-container" style="display: flex; flex-direction: column; gap: 0.8rem;">
+          <!-- Dynamically populated candidate cards -->
         </div>
       </div>
 
