@@ -1466,30 +1466,9 @@ function renderCandidateSourceModal() {
       }).join('');
     }
   }
-
-  // 3. Render AKG Pools in BYOK tab
-  const poolsListContainer = document.getElementById('battle-akg-pools-list');
-  if (poolsListContainer) {
-    const list = (typeof akgPools !== 'undefined' && Array.isArray(akgPools)) ? akgPools : [];
-    if (list.length === 0) {
-      poolsListContainer.innerHTML = `<span class="text-dim text-xs">No hay pools creados en AKG Gateway.</span>`;
-    } else {
-      poolsListContainer.innerHTML = list.map(p => `
-        <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.6rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem;">
-          <div>
-            <strong style="color: #fff;">${p.name}</strong>
-            <span style="color: var(--text-dim); font-size: 0.68rem; margin-left: 0.4rem;">(${p.keys?.length || 0} claves • ${p.strategy})</span>
-          </div>
-          <button type="button" class="btn btn-outline btn-sm" onclick="addAkgPoolCandidateToBattle('${p.poolId}')" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;">
-            ➕ Añadir Pool
-          </button>
-        </div>
-      `).join('');
-    }
-  }
 }
 
-// ─── TERMES SYMBIONT INTERACTIVE CANDIDATE HELPERS ──────────
+// ─── TERMES SYMBIONT STRICT INTERACTIVE CANDIDATE HELPERS ───
 function setBattleTermesPreset(preset) {
   const input = document.getElementById('battle-termes-endpoint');
   if (input) {
@@ -1500,61 +1479,169 @@ function setBattleTermesPreset(preset) {
 
 function onBattleTermesEndpointInput() {
   const alertEl = document.getElementById('battle-termes-status-alert');
+  const selectEl = document.getElementById('battle-termes-model-select');
+  const addBtn = document.getElementById('btn-add-termes-to-battle');
+
+  if (selectEl) {
+    selectEl.innerHTML = '<option value="" disabled selected>Esperando verificación de endpoint...</option>';
+    selectEl.disabled = true;
+  }
+  if (addBtn) addBtn.disabled = true;
+
   if (alertEl) {
-    alertEl.style.background = 'rgba(56,189,248,0.06)';
-    alertEl.style.borderColor = 'rgba(56,189,248,0.25)';
+    alertEl.style.background = 'rgba(255,255,255,0.03)';
+    alertEl.style.border = '1px solid var(--border-subtle)';
     alertEl.style.color = 'var(--text-dim)';
-    alertEl.innerHTML = '💡 Endpoint modificado. Pulsa <strong>"Verificar y Detectar"</strong> para comprobar el estado.';
+    alertEl.innerHTML = 'ℹ️ Endpoint modificado. Pulsa <strong>"Verificar y Detectar"</strong> para comprobar que responde y cargar sus modelos.';
   }
 }
 
 async function detectBattleTermesModels() {
-  const endpoint = document.getElementById('battle-termes-endpoint')?.value?.trim() || 'http://127.0.0.1:7420/v1';
+  const endpointInput = document.getElementById('battle-termes-endpoint');
+  const keyInput = document.getElementById('battle-termes-auth-key');
   const alertEl = document.getElementById('battle-termes-status-alert');
   const selectEl = document.getElementById('battle-termes-model-select');
   const btn = document.getElementById('btn-battle-detect-termes');
+  const addBtn = document.getElementById('btn-add-termes-to-battle');
+
+  const endpoint = endpointInput?.value?.trim() || '';
+  const apiKey = keyInput?.value?.trim() || '';
+
+  if (!endpoint) {
+    if (selectEl) {
+      selectEl.innerHTML = '<option value="" disabled selected>Introduce la URL del endpoint primero...</option>';
+      selectEl.disabled = true;
+    }
+    if (addBtn) addBtn.disabled = true;
+    if (alertEl) {
+      alertEl.style.background = 'rgba(255,255,255,0.03)';
+      alertEl.style.border = '1px solid var(--border-subtle)';
+      alertEl.style.color = 'var(--text-dim)';
+      alertEl.innerHTML = 'ℹ️ Introduce la URL de tu endpoint de Termes (ej: <code>http://127.0.0.1:7420/v1</code> o URL de archivo <code>.json</code>) o pulsa en <em>"Cargar Localhost"</em>.';
+    }
+    return;
+  }
 
   if (btn) btn.disabled = true;
+  if (addBtn) addBtn.disabled = true;
+  if (selectEl) {
+    selectEl.innerHTML = '<option value="" disabled selected>Conectando y detectando modelos...</option>';
+    selectEl.disabled = true;
+  }
   if (alertEl) {
-    alertEl.style.background = 'rgba(56,189,248,0.1)';
+    alertEl.style.background = 'rgba(56,189,248,0.08)';
+    alertEl.style.border = '1px solid rgba(56,189,248,0.3)';
     alertEl.style.color = '#38bdf8';
-    alertEl.textContent = `⏳ Conectando con ${endpoint} y verificando modelos disponibles...`;
+    alertEl.textContent = `⏳ Conectando con ${endpoint} y comprobando modelos disponibles...`;
+  }
+
+  const cleanEp = endpoint.replace(/\/+$/, '');
+  const baseUrl = cleanEp.endsWith('/v1') ? cleanEp : `${cleanEp}/v1`;
+  const rootUrl = cleanEp.replace(/\/v1$/, '');
+
+  const headers = { 'Accept': 'application/json' };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
   try {
-    let models = (typeof TERMES_DEFAULT_MODELS !== 'undefined') ? TERMES_DEFAULT_MODELS : [
-      { id: 'termes-gemini-2.0-flash', name: 'Gemini 2.0 Flash Web (1M Context, $0)' },
-      { id: 'termes-gemini-2.0-pro', name: 'Gemini 2.0 Pro Experimental Web ($0)' },
-      { id: 'termes-claude-3-5-sonnet', name: 'Claude 3.5 Sonnet Web Bridge (Arzor Proxy)' },
-      { id: 'termes-deepseek-v3', name: 'DeepSeek V3 Web Bridge (Zero Cost)' }
-    ];
+    const candidateUrls = [];
+    if (cleanEp.endsWith('.json')) {
+      candidateUrls.push(cleanEp);
+    } else {
+      candidateUrls.push(`${baseUrl}/models`);
+      candidateUrls.push(`${cleanEp}/models.json`);
+      candidateUrls.push(`${baseUrl}/models.json`);
+      candidateUrls.push(`${rootUrl}/models`);
+    }
 
-    try {
-      const res = await fetch(`${endpoint.replace(/\/+$/, '')}/models`, { method: 'GET', signal: AbortSignal.timeout(2000) });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.data) && data.data.length > 0) {
-          models = data.data.map(m => ({ id: m.id, name: `${m.id} (Detectado en vivo)` }));
+    let modelsRes = null;
+    let authError = false;
+
+    for (const testUrl of candidateUrls) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        const res = await fetch(testUrl, {
+          method: 'GET',
+          headers,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.status === 401 || res.status === 403) {
+          authError = true;
+          continue;
         }
+        if (res.ok) {
+          modelsRes = res;
+          break;
+        }
+      } catch {}
+    }
+
+    if (authError && !modelsRes) {
+      if (selectEl) {
+        selectEl.innerHTML = '<option value="" disabled selected>🔒 Requiere Auth Token</option>';
+        selectEl.disabled = true;
       }
-    } catch {}
+      if (alertEl) {
+        alertEl.style.background = 'rgba(239,68,68,0.12)';
+        alertEl.style.border = '1px solid #ef4444';
+        alertEl.style.color = '#fca5a5';
+        alertEl.innerHTML = `<strong>🔒 Error de Autenticación (401):</strong> El endpoint de Termes requiere una clave de acceso. Introduce el Auth Token en el campo correspondiente.`;
+      }
+      return;
+    }
+
+    if (!modelsRes || !modelsRes.ok) {
+      throw new Error(`El endpoint no respondió en ninguna de las rutas (/models, /models.json).`);
+    }
+
+    const payload = await modelsRes.json();
+    let detectedModels = [];
+
+    if (payload.endpointId || (payload.defaultModel && (payload.providerChain || payload.fallbackChain))) {
+      const defaultModel = payload.defaultModel || 'gemini-2.0-flash';
+      const providerName = payload.fallbackChain?.[0]?.provider || payload.providerChain?.[0] || 'Termes Web';
+      detectedModels = [{ id: defaultModel, name: `${defaultModel} (${providerName})` }];
+    } else {
+      const rawList = Array.isArray(payload.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+      detectedModels = rawList.map(m => {
+        const id = typeof m === 'string' ? m : (m.id || m.name || 'unknown');
+        const owned = typeof m === 'object' && m.owned_by ? m.owned_by : 'Termes';
+        return { id, name: `${id} (${owned})` };
+      });
+    }
+
+    if (detectedModels.length === 0) {
+      throw new Error(`El endpoint respondió pero el catálogo de modelos está vacío.`);
+    }
 
     if (selectEl) {
-      selectEl.innerHTML = models.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+      selectEl.innerHTML = detectedModels.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+      selectEl.disabled = false;
     }
+    if (addBtn) addBtn.disabled = false;
 
     if (alertEl) {
       alertEl.style.background = 'rgba(16,185,129,0.1)';
-      alertEl.style.borderColor = 'rgba(16,185,129,0.3)';
+      alertEl.style.border = '1px solid var(--emerald-main)';
       alertEl.style.color = '#34d399';
-      alertEl.innerHTML = `✔ <strong>Conexión verificada:</strong> Endpoint activo (${models.length} modelos listos).`;
+      alertEl.innerHTML = `✔ <strong>Conexión verificada:</strong> Endpoint activo (${detectedModels.length} modelo${detectedModels.length > 1 ? 's' : ''} detectado${detectedModels.length > 1 ? 's' : ''} en vivo). Selecciona el modelo a enfrentar.`;
     }
   } catch (err) {
+    if (selectEl) {
+      selectEl.innerHTML = '<option value="" disabled selected>No se pudo conectar con el endpoint</option>';
+      selectEl.disabled = true;
+    }
+    if (addBtn) addBtn.disabled = true;
+
     if (alertEl) {
-      alertEl.style.background = 'rgba(239,68,68,0.1)';
-      alertEl.style.borderColor = 'rgba(239,68,68,0.3)';
-      alertEl.style.color = '#f87171';
-      alertEl.innerHTML = `⚠️ No se pudo verificar directamente (${err.message}). Modelos Termes estándar cargados.`;
+      alertEl.style.background = 'rgba(239,68,68,0.12)';
+      alertEl.style.border = '1px solid #ef4444';
+      alertEl.style.color = '#fca5a5';
+      alertEl.innerHTML = `🔴 <strong>Error de Conexión:</strong> No se pudo contactar con <code>${cleanEp}</code> (${err.message}). Asegúrate de que el proceso Termes está iniciado y escuchando.`;
     }
   } finally {
     if (btn) btn.disabled = false;
@@ -1562,18 +1649,26 @@ async function detectBattleTermesModels() {
 }
 
 function addTermesCandidateToBattle() {
-  const endpoint = document.getElementById('battle-termes-endpoint')?.value?.trim() || 'http://127.0.0.1:7420/v1';
-  const modelId = document.getElementById('battle-termes-model-select')?.value || 'termes-gemini-2.0-flash';
+  const endpoint = document.getElementById('battle-termes-endpoint')?.value?.trim() || '';
+  const modelSelect = document.getElementById('battle-termes-model-select');
+  const modelId = modelSelect?.value;
   const authKey = document.getElementById('battle-termes-auth-key')?.value?.trim() || '';
+
+  if (!endpoint || !modelId) {
+    showCustomModal('⚠️ Modelo Termes No Detectado', 'Por favor verifica primero el endpoint para cargar un modelo válido.');
+    return;
+  }
 
   let ctx = 32768;
   if (modelId.includes('flash') || modelId.includes('pro')) ctx = 1048576;
   else if (modelId.includes('claude')) ctx = 200000;
   else if (modelId.includes('deepseek')) ctx = 64000;
 
+  const modelText = modelSelect.options[modelSelect.selectedIndex]?.text || modelId;
+
   const candObj = {
     candidateId: `cand_termes_${Date.now()}`,
-    name: `Termes: ${modelId}`,
+    name: `Termes: ${modelText}`,
     modelId: modelId,
     endpoint: endpoint,
     authKey: authKey,
@@ -1590,12 +1685,27 @@ function addTermesCandidateToBattle() {
   closeAddBattleCandidateModal();
 }
 
-// ─── BYOK INTERACTIVE KEY DETECTION CANDIDATE HELPERS ───────
+// ─── BYOK STRICT DYNAMIC KEY DETECTION CANDIDATE HELPERS ────
 function autoDetectBattleByokProvider() {
   const key = document.getElementById('battle-byok-key-input')?.value?.trim() || '';
   const nameEl = document.getElementById('battle-byok-detected-name');
   const badgeEl = document.getElementById('battle-byok-detected-badge');
   const selectEl = document.getElementById('battle-byok-model-select');
+  const addBtn = document.getElementById('btn-add-byok-to-battle');
+
+  if (!key) {
+    if (nameEl) {
+      nameEl.textContent = 'Pega una clave para auto-detectar';
+      nameEl.style.color = 'var(--text-dim)';
+    }
+    if (badgeEl) badgeEl.textContent = 'Auto-Detect';
+    if (selectEl) {
+      selectEl.innerHTML = '<option value="" disabled selected>Introduce tu API Key primero...</option>';
+      selectEl.disabled = true;
+    }
+    if (addBtn) addBtn.disabled = true;
+    return;
+  }
 
   let provider = 'groq';
   let providerName = 'Groq Cloud';
@@ -1625,30 +1735,44 @@ function autoDetectBattleByokProvider() {
     provider = 'huggingface';
     providerName = 'HuggingFace Serverless';
     badgeText = 'ZeroGPU';
-  } else if (key.length > 0) {
+  } else {
     provider = 'openrouter';
     providerName = 'OpenRouter / Genérico';
     badgeText = 'Multi-Model';
   }
 
-  if (nameEl) nameEl.textContent = providerName;
+  if (nameEl) {
+    nameEl.textContent = providerName;
+    nameEl.style.color = 'var(--emerald-light)';
+  }
   if (badgeEl) badgeEl.textContent = badgeText;
 
   if (selectEl && typeof BYOK_DEFAULT_MODELS !== 'undefined') {
     const models = BYOK_DEFAULT_MODELS[provider] || BYOK_DEFAULT_MODELS['groq'] || [];
-    selectEl.innerHTML = models.map(m => `<option value="${provider}/${m.id}">${m.name}</option>`).join('');
+    if (models.length > 0) {
+      selectEl.innerHTML = models.map(m => `<option value="${provider}/${m.id}">${m.name}</option>`).join('');
+      selectEl.disabled = false;
+      if (addBtn) addBtn.disabled = false;
+    } else {
+      selectEl.innerHTML = '<option value="" disabled selected>No hay modelos configurados para este proveedor</option>';
+      selectEl.disabled = true;
+      if (addBtn) addBtn.disabled = true;
+    }
   }
 }
 
 function addByokCandidateToBattle() {
   const key = document.getElementById('battle-byok-key-input')?.value?.trim();
-  const selectVal = document.getElementById('battle-byok-model-select')?.value || 'groq/llama-3.3-70b-versatile';
-  const [provider, modelId] = selectVal.includes('/') ? selectVal.split('/') : ['byok', selectVal];
+  const selectEl = document.getElementById('battle-byok-model-select');
+  const selectVal = selectEl?.value;
 
-  if (!key) {
-    showCustomModal('⚠️ API Key Requerida', 'Por favor introduce tu API Key para configurar el modelo BYOK.');
+  if (!key || !selectVal) {
+    showCustomModal('⚠️ Datos Incompletos', 'Por favor introduce tu API Key y selecciona un modelo válido.');
     return;
   }
+
+  const [provider, modelId] = selectVal.includes('/') ? selectVal.split('/') : ['byok', selectVal];
+  const modelText = selectEl.options[selectEl.selectedIndex]?.text || modelId;
 
   let ctx = 128000;
   if (modelId.includes('flash') || modelId.includes('pro')) ctx = 1048576;
@@ -1657,7 +1781,7 @@ function addByokCandidateToBattle() {
 
   const candObj = {
     candidateId: `cand_byok_${Date.now()}`,
-    name: `${provider.toUpperCase()}: ${modelId}`,
+    name: `${provider.toUpperCase()}: ${modelText}`,
     modelId: modelId,
     apiKey: key,
     type: 'byok',
@@ -1670,30 +1794,6 @@ function addByokCandidateToBattle() {
   battleSelectedCandidates.push(candObj);
   renderSelectedCandidatesList();
   updateBattleEstimates();
-  closeAddBattleCandidateModal();
-}
-
-function addAkgPoolCandidateToBattle(poolId) {
-  const pool = (akgPools || []).find(p => p.poolId === poolId);
-  if (!pool) return;
-
-  const candObj = {
-    candidateId: `cand_akg_${pool.poolId}`,
-    name: `Pool: ${pool.name}`,
-    modelId: pool.poolId,
-    type: 'byok',
-    contextWindow: 128000,
-    provider: 'AKG Gateway Pool',
-    badge: '🔑 AKG POOL',
-    cost: `${pool.keys?.length || 0} claves`
-  };
-
-  const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId);
-  if (!isSelected) {
-    battleSelectedCandidates.push(candObj);
-    renderSelectedCandidatesList();
-    updateBattleEstimates();
-  }
   closeAddBattleCandidateModal();
 }
 
