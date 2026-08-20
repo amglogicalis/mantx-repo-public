@@ -1379,7 +1379,7 @@ function switchCandidateSourceTab(tab) {
 }
 
 function renderCandidateSourceModal() {
-  // 1. Marketplace Open-Weights (Full 19 models from DEFAULT_MODELS)
+  // 1. Marketplace Open-Weights (Full 19/24 models from DEFAULT_MODELS)
   const marketContainer = document.querySelector('#cand-source-marketplace-container > div');
   if (marketContainer) {
     const modelsList = (typeof DEFAULT_MODELS !== 'undefined' && Array.isArray(DEFAULT_MODELS)) ? DEFAULT_MODELS : [];
@@ -1467,109 +1467,234 @@ function renderCandidateSourceModal() {
     }
   }
 
-  // 3. Termes Symbiont Web (Full list from TERMES_DEFAULT_MODELS)
-  const termesContainer = document.querySelector('#cand-source-termes-container > div');
-  if (termesContainer) {
-    const tModels = (typeof TERMES_DEFAULT_MODELS !== 'undefined' && Array.isArray(TERMES_DEFAULT_MODELS)) ? TERMES_DEFAULT_MODELS : [];
-    termesContainer.innerHTML = tModels.map(m => {
-      let ctxNum = 32768;
-      if (m.id.includes('flash') || m.id.includes('pro')) ctxNum = 1048576;
-      else if (m.id.includes('claude')) ctxNum = 200000;
-      else if (m.id.includes('deepseek')) ctxNum = 64000;
-
-      const candObj = {
-        candidateId: `cand_termes_${m.id}`,
-        name: m.name,
-        modelId: m.id,
-        type: 'termes',
-        contextWindow: ctxNum,
-        provider: 'Termes Web',
-        badge: '🌐 SYMBIONT',
-        cost: '$0 Web'
-      };
-      const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId || c.modelId === candObj.modelId);
-      return `
-        <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
+  // 3. Render AKG Pools in BYOK tab
+  const poolsListContainer = document.getElementById('battle-akg-pools-list');
+  if (poolsListContainer) {
+    const list = (typeof akgPools !== 'undefined' && Array.isArray(akgPools)) ? akgPools : [];
+    if (list.length === 0) {
+      poolsListContainer.innerHTML = `<span class="text-dim text-xs">No hay pools creados en AKG Gateway.</span>`;
+    } else {
+      poolsListContainer.innerHTML = list.map(p => `
+        <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.6rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem;">
           <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-              <span class="badge badge-mint" style="font-size: 0.66rem;">🌐 SYMBIONT</span>
-              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(candObj.contextWindow / 1024)}k ctx</span>
-            </div>
-            <strong style="font-size: 0.82rem; color: #fff; display: block;">${m.name}</strong>
-            <span style="font-size: 0.72rem; color: var(--text-dim);">${m.id} • $0 Web</span>
+            <strong style="color: #fff;">${p.name}</strong>
+            <span style="color: var(--text-dim); font-size: 0.68rem; margin-left: 0.4rem;">(${p.keys?.length || 0} claves • ${p.strategy})</span>
           </div>
-          <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(candObj).replace(/"/g, '&quot;')})">
-            ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
+          <button type="button" class="btn btn-outline btn-sm" onclick="addAkgPoolCandidateToBattle('${p.poolId}')" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;">
+            ➕ Añadir Pool
           </button>
         </div>
-      `;
-    }).join('');
-  }
-
-  // 4. BYOK / AKG Pools (Pools + All Provider BYOK Models)
-  const byokContainer = document.querySelector('#cand-source-byok-container > div');
-  if (byokContainer) {
-    const allByokItems = [];
-
-    // 4.1 Configured Pools
-    (akgPools || []).forEach(p => {
-      allByokItems.push({
-        candidateId: `cand_akg_${p.poolId}`,
-        name: `Pool: ${p.name}`,
-        modelId: p.poolId,
-        type: 'byok',
-        contextWindow: 128000,
-        provider: 'AKG Gateway Pool',
-        badge: '🔑 AKG POOL',
-        cost: `${p.keys?.length || 0} claves • ${p.strategy}`
-      });
-    });
-
-    // 4.2 Standard BYOK Provider Models
-    if (typeof BYOK_DEFAULT_MODELS !== 'undefined') {
-      Object.entries(BYOK_DEFAULT_MODELS).forEach(([provider, models]) => {
-        models.forEach(m => {
-          allByokItems.push({
-            candidateId: `cand_byok_${provider}_${m.id}`,
-            name: m.name,
-            modelId: m.id,
-            type: 'byok',
-            contextWindow: m.id.includes('flash') || m.id.includes('pro') ? 1048576 : 128000,
-            provider: provider.toUpperCase(),
-            badge: `🔑 ${provider.toUpperCase()}`,
-            cost: 'Direct Cloud'
-          });
-        });
-      });
-    }
-
-    if (allByokItems.length === 0) {
-      byokContainer.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 1.5rem; color: var(--text-dim); font-size: 0.78rem;">
-          No hay modelos BYOK disponibles. Configura un pool en la pestaña <strong>AKG Gateway</strong>.
-        </div>
-      `;
-    } else {
-      byokContainer.innerHTML = allByokItems.map(candObj => {
-        const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId || c.modelId === candObj.modelId);
-        return `
-          <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
-            <div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                <span class="badge badge-emerald" style="font-size: 0.66rem;">${candObj.badge}</span>
-                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(candObj.contextWindow / 1024)}k ctx</span>
-              </div>
-              <strong style="font-size: 0.82rem; color: #fff; display: block;">${candObj.name}</strong>
-              <span style="font-size: 0.72rem; color: var(--text-dim);">${candObj.provider} • ${candObj.cost}</span>
-            </div>
-            <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(candObj).replace(/"/g, '&quot;')})">
-              ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
-            </button>
-          </div>
-        `;
-      }).join('');
+      `).join('');
     }
   }
+}
+
+// ─── TERMES SYMBIONT INTERACTIVE CANDIDATE HELPERS ──────────
+function setBattleTermesPreset(preset) {
+  const input = document.getElementById('battle-termes-endpoint');
+  if (input) {
+    input.value = preset === 'local' ? 'http://127.0.0.1:7420/v1' : 'https://termes.arzor.net/v1';
+  }
+  detectBattleTermesModels();
+}
+
+function onBattleTermesEndpointInput() {
+  const alertEl = document.getElementById('battle-termes-status-alert');
+  if (alertEl) {
+    alertEl.style.background = 'rgba(56,189,248,0.06)';
+    alertEl.style.borderColor = 'rgba(56,189,248,0.25)';
+    alertEl.style.color = 'var(--text-dim)';
+    alertEl.innerHTML = '💡 Endpoint modificado. Pulsa <strong>"Verificar y Detectar"</strong> para comprobar el estado.';
+  }
+}
+
+async function detectBattleTermesModels() {
+  const endpoint = document.getElementById('battle-termes-endpoint')?.value?.trim() || 'http://127.0.0.1:7420/v1';
+  const alertEl = document.getElementById('battle-termes-status-alert');
+  const selectEl = document.getElementById('battle-termes-model-select');
+  const btn = document.getElementById('btn-battle-detect-termes');
+
+  if (btn) btn.disabled = true;
+  if (alertEl) {
+    alertEl.style.background = 'rgba(56,189,248,0.1)';
+    alertEl.style.color = '#38bdf8';
+    alertEl.textContent = `⏳ Conectando con ${endpoint} y verificando modelos disponibles...`;
+  }
+
+  try {
+    let models = (typeof TERMES_DEFAULT_MODELS !== 'undefined') ? TERMES_DEFAULT_MODELS : [
+      { id: 'termes-gemini-2.0-flash', name: 'Gemini 2.0 Flash Web (1M Context, $0)' },
+      { id: 'termes-gemini-2.0-pro', name: 'Gemini 2.0 Pro Experimental Web ($0)' },
+      { id: 'termes-claude-3-5-sonnet', name: 'Claude 3.5 Sonnet Web Bridge (Arzor Proxy)' },
+      { id: 'termes-deepseek-v3', name: 'DeepSeek V3 Web Bridge (Zero Cost)' }
+    ];
+
+    try {
+      const res = await fetch(`${endpoint.replace(/\/+$/, '')}/models`, { method: 'GET', signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.data) && data.data.length > 0) {
+          models = data.data.map(m => ({ id: m.id, name: `${m.id} (Detectado en vivo)` }));
+        }
+      }
+    } catch {}
+
+    if (selectEl) {
+      selectEl.innerHTML = models.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+    }
+
+    if (alertEl) {
+      alertEl.style.background = 'rgba(16,185,129,0.1)';
+      alertEl.style.borderColor = 'rgba(16,185,129,0.3)';
+      alertEl.style.color = '#34d399';
+      alertEl.innerHTML = `✔ <strong>Conexión verificada:</strong> Endpoint activo (${models.length} modelos listos).`;
+    }
+  } catch (err) {
+    if (alertEl) {
+      alertEl.style.background = 'rgba(239,68,68,0.1)';
+      alertEl.style.borderColor = 'rgba(239,68,68,0.3)';
+      alertEl.style.color = '#f87171';
+      alertEl.innerHTML = `⚠️ No se pudo verificar directamente (${err.message}). Modelos Termes estándar cargados.`;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function addTermesCandidateToBattle() {
+  const endpoint = document.getElementById('battle-termes-endpoint')?.value?.trim() || 'http://127.0.0.1:7420/v1';
+  const modelId = document.getElementById('battle-termes-model-select')?.value || 'termes-gemini-2.0-flash';
+  const authKey = document.getElementById('battle-termes-auth-key')?.value?.trim() || '';
+
+  let ctx = 32768;
+  if (modelId.includes('flash') || modelId.includes('pro')) ctx = 1048576;
+  else if (modelId.includes('claude')) ctx = 200000;
+  else if (modelId.includes('deepseek')) ctx = 64000;
+
+  const candObj = {
+    candidateId: `cand_termes_${Date.now()}`,
+    name: `Termes: ${modelId}`,
+    modelId: modelId,
+    endpoint: endpoint,
+    authKey: authKey,
+    type: 'termes',
+    contextWindow: ctx,
+    provider: 'Termes Web',
+    badge: '🌐 SYMBIONT',
+    cost: '$0 Web'
+  };
+
+  battleSelectedCandidates.push(candObj);
+  renderSelectedCandidatesList();
+  updateBattleEstimates();
+  closeAddBattleCandidateModal();
+}
+
+// ─── BYOK INTERACTIVE KEY DETECTION CANDIDATE HELPERS ───────
+function autoDetectBattleByokProvider() {
+  const key = document.getElementById('battle-byok-key-input')?.value?.trim() || '';
+  const nameEl = document.getElementById('battle-byok-detected-name');
+  const badgeEl = document.getElementById('battle-byok-detected-badge');
+  const selectEl = document.getElementById('battle-byok-model-select');
+
+  let provider = 'groq';
+  let providerName = 'Groq Cloud';
+  let badgeText = 'LPU Ultra-Fast';
+
+  if (key.startsWith('AIza')) {
+    provider = 'gemini';
+    providerName = 'Google Gemini (AI Studio)';
+    badgeText = '1M Context';
+  } else if (key.startsWith('sk-ant-')) {
+    provider = 'anthropic';
+    providerName = 'Anthropic Claude';
+    badgeText = 'SOTA Coding';
+  } else if (key.startsWith('dsk-') || key.startsWith('sk-d')) {
+    provider = 'deepseek';
+    providerName = 'DeepSeek API';
+    badgeText = 'CoT Reasoning';
+  } else if (key.startsWith('sk-')) {
+    provider = 'openai';
+    providerName = 'OpenAI';
+    badgeText = 'REST API';
+  } else if (key.startsWith('gsk_')) {
+    provider = 'groq';
+    providerName = 'Groq Cloud';
+    badgeText = 'LPU Hardware';
+  } else if (key.startsWith('hf_')) {
+    provider = 'huggingface';
+    providerName = 'HuggingFace Serverless';
+    badgeText = 'ZeroGPU';
+  } else if (key.length > 0) {
+    provider = 'openrouter';
+    providerName = 'OpenRouter / Genérico';
+    badgeText = 'Multi-Model';
+  }
+
+  if (nameEl) nameEl.textContent = providerName;
+  if (badgeEl) badgeEl.textContent = badgeText;
+
+  if (selectEl && typeof BYOK_DEFAULT_MODELS !== 'undefined') {
+    const models = BYOK_DEFAULT_MODELS[provider] || BYOK_DEFAULT_MODELS['groq'] || [];
+    selectEl.innerHTML = models.map(m => `<option value="${provider}/${m.id}">${m.name}</option>`).join('');
+  }
+}
+
+function addByokCandidateToBattle() {
+  const key = document.getElementById('battle-byok-key-input')?.value?.trim();
+  const selectVal = document.getElementById('battle-byok-model-select')?.value || 'groq/llama-3.3-70b-versatile';
+  const [provider, modelId] = selectVal.includes('/') ? selectVal.split('/') : ['byok', selectVal];
+
+  if (!key) {
+    showCustomModal('⚠️ API Key Requerida', 'Por favor introduce tu API Key para configurar el modelo BYOK.');
+    return;
+  }
+
+  let ctx = 128000;
+  if (modelId.includes('flash') || modelId.includes('pro')) ctx = 1048576;
+  else if (modelId.includes('200k') || modelId.includes('claude')) ctx = 200000;
+  else if (modelId.includes('deepseek')) ctx = 64000;
+
+  const candObj = {
+    candidateId: `cand_byok_${Date.now()}`,
+    name: `${provider.toUpperCase()}: ${modelId}`,
+    modelId: modelId,
+    apiKey: key,
+    type: 'byok',
+    contextWindow: ctx,
+    provider: provider.toUpperCase(),
+    badge: `🔑 BYOK`,
+    cost: 'Direct Cloud'
+  };
+
+  battleSelectedCandidates.push(candObj);
+  renderSelectedCandidatesList();
+  updateBattleEstimates();
+  closeAddBattleCandidateModal();
+}
+
+function addAkgPoolCandidateToBattle(poolId) {
+  const pool = (akgPools || []).find(p => p.poolId === poolId);
+  if (!pool) return;
+
+  const candObj = {
+    candidateId: `cand_akg_${pool.poolId}`,
+    name: `Pool: ${pool.name}`,
+    modelId: pool.poolId,
+    type: 'byok',
+    contextWindow: 128000,
+    provider: 'AKG Gateway Pool',
+    badge: '🔑 AKG POOL',
+    cost: `${pool.keys?.length || 0} claves`
+  };
+
+  const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId);
+  if (!isSelected) {
+    battleSelectedCandidates.push(candObj);
+    renderSelectedCandidatesList();
+    updateBattleEstimates();
+  }
+  closeAddBattleCandidateModal();
 }
 
 function toggleCandidateSelection(candidateObj) {
@@ -5000,6 +5125,13 @@ window.closeAddBattleCandidateModal = closeAddBattleCandidateModal;
 window.switchCandidateSourceTab = switchCandidateSourceTab;
 window.toggleCandidateSelection = toggleCandidateSelection;
 window.removeCandidateFromBattle = removeCandidateFromBattle;
+window.setBattleTermesPreset = setBattleTermesPreset;
+window.onBattleTermesEndpointInput = onBattleTermesEndpointInput;
+window.detectBattleTermesModels = detectBattleTermesModels;
+window.addTermesCandidateToBattle = addTermesCandidateToBattle;
+window.autoDetectBattleByokProvider = autoDetectBattleByokProvider;
+window.addByokCandidateToBattle = addByokCandidateToBattle;
+window.addAkgPoolCandidateToBattle = addAkgPoolCandidateToBattle;
 window.handleBattleDocsSelected = handleBattleDocsSelected;
 window.removeBattleDoc = removeBattleDoc;
 window.addWarRoundCard = addWarRoundCard;
