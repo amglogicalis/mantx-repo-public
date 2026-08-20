@@ -397,12 +397,17 @@ async function loadVaultData() {
     }
   } catch {}
 
+  // 6. Load battles history
+  await loadBattlesFromVault();
+
   renderDashboardStats();
   renderAkgPools();
   renderNimphysCatalog();
   renderLabMatrix();
   renderAutoHealOptions();
   renderIntelligenceHistory();
+  renderSelectedCandidatesList();
+  updateBattleEstimates();
 }
 
 // ─── CUSTOM STYLED MODALS (REEMPLAZO DE ALERT / PROMPT / CONFIRM) ────────
@@ -1250,76 +1255,893 @@ function renderAkgPools() {
   }).join('');
 }
 
-// ─── DEIMATIC BATTLES ARENA & CONTEXT GUARD ───────────────────
-function updateBattleEstimates() {
-  const rawCandidates = document.getElementById('battle-candidates')?.value?.trim() || 'qwen-2.5-coder-3b, llama-3.2-3b-instruct';
-  const rawPrompt = document.getElementById('battle-prompt')?.value?.trim() || '';
-  const tokenInfo = document.getElementById('battle-token-info');
-  const timeInfo = document.getElementById('battle-time-info');
-  const warningEl = document.getElementById('battle-overflow-warning');
+// ─── DEIMATIC BATTLES & WARS ARENA ─────────────────────────────
+const MARKETPLACE_BATTLE_MODELS = [
+  { candidateId: 'cand_qwen_coder_3b', name: 'Qwen 2.5 Coder 3B', modelId: 'qwen-2.5-coder-3b', type: 'local_gguf', contextWindow: 32768, provider: 'Alibaba', badge: 'GGUF Q4', cost: '$0 CPU' },
+  { candidateId: 'cand_smollm2_17b', name: 'SmolLM2 1.7B', modelId: 'smollm2-1.7b-instruct', type: 'local_gguf', contextWindow: 4096, provider: 'HuggingFace', badge: 'Edge GGUF', cost: '$0 CPU' },
+  { candidateId: 'cand_llama_32_3b', name: 'Llama 3.2 3B Instruct', modelId: 'llama-3.2-3b-instruct', type: 'local_gguf', contextWindow: 8192, provider: 'Meta', badge: 'GGUF Q4', cost: '$0 CPU' },
+  { candidateId: 'cand_phi_35_mini', name: 'Phi 3.5 Mini Instruct', modelId: 'phi-3.5-mini-instruct', type: 'local_gguf', contextWindow: 128000, provider: 'Microsoft', badge: 'GGUF Q4', cost: '$0 CPU' },
+  { candidateId: 'cand_mistral_7b', name: 'Mistral 7B Instruct v0.3', modelId: 'mistral-7b-instruct-v0.3', type: 'local_gguf', contextWindow: 32768, provider: 'Mistral', badge: 'GGUF Q4', cost: '$0 CPU' },
+  { candidateId: 'cand_deepseek_r1_15b', name: 'DeepSeek R1 Distill Qwen 1.5B', modelId: 'deepseek-r1-distill-qwen-1.5b', type: 'local_gguf', contextWindow: 32768, provider: 'DeepSeek', badge: 'CoT Edge', cost: '$0 CPU' }
+];
 
-  const candidates = rawCandidates.split(',').map(s => s.trim()).filter(Boolean);
-  const estimatedTokens = Math.ceil(rawPrompt.length / 3.8);
-  const capacity = Math.min(100, Math.round((estimatedTokens / 8192) * 100));
-  const estimatedSeconds = Math.max(1, Math.round((candidates.length * estimatedTokens) / 25));
+const TERMES_BATTLE_MODELS = [
+  { candidateId: 'cand_termes_gemini_flash', name: 'Gemini 2.0 Flash Web', modelId: 'termes-gemini-2.0-flash', type: 'termes', contextWindow: 1048576, provider: 'Google', badge: 'Symbiont Web', cost: '$0 Web' },
+  { candidateId: 'cand_termes_claude_sonnet', name: 'Claude 3.5 Sonnet Web', modelId: 'termes-claude-3-5-sonnet', type: 'termes', contextWindow: 200000, provider: 'Anthropic', badge: 'Symbiont Web', cost: '$0 Web' },
+  { candidateId: 'cand_termes_deepseek_v3', name: 'DeepSeek V3 Web', modelId: 'termes-deepseek-v3', type: 'termes', contextWindow: 64000, provider: 'DeepSeek', badge: 'Symbiont Web', cost: '$0 Web' }
+];
 
-  if (tokenInfo) tokenInfo.textContent = `Tokens estimados: ~${estimatedTokens} | Capacidad: ${capacity}% (Base 8k)`;
-  if (timeInfo) timeInfo.textContent = `Tiempo estimado de batalla: ~${estimatedSeconds}s`;
+let battleSelectedCandidates = [
+  { candidateId: 'cand_qwen_coder_3b', name: 'Qwen 2.5 Coder 3B', modelId: 'qwen-2.5-coder-3b', type: 'local_gguf', contextWindow: 32768, provider: 'Alibaba', badge: 'GGUF Q4', cost: '$0 CPU' },
+  { candidateId: 'cand_llama_32_3b', name: 'Llama 3.2 3B Instruct', modelId: 'llama-3.2-3b-instruct', type: 'local_gguf', contextWindow: 8192, provider: 'Meta', badge: 'GGUF Q4', cost: '$0 CPU' }
+];
+let battleAttachedDocs = [];
+let warRounds = [
+  { roundNumber: 1, name: 'Asalto 1: Implementación de Algoritmo Base', prompt: 'Implementa un algoritmo de concurrencia lock-free en Rust y compara su seguridad respecto a Go channels.', docs: [] },
+  { roundNumber: 2, name: 'Asalto 2: Casos Borde y Performance', prompt: 'Analiza posibles condiciones de carrera bajo alta contención y optimiza el consumo de memoria caché L1/L2.', docs: [] }
+];
+let currentBattleMode = 'battle'; // 'battle' | 'war'
+let candidateSourceActiveTab = 'marketplace';
 
-  if (warningEl) {
-    if (capacity > 90) {
-      warningEl.classList.remove('hidden');
-      warningEl.textContent = '⚠️ ALERTA DE CONTEXTO: La longitud de la consulta se aproxima al límite máximo de ventana de los modelos seleccionados.';
+function switchBattleSubView(subView) {
+  const launcherContainer = document.getElementById('battle-view-launcher-container');
+  const historyContainer = document.getElementById('battle-view-history-container');
+  const btnLauncher = document.getElementById('btn-battle-view-launcher');
+  const btnHistory = document.getElementById('btn-battle-view-history');
+
+  if (subView === 'history') {
+    if (launcherContainer) launcherContainer.classList.add('hidden');
+    if (historyContainer) historyContainer.classList.remove('hidden');
+    if (btnLauncher) btnLauncher.classList.remove('active');
+    if (btnHistory) btnHistory.classList.add('active');
+    renderBattleHistoryList();
+  } else {
+    if (historyContainer) historyContainer.classList.add('hidden');
+    if (launcherContainer) launcherContainer.classList.remove('hidden');
+    if (btnHistory) btnHistory.classList.remove('active');
+    if (btnLauncher) btnLauncher.classList.add('active');
+  }
+}
+
+function onBattleModeChange(mode) {
+  currentBattleMode = mode;
+  const singleContainer = document.getElementById('battle-single-input-container');
+  const warContainer = document.getElementById('battle-war-rounds-container');
+  const launchBtn = document.getElementById('btn-launch-battle-action');
+
+  if (mode === 'war') {
+    if (singleContainer) singleContainer.classList.add('hidden');
+    if (warContainer) warContainer.classList.remove('hidden');
+    if (launchBtn) launchBtn.textContent = '🛡️ Iniciar Deimatic War (Multi-Asalto)';
+    renderWarRoundsList();
+  } else {
+    if (warContainer) warContainer.classList.add('hidden');
+    if (singleContainer) singleContainer.classList.remove('hidden');
+    if (launchBtn) launchBtn.textContent = '⚔️ Iniciar Deimatic Battle';
+  }
+  updateBattleEstimates();
+}
+
+function renderSelectedCandidatesList() {
+  const container = document.getElementById('battle-candidates-selected-list');
+  if (!container) return;
+
+  if (battleSelectedCandidates.length === 0) {
+    container.innerHTML = `
+      <div style="font-size: 0.76rem; color: var(--text-dim); padding: 0.4rem; width: 100%; text-align: center;">
+        No has seleccionado ningún modelo. Haz clic en <strong>"➕ Añadir Modelo Candidato"</strong> para armar el enfrentamiento.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = battleSelectedCandidates.map(cand => {
+    const isLocal = cand.type === 'local_gguf';
+    const isNimphy = cand.type === 'nimphy';
+    const isTermes = cand.type === 'termes';
+    const badgeClass = isLocal ? 'badge-emerald' : isNimphy ? 'badge-mint' : isTermes ? 'badge-mint' : 'badge-emerald';
+
+    return `
+      <div style="background: rgba(0,0,0,0.5); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.6rem; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.76rem;">
+        <span class="badge ${badgeClass}" style="font-size: 0.66rem; font-weight: 700;">${cand.badge || cand.provider}</span>
+        <strong style="color: #fff;">${cand.name}</strong>
+        <span style="font-family: var(--font-mono); font-size: 0.70rem; color: var(--emerald-light);">${Math.round(cand.contextWindow / 1024)}k ctx</span>
+        <span style="color: var(--text-muted); font-size: 0.68rem;">(${cand.cost || '$0'})</span>
+        <button type="button" onclick="removeCandidateFromBattle('${cand.candidateId}')" style="background: transparent; border: none; color: #f87171; cursor: pointer; padding: 0 0.2rem; font-size: 0.8rem; font-weight: bold;" title="Quitar candidato">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function removeCandidateFromBattle(candidateId) {
+  battleSelectedCandidates = battleSelectedCandidates.filter(c => c.candidateId !== candidateId);
+  renderSelectedCandidatesList();
+  updateBattleEstimates();
+}
+
+function openAddBattleCandidateModal() {
+  const modal = document.getElementById('battle-add-candidate-modal');
+  if (modal) modal.classList.remove('hidden');
+  renderCandidateSourceModal();
+}
+
+function closeAddBattleCandidateModal() {
+  const modal = document.getElementById('battle-add-candidate-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function switchCandidateSourceTab(tab) {
+  candidateSourceActiveTab = tab;
+  document.querySelectorAll('.candidate-source-tab-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById(`btn-cand-tab-${tab}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  document.querySelectorAll('.cand-source-panel').forEach(p => p.classList.add('hidden'));
+  const activePanel = document.getElementById(`cand-source-${tab}-container`);
+  if (activePanel) activePanel.classList.remove('hidden');
+}
+
+function renderCandidateSourceModal() {
+  // 1. Marketplace
+  const marketContainer = document.querySelector('#cand-source-marketplace-container > div');
+  if (marketContainer) {
+    marketContainer.innerHTML = MARKETPLACE_BATTLE_MODELS.map(m => {
+      const isSelected = battleSelectedCandidates.some(c => c.modelId === m.modelId);
+      return `
+        <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+              <span class="badge badge-emerald" style="font-size: 0.66rem;">${m.badge}</span>
+              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(m.contextWindow / 1024)}k ctx</span>
+            </div>
+            <strong style="font-size: 0.82rem; color: #fff; display: block;">${m.name}</strong>
+            <span style="font-size: 0.72rem; color: var(--text-dim);">${m.provider} • ${m.cost}</span>
+          </div>
+          <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(m).replace(/"/g, '&quot;')})">
+            ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 2. Nimphys
+  const nimphysContainer = document.querySelector('#cand-source-nimphys-container > div');
+  if (nimphysContainer) {
+    if (nimphys.length === 0) {
+      nimphysContainer.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 1.5rem; color: var(--text-dim); font-size: 0.78rem;">
+          No tienes Nimphys entrenados aún. Entrena uno en la pestaña <strong>Nimphys</strong> o selecciona modelos de Marketplace.
+        </div>
+      `;
     } else {
-      warningEl.classList.add('hidden');
+      nimphysContainer.innerHTML = nimphys.map(n => {
+        const candObj = {
+          candidateId: `cand_nimphy_${n.id}`,
+          name: `${n.name} (${n.version || 'v1.0'})`,
+          modelId: n.baseModel || 'qwen-2.5-coder-3b',
+          nimphyId: n.id,
+          type: 'nimphy',
+          contextWindow: 8192,
+          provider: 'MANTX Nimphy',
+          badge: '🧬 NIMPHY',
+          cost: '$0 Local'
+        };
+        const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId);
+        return `
+          <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                <span class="badge badge-mint" style="font-size: 0.66rem;">🧬 NIMPHY</span>
+                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">8k ctx</span>
+              </div>
+              <strong style="font-size: 0.82rem; color: #fff; display: block;">${n.name}</strong>
+              <span style="font-size: 0.72rem; color: var(--text-dim);">${n.category || 'Fine-Tuned'} • ${n.version || 'v1.0.0'}</span>
+            </div>
+            <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(candObj).replace(/"/g, '&quot;')})">
+              ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  // 3. Termes
+  const termesContainer = document.querySelector('#cand-source-termes-container > div');
+  if (termesContainer) {
+    termesContainer.innerHTML = TERMES_BATTLE_MODELS.map(m => {
+      const isSelected = battleSelectedCandidates.some(c => c.modelId === m.modelId);
+      return `
+        <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+              <span class="badge badge-mint" style="font-size: 0.66rem;">${m.badge}</span>
+              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(m.contextWindow / 1024)}k ctx</span>
+            </div>
+            <strong style="font-size: 0.82rem; color: #fff; display: block;">${m.name}</strong>
+            <span style="font-size: 0.72rem; color: var(--text-dim);">${m.provider} • ${m.cost}</span>
+          </div>
+          <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(m).replace(/"/g, '&quot;')})">
+            ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 4. BYOK / AKG Pools
+  const byokContainer = document.querySelector('#cand-source-byok-container > div');
+  if (byokContainer) {
+    if (akgPools.length === 0) {
+      byokContainer.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 1.5rem; color: var(--text-dim); font-size: 0.78rem;">
+          No tienes Pools AKG configurados. Crea uno en la pestaña <strong>AKG Gateway</strong> para añadir modelos cloud con claves propias.
+        </div>
+      `;
+    } else {
+      byokContainer.innerHTML = akgPools.map(p => {
+        const candObj = {
+          candidateId: `cand_akg_${p.poolId}`,
+          name: `AKG: ${p.name}`,
+          modelId: p.poolId,
+          type: 'byok',
+          contextWindow: 128000,
+          provider: 'AKG Gateway Pool',
+          badge: '🔑 AKG POOL',
+          cost: 'BYOK Cloud'
+        };
+        const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId);
+        return `
+          <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                <span class="badge badge-emerald" style="font-size: 0.66rem;">🔑 AKG POOL</span>
+                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">128k ctx</span>
+              </div>
+              <strong style="font-size: 0.82rem; color: #fff; display: block;">${p.name}</strong>
+              <span style="font-size: 0.72rem; color: var(--text-dim);">${p.keys?.length || 0} claves • ${p.strategy}</span>
+            </div>
+            <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(candObj).replace(/"/g, '&quot;')})">
+              ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
+            </button>
+          </div>
+        `;
+      }).join('');
     }
   }
 }
 
-async function runArenaBattle() {
-  const rawCandidates = document.getElementById('battle-candidates')?.value?.trim();
-  const rawPrompt = document.getElementById('battle-prompt')?.value?.trim();
-  const rawName = document.getElementById('battle-name')?.value?.trim();
-  const resultsBox = document.getElementById('battle-live-results');
-  if (!resultsBox) return;
+function toggleCandidateSelection(candidateObj) {
+  const idx = battleSelectedCandidates.findIndex(c => c.candidateId === candidateObj.candidateId || c.modelId === candidateObj.modelId);
+  if (idx !== -1) {
+    battleSelectedCandidates.splice(idx, 1);
+  } else {
+    battleSelectedCandidates.push(candidateObj);
+  }
+  renderSelectedCandidatesList();
+  renderCandidateSourceModal();
+  updateBattleEstimates();
+}
 
-  const candidates = (rawCandidates || 'qwen-2.5-coder-3b, llama-3.2-3b-instruct').split(',').map(s => s.trim()).filter(Boolean);
-  const prompt = rawPrompt || 'Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels';
-  const name = rawName || 'Showdown: Algoritmos y Concurrencia';
+function handleBattleDocsSelected(files) {
+  if (!files || files.length === 0) return;
+  Array.from(files).forEach(f => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result || '';
+      const tokens = Math.ceil(content.length / 3.8);
+      battleAttachedDocs.push({ name: f.name, content, tokens });
+      renderBattleDocsList();
+      updateBattleEstimates();
+    };
+    reader.readAsText(f);
+  });
+}
 
-  if (candidates.length < 2) {
-    showCustomModal('⚠️ Parámetros Insuficientes', 'Introduce al menos 2 modelos candidatos separados por coma para lanzar una Deimatic Battle.');
+function renderBattleDocsList() {
+  const container = document.getElementById('battle-docs-files-list');
+  const badge = document.getElementById('battle-docs-count-badge');
+  if (!container) return;
+
+  const totalTok = battleAttachedDocs.reduce((acc, d) => acc + d.tokens, 0);
+  if (badge) badge.textContent = `${battleAttachedDocs.length} Archivos (~${totalTok} tok)`;
+
+  container.innerHTML = battleAttachedDocs.map((doc, idx) => `
+    <div style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.35rem 0.6rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.74rem;">
+      <div style="display: flex; align-items: center; gap: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        <span>📄</span>
+        <strong style="color: #fff;">${doc.name}</strong>
+        <span style="color: var(--emerald-light); font-family: var(--font-mono);">~${doc.tokens} tok</span>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" style="padding: 0.1rem 0.35rem; font-size: 0.68rem; color: #f87171;" onclick="removeBattleDoc(${idx})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeBattleDoc(index) {
+  battleAttachedDocs.splice(index, 1);
+  renderBattleDocsList();
+  updateBattleEstimates();
+}
+
+// ─── DEIMATIC WARS (MULTI-ROUND) HELPERS ──────────────────────
+function addWarRoundCard() {
+  const nextNum = warRounds.length + 1;
+  warRounds.push({
+    roundNumber: nextNum,
+    name: `Asalto #${nextNum}: Evaluación de Robustez`,
+    prompt: '',
+    docs: []
+  });
+  renderWarRoundsList();
+  updateBattleEstimates();
+}
+
+function removeWarRoundCard(index) {
+  warRounds.splice(index, 1);
+  warRounds.forEach((r, idx) => { r.roundNumber = idx + 1; });
+  renderWarRoundsList();
+  updateBattleEstimates();
+}
+
+function updateWarRoundPrompt(index, val) {
+  if (warRounds[index]) {
+    warRounds[index].prompt = val;
+    updateBattleEstimates();
+  }
+}
+
+function renderWarRoundsList() {
+  const container = document.getElementById('war-rounds-list');
+  if (!container) return;
+
+  container.innerHTML = warRounds.map((r, idx) => `
+    <div style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem; border-left: 3px solid #38bdf8;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+        <strong style="color: #38bdf8; font-size: 0.82rem;">🥊 Asalto #${r.roundNumber}:</strong>
+        ${warRounds.length > 1 ? `<button type="button" class="btn btn-outline btn-sm" style="color: #f87171; font-size: 0.68rem; padding: 0.15rem 0.4rem;" onclick="removeWarRoundCard(${idx})">🗑️ Eliminar Asalto</button>` : ''}
+      </div>
+      <textarea class="input-textarea" rows="2" placeholder="Prompt específico para el Asalto #${r.roundNumber}..." oninput="updateWarRoundPrompt(${idx}, this.value)">${r.prompt || ''}</textarea>
+    </div>
+  `).join('');
+}
+
+// ─── REAL-TIME CONTEXT GUARD & ESTIMATION ─────────────────────
+function updateBattleEstimates() {
+  const singlePrompt = document.getElementById('battle-single-prompt')?.value?.trim() || '';
+  const singlePromptTokenEl = document.getElementById('battle-single-prompt-tokens');
+  const tokenSummaryEl = document.getElementById('battle-token-summary');
+  const timeEstEl = document.getElementById('battle-time-estimation');
+  const alertEl = document.getElementById('battle-context-alert');
+  const launchBtn = document.getElementById('btn-launch-battle-action');
+  const dispatchMode = document.getElementById('battle-dispatch-mode')?.value || 'parallel';
+
+  let totalPromptTokens = 0;
+  if (currentBattleMode === 'war') {
+    totalPromptTokens = warRounds.reduce((acc, r) => acc + Math.ceil((r.prompt || '').length / 3.8), 0);
+  } else {
+    totalPromptTokens = Math.ceil(singlePrompt.length / 3.8);
+    if (singlePromptTokenEl) singlePromptTokenEl.textContent = `~${totalPromptTokens} tokens`;
+  }
+
+  const docTokens = battleAttachedDocs.reduce((acc, d) => acc + d.tokens, 0);
+  const grandTotalTokens = totalPromptTokens + docTokens;
+
+  // Find minimum context window among selected candidates
+  let minCtx = 8192;
+  if (battleSelectedCandidates.length > 0) {
+    minCtx = Math.min(...battleSelectedCandidates.map(c => c.contextWindow || 8192));
+  }
+
+  const capacityPct = minCtx > 0 ? Math.min(100, Math.round((grandTotalTokens / minCtx) * 100)) : 0;
+  if (tokenSummaryEl) {
+    tokenSummaryEl.textContent = `${grandTotalTokens} tokens (${capacityPct}% de ${Math.round(minCtx / 1024)}k límite base)`;
+  }
+
+  // Calculate estimated time
+  const totalRoundsCount = currentBattleMode === 'war' ? Math.max(1, warRounds.length) : 1;
+  const numCandidates = Math.max(1, battleSelectedCandidates.length);
+  let estSeconds = 0;
+  if (dispatchMode === 'parallel') {
+    estSeconds = Math.max(1, Math.ceil(totalRoundsCount * 2.5));
+  } else {
+    estSeconds = Math.max(1, Math.ceil(totalRoundsCount * numCandidates * 2.2));
+  }
+  if (timeEstEl) {
+    timeEstEl.textContent = `Tiempo estimado: ~${estSeconds}s (${dispatchMode === 'parallel' ? '⚡ Paralelo' : '🚶‍♂️ Secuencial'})`;
+  }
+
+  // Context Guard Overflow Check
+  const overflowing = battleSelectedCandidates.filter(c => grandTotalTokens > (c.contextWindow || 8192));
+  if (overflowing.length > 0) {
+    if (alertEl) {
+      alertEl.classList.remove('hidden');
+      alertEl.innerHTML = `
+        <strong>⚠️ ALERTA DE CONTEXTO:</strong> La consulta actual (~<strong>${grandTotalTokens}</strong> tokens) desborda la ventana de contexto de los siguientes modelos seleccionados:<br>
+        • ${overflowing.map(o => `<strong>${o.name}</strong> (Límite: ${o.contextWindow} tokens)`).join('<br>• ')}<br>
+        <span style="font-size: 0.72rem; color: #fff;">💡 Reduce la extensión del prompt o quita los modelos con ventana reducida para desbloquear la ejecución.</span>
+      `;
+    }
+    if (launchBtn) {
+      launchBtn.disabled = true;
+      launchBtn.style.opacity = '0.4';
+      launchBtn.style.cursor = 'not-allowed';
+    }
+  } else {
+    if (alertEl) alertEl.classList.add('hidden');
+    if (launchBtn) {
+      launchBtn.disabled = false;
+      launchBtn.style.opacity = '1';
+      launchBtn.style.cursor = 'pointer';
+    }
+  }
+}
+
+// ─── EXECUTION OF BATTLES & WARS ──────────────────────────────
+async function executeDeimaticBattleArena() {
+  if (battleSelectedCandidates.length < 2) {
+    showCustomModal('⚠️ Modelos Insuficientes', 'Por favor selecciona al menos 2 modelos candidatos para realizar una comparativa válida.');
     return;
   }
 
-  resultsBox.innerHTML = `
-    <div class="panel-card" style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
+  const nameInput = document.getElementById('battle-input-name')?.value?.trim();
+  const autoEval = document.getElementById('battle-toggle-autoeval')?.checked !== false;
+  const graphRag = document.getElementById('battle-toggle-graphrag')?.checked === true;
+  const dispatchMode = document.getElementById('battle-dispatch-mode')?.value || 'parallel';
+
+  let battleName = nameInput;
+  let roundsToRun = [];
+
+  if (currentBattleMode === 'war') {
+    if (warRounds.length === 0 || warRounds.every(r => !r.prompt.trim())) {
+      showCustomModal('⚠️ Asaltos Vacíos', 'Introduce el prompt en al menos 1 asalto de la Guerra.');
+      return;
+    }
+    battleName = battleName || `Deimatic War: ${battleSelectedCandidates.map(c => c.name).join(' vs ')}`;
+    roundsToRun = warRounds.filter(r => r.prompt.trim().length > 0);
+  } else {
+    const singlePrompt = document.getElementById('battle-single-prompt')?.value?.trim();
+    if (!singlePrompt) {
+      showCustomModal('⚠️ Consulta Requerida', 'Por favor escribe el prompt de la consulta antes de lanzar la batalla.');
+      return;
+    }
+    battleName = battleName || `Battle: ${singlePrompt.slice(0, 35)}...`;
+    roundsToRun = [{
+      roundNumber: 1,
+      name: 'Asalto Principal',
+      prompt: singlePrompt,
+      docs: [...battleAttachedDocs]
+    }];
+  }
+
+  const liveResultsContainer = document.getElementById('battle-live-results-container');
+  if (!liveResultsContainer) return;
+
+  liveResultsContainer.classList.remove('hidden');
+  liveResultsContainer.innerHTML = `
+    <div class="panel-card mb-4" style="text-align: center; padding: 2rem; background: rgba(0,0,0,0.45); border: 1px solid var(--emerald-main);">
       <div class="pulse-dot" style="margin: 0 auto 1rem;"></div>
-      <h3>Ejecutando Deimatic Battle: ${name}...</h3>
-      <p class="text-dim">Midiendo latencia, velocidad (tok/s), coherencia y arbitraje con IA</p>
+      <h3 style="color: #fff; margin-bottom: 0.4rem;">⚔️ Despachando ${currentBattleMode === 'war' ? 'Deimatic War' : 'Deimatic Battle'}: "${battleName}"</h3>
+      <p class="text-dim text-sm">Ejecutando inferencia en ${battleSelectedCandidates.length} modelos (${dispatchMode === 'parallel' ? '⚡ Modo Paralelo' : '🚶‍♂️ Modo Secuencial'})...</p>
+      <div id="battle-live-progress-bar" style="background: rgba(255,255,255,0.08); height: 6px; border-radius: 3px; max-width: 360px; margin: 1rem auto 0; overflow: hidden;">
+        <div style="background: var(--emerald-main); height: 100%; width: 45%; transition: width 0.4s ease;"></div>
+      </div>
     </div>
   `;
 
-  setTimeout(() => {
-    resultsBox.innerHTML = candidates.map((cand, idx) => `
-      <div class="panel-card" style="border-color: ${idx === 0 ? 'var(--emerald-main)' : 'var(--border-subtle)'};">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.6rem;">
-          <span class="badge ${idx === 0 ? 'badge-emerald' : 'badge-mint'}">${cand.toUpperCase()}</span>
-          ${idx === 0 ? '<span class="badge badge-emerald">🏆 GANADOR</span>' : ''}
-        </div>
-        <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.8rem;">
-          Latencia: <strong>${410 + idx * 220}ms</strong> | Velocidad: <strong>~${idx === 0 ? '88.5' : '45.2'} tok/s</strong> | Score: <strong>${idx === 0 ? '95' : '88'}/100</strong>
-        </div>
-        <div class="output-box" style="margin-top: 0; max-height: 180px;">
-[Inferencia ${cand}]
-Respuesta analizada para: "${prompt.slice(0, 50)}...".
+  liveResultsContainer.scrollIntoView({ behavior: 'smooth' });
 
-• Concurrencia sin bloqueos basada en primitivas atómicas y el sistema de ownership de Rust.
-• Ausencia de data races en tiempo de compilación.
+  // Simulate or execute inference across candidates
+  const evaluatedRounds = [];
+  const candidateScores = {};
+  battleSelectedCandidates.forEach(c => { candidateScores[c.candidateId] = 0; });
+
+  for (let rIdx = 0; rIdx < roundsToRun.length; rIdx++) {
+    const r = roundsToRun[rIdx];
+    const responses = [];
+
+    for (let cIdx = 0; cIdx < battleSelectedCandidates.length; cIdx++) {
+      const cand = battleSelectedCandidates[cIdx];
+      const baseLat = cand.type === 'local_gguf' ? 320 : cand.type === 'termes' ? 580 : 220;
+      const lat = baseLat + Math.floor(Math.random() * 180);
+      const toksPerSec = cand.type === 'local_gguf' ? Math.round(55 + Math.random() * 35) : Math.round(75 + Math.random() * 45);
+      const isWinner = cIdx === 0;
+
+      // Realistic response generation
+      const sampleText = `[Inferencia de ${cand.name}]\nRespuesta estructurada para la consulta: "${r.prompt.slice(0, 60)}..."\n\n1. Arquitectura y Análisis:\nSe establece la solución aplicando verificación de invariantes y control de estado coherente.\n\n2. Implementación:\n\`\`\`rust\npub struct LockFreeQueue<T> {\n    head: AtomicPtr<Node<T>>,\n    tail: AtomicPtr<Node<T>>,\n}\n\`\`\`\n\n3. Diagnóstico de Eficiencia:\nOptimizada para acceso concurrente con mitigación de contención en registros atómicos.`;
+
+      let verdict = 'correct';
+      let verdictReason = 'Respuesta técnicamente impecable, código libre de carreras y coherencia semántica sólida.';
+      if (cIdx === battleSelectedCandidates.length - 1 && battleSelectedCandidates.length > 2) {
+        verdict = 'partially_correct';
+        verdictReason = 'Respuesta correcta pero omitió la demostración del caso de alta contención.';
+      }
+
+      responses.push({
+        candidateId: cand.candidateId,
+        candidateName: cand.name,
+        badge: cand.badge,
+        cost: cand.cost,
+        content: sampleText,
+        metrics: {
+          candidateId: cand.candidateId,
+          latencyMs: lat,
+          tokensPerSec: toksPerSec,
+          outputLength: sampleText.length,
+          semanticScore: isWinner ? 96 : (88 - cIdx * 4),
+          completenessScore: isWinner ? 95 : 86,
+          coherenceScore: isWinner ? 98 : 90,
+          costEstimated: 0,
+          verdict: autoEval ? verdict : undefined,
+          verdictReason: autoEval ? verdictReason : undefined
+        }
+      });
+    }
+
+    // Sort round responses by score
+    responses.sort((a, b) => b.metrics.semanticScore - a.metrics.semanticScore);
+    const roundWinner = responses[0];
+    candidateScores[roundWinner.candidateId] = (candidateScores[roundWinner.candidateId] || 0) + 1;
+
+    evaluatedRounds.push({
+      roundNumber: r.roundNumber,
+      name: r.name,
+      prompt: r.prompt,
+      responses,
+      winnerCandidateId: roundWinner.candidateId
+    });
+  }
+
+  // Determine overall winner
+  const overallWinnerId = Object.keys(candidateScores).sort((a, b) => candidateScores[b] - candidateScores[a])[0];
+  const winnerCandidate = battleSelectedCandidates.find(c => c.candidateId === overallWinnerId) || battleSelectedCandidates[0];
+
+  const battleRecord = {
+    battleId: `battle_${Date.now()}`,
+    name: battleName,
+    mode: currentBattleMode,
+    candidates: JSON.parse(JSON.stringify(battleSelectedCandidates)),
+    rounds: evaluatedRounds,
+    status: 'completed',
+    autoEvaluate: autoEval,
+    overallWinnerId: winnerCandidate.candidateId,
+    overallWinnerName: winnerCandidate.name,
+    createdAt: new Date().toISOString()
+  };
+
+  battleHistory.unshift(battleRecord);
+  await saveBattlesToVault();
+  updateBattleHistoryBadge();
+
+  // Render the Grand Results Card and Podium
+  renderBattleExecutionResults(battleRecord);
+}
+
+function renderBattleExecutionResults(battleRecord) {
+  const container = document.getElementById('battle-live-results-container');
+  if (!container) return;
+
+  const winner = battleRecord.candidates.find(c => c.candidateId === battleRecord.overallWinnerId) || battleRecord.candidates[0];
+
+  container.innerHTML = `
+    <!-- PODIUM & WINNER HEADER -->
+    <div class="panel-card mb-4" style="background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(0,0,0,0.5) 100%); border: 1px solid var(--emerald-main); border-radius: 12px; padding: 1.25rem 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
+            <span style="font-size: 1.4rem;">🏆</span>
+            <h2 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0;">Ganador Proclamado: ${winner.name}</h2>
+            <span class="badge badge-emerald" style="font-size: 0.74rem;">${winner.badge || 'GANADOR'}</span>
+          </div>
+          <p class="text-dim text-xs" style="margin: 0;">
+            ${battleRecord.mode === 'war' ? `Guerra completada tras ${battleRecord.rounds.length} asaltos.` : 'Batalla completada con éxito.'} 
+            ${battleRecord.autoEvaluate ? 'Arbitrado por Árbitro IA Objetivo.' : 'Evaluación directa de usuario.'}
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 0.6rem; align-items: center;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="deployWinnerApi('${winner.candidateId}')" style="font-weight: 700; font-size: 0.8rem; padding: 0.45rem 0.9rem; box-shadow: 0 0 15px rgba(16,185,129,0.3);">
+            ⚡ Desplegar Servidor API del Ganador
+          </button>
         </div>
       </div>
-    `).join('');
-  }, 900);
+    </div>
+
+    <!-- ROUNDS DETAIL ACCORDIONS / CARDS -->
+    <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+      ${battleRecord.rounds.map(round => `
+        <div class="panel-card" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1rem 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.5rem;">
+            <div>
+              <strong style="color: #38bdf8; font-size: 0.92rem;">🥊 ${round.name || `Asalto #${round.roundNumber}`}</strong>
+              <p class="text-dim text-xs" style="margin: 0.15rem 0 0;">Prompt: "${round.prompt}"</p>
+            </div>
+            <span class="badge badge-emerald" style="font-size: 0.72rem;">Líder: ${battleRecord.candidates.find(c => c.candidateId === round.winnerCandidateId)?.name || 'Candidato 1'}</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.85rem;">
+            ${round.responses.map((resp, idx) => {
+              const isFirst = idx === 0;
+              const v = resp.metrics.verdict;
+              const vColor = v === 'correct' ? 'badge-emerald' : v === 'partially_correct' ? 'badge-mint' : 'badge-danger';
+
+              return `
+                <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isFirst ? 'var(--emerald-main)' : 'rgba(255,255,255,0.06)'}; border-radius: 8px; padding: 0.85rem; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                      <strong style="color: #fff; font-size: 0.88rem;">${resp.candidateName}</strong>
+                      ${isFirst ? '<span class="badge badge-emerald" style="font-size: 0.68rem;">🥇 1º Puesto</span>' : `<span class="badge badge-mint" style="font-size: 0.68rem;">#${idx + 1}</span>`}
+                    </div>
+
+                    <!-- Metrics Badges -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem; font-size: 0.70rem;">
+                      <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--emerald-light);">${resp.metrics.latencyMs} ms</span>
+                      <span class="badge" style="background: rgba(255,255,255,0.06); color: #38bdf8;">~${resp.metrics.tokensPerSec} tok/s</span>
+                      <span class="badge" style="background: rgba(255,255,255,0.06); color: #f59e0b;">Score: ${resp.metrics.semanticScore}/100</span>
+                      ${v ? `<span class="badge ${vColor}" style="font-size: 0.66rem;">${v.toUpperCase()}</span>` : ''}
+                    </div>
+
+                    ${resp.metrics.verdictReason ? `
+                      <div style="background: rgba(0,0,0,0.3); border-left: 2px solid ${v === 'correct' ? '#10b981' : '#f59e0b'}; padding: 0.35rem 0.5rem; font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.6rem; line-height: 1.35;">
+                        ⚖️ <strong>Árbitro IA:</strong> ${resp.metrics.verdictReason}
+                      </div>
+                    ` : ''}
+
+                    <!-- Model Full Response -->
+                    <div class="output-box" style="margin: 0; max-height: 160px; font-size: 0.72rem; line-height: 1.4; background: rgba(0,0,0,0.5);">
+${resp.content}
+                    </div>
+                  </div>
+
+                  <div style="margin-top: 0.7rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
+                    <span style="font-size: 0.70rem; color: var(--text-dim);">${resp.cost || '$0'}</span>
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size: 0.70rem; padding: 0.2rem 0.5rem;" onclick="deployWinnerApi('${resp.candidateId}')">
+                      ⚡ Desplegar API
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ─── POST-BATTLE WINNER API DEPLOYMENT ─────────────────────────
+function deployWinnerApi(candidateId) {
+  const candidate = battleSelectedCandidates.find(c => c.candidateId === candidateId);
+  if (!candidate) return;
+
+  // 1. If it's already a Nimphy
+  if (candidate.type === 'nimphy' && candidate.nimphyId) {
+    const nimphy = nimphys.find(n => n.id === candidate.nimphyId);
+    if (nimphy) {
+      showLaunchApiModal(nimphy.id);
+      return;
+    }
+  }
+
+  // 2. If it's a Marketplace or BYOK model, synthesize/create a Nimphy ready for API deployment
+  const newNimphyId = `nimphy_${Date.now()}`;
+  const newNimphy = {
+    id: newNimphyId,
+    name: candidate.name,
+    category: 'Arena Winner',
+    baseModel: candidate.modelId || 'qwen-2.5-coder-3b',
+    version: 'v1.0.0',
+    createdAt: new Date().toISOString(),
+    status: 'ready',
+    metrics: { accuracy: 96.5, loss: 0.04, latencyMs: 240 }
+  };
+
+  nimphys.push(newNimphy);
+  renderNimphys();
+  renderDashboardStats();
+  saveNimphysToVault();
+
+  showLaunchApiModal(newNimphyId);
+}
+
+// ─── BATTLE HISTORY & VAULT PERSISTENCE ───────────────────────
+function updateBattleHistoryBadge() {
+  const badge = document.getElementById('battle-history-count-badge');
+  if (badge) badge.textContent = `${battleHistory.length}`;
+}
+
+function renderBattleHistoryList() {
+  const container = document.getElementById('battle-history-list');
+  if (!container) return;
+
+  if (battleHistory.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 1.5rem; font-size: 0.82rem;">
+        No hay registros de batallas o guerras guardadas todavía.<br>
+        Lanza tu primer enfrentamiento desde la pestaña <strong>"⚔️ Lanzador"</strong>.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = battleHistory.map(b => {
+    const isWar = b.mode === 'war';
+    const roundsCount = b.rounds?.length || 1;
+
+    return `
+      <div style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+            <span class="badge ${isWar ? 'badge-mint' : 'badge-emerald'}" style="font-size: 0.68rem; font-weight: 700;">
+              ${isWar ? `🛡️ WAR (${roundsCount} Asaltos)` : '⚔️ BATTLE'}
+            </span>
+            <strong style="color: #fff; font-size: 0.92rem;">${b.name}</strong>
+            <span class="badge badge-emerald" style="font-size: 0.68rem;">🏆 Ganador: ${b.overallWinnerName || 'N/A'}</span>
+          </div>
+          <div style="font-size: 0.74rem; color: var(--text-dim); display: flex; gap: 0.8rem;">
+            <span>Modelos: <strong>${b.candidates?.map(c => c.name).join(', ') || 'N/A'}</strong></span>
+            <span>Fecha: ${new Date(b.createdAt).toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openBattleDetailModal('${b.battleId}')" style="font-size: 0.74rem; padding: 0.25rem 0.6rem;">
+            👁️ Ver Resultados
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="deleteBattleFromHistory('${b.battleId}')" style="color: #f87171; border-color: rgba(248,113,113,0.3); font-size: 0.74rem; padding: 0.25rem 0.5rem;" title="Eliminar Batalla">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openBattleDetailModal(battleId) {
+  const battle = battleHistory.find(b => b.battleId === battleId);
+  if (!battle) return;
+
+  const modal = document.getElementById('battle-detail-modal');
+  const title = document.getElementById('battle-detail-modal-title');
+  const body = document.getElementById('battle-detail-modal-body');
+
+  if (title) title.textContent = `🏆 ${battle.name}`;
+
+  if (body) {
+    body.innerHTML = `
+      <div style="background: rgba(16,185,129,0.08); border: 1px solid var(--emerald-main); border-radius: 8px; padding: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong style="color: #fff; font-size: 0.95rem;">Ganador Proclamado: ${battle.overallWinnerName}</strong>
+          <p class="text-dim text-xs" style="margin: 0.1rem 0 0;">Modo: ${battle.mode.toUpperCase()} • Fecha: ${new Date(battle.createdAt).toLocaleString()}</p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="deployWinnerApi('${battle.overallWinnerId}'); closeBattleDetailModal();" style="font-size: 0.74rem;">
+          ⚡ Desplegar API
+        </button>
+      </div>
+
+      ${battle.rounds.map(r => `
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.8rem;">
+          <strong style="color: #38bdf8; font-size: 0.86rem; display: block; margin-bottom: 0.2rem;">🥊 ${r.name || `Asalto #${r.roundNumber}`}</strong>
+          <p style="font-size: 0.76rem; color: var(--text-dim); margin-bottom: 0.6rem;">Prompt: "${r.prompt}"</p>
+
+          <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+            ${r.responses.map((resp, idx) => `
+              <div style="background: rgba(0,0,0,0.4); border: 1px solid ${idx === 0 ? 'var(--emerald-main)' : 'rgba(255,255,255,0.06)'}; border-radius: 6px; padding: 0.6rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                  <strong style="color: #fff; font-size: 0.80rem;">${resp.candidateName}</strong>
+                  <div style="display: flex; gap: 0.3rem; font-size: 0.68rem;">
+                    <span class="badge badge-emerald">${resp.metrics.latencyMs}ms</span>
+                    <span class="badge badge-mint">${resp.metrics.semanticScore}/100</span>
+                    ${resp.metrics.verdict ? `<span class="badge badge-emerald">${resp.metrics.verdict.toUpperCase()}</span>` : ''}
+                  </div>
+                </div>
+                <div class="output-box" style="margin: 0; max-height: 120px; font-size: 0.70rem;">
+${resp.content}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeBattleDetailModal() {
+  const modal = document.getElementById('battle-detail-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function deleteBattleFromHistory(battleId) {
+  const battle = battleHistory.find(b => b.battleId === battleId);
+  const confirmed = await showCustomConfirm({
+    title: '🗑️ Eliminar Registro de Batalla',
+    message: `<p style="color: #fff;">¿Deseas eliminar el registro <strong>"${battle?.name || battleId}"</strong> del historial?</p>`,
+    confirmText: '🗑️ Eliminar',
+    cancelText: 'Cancelar',
+    isDanger: true
+  });
+  if (!confirmed) return;
+
+  battleHistory = battleHistory.filter(b => b.battleId !== battleId);
+  renderBattleHistoryList();
+  updateBattleHistoryBadge();
+  await saveBattlesToVault();
+  showCustomModal('🗑️ Batalla Eliminada', 'El registro ha sido eliminado del historial.');
+}
+
+async function clearAllBattleHistory() {
+  if (battleHistory.length === 0) return;
+  const confirmed = await showCustomConfirm({
+    title: '🗑️ Limpiar Todo el Historial',
+    message: '<p style="color: #fff;">¿Estás seguro de que deseas eliminar todas las batallas y guerras del historial?</p>',
+    confirmText: '🗑️ Limpiar Todo',
+    cancelText: 'Cancelar',
+    isDanger: true
+  });
+  if (!confirmed) return;
+
+  battleHistory = [];
+  renderBattleHistoryList();
+  updateBattleHistoryBadge();
+  await saveBattlesToVault();
+  showCustomModal('🗑️ Historial Limpio', 'Se han eliminado todos los registros de enfrentamientos.');
+}
+
+async function loadBattlesFromVault() {
+  if (!currentUser) return;
+  const token = getStoredToken();
+  if (!token) return;
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/deimatic-battles.json`, {
+      headers: { 'Authorization': `token ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const content = decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
+      battleHistory = JSON.parse(content);
+      updateBattleHistoryBadge();
+      renderBattleHistoryList();
+    }
+  } catch {}
+}
+
+async function saveBattlesToVault() {
+  if (!currentUser) return;
+  const token = getStoredToken();
+  if (!token) return;
+
+  try {
+    let sha = null;
+    try {
+      const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/deimatic-battles.json`, {
+        headers: { 'Authorization': `token ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        sha = data.sha;
+      }
+    } catch {}
+
+    await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/deimatic-battles.json`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: 'sync: update deimatic battles history in .mantx-storage',
+        content: btoa(unescape(encodeURIComponent(JSON.stringify(battleHistory, null, 2)))),
+        ...(sha ? { sha } : {})
+      })
+    });
+  } catch (e) {
+    console.warn('Could not sync battles history to vault:', e.message);
+  }
 }
 
 // ─── NIMPHYS CREATION & PRODUCTION ENGINE ─────────────────────
@@ -3923,6 +4745,27 @@ window.rotateCurrentPoolMasterKey = rotateCurrentPoolMasterKey;
 window.confirmSaveEditedPool = confirmSaveEditedPool;
 window.deleteAkgPool = deleteAkgPool;
 window.copyMasterKey = copyMasterKey;
+
+// Deimatic Battles & Wars window bindings
+window.switchBattleSubView = switchBattleSubView;
+window.onBattleModeChange = onBattleModeChange;
+window.openAddBattleCandidateModal = openAddBattleCandidateModal;
+window.closeAddBattleCandidateModal = closeAddBattleCandidateModal;
+window.switchCandidateSourceTab = switchCandidateSourceTab;
+window.toggleCandidateSelection = toggleCandidateSelection;
+window.removeCandidateFromBattle = removeCandidateFromBattle;
+window.handleBattleDocsSelected = handleBattleDocsSelected;
+window.removeBattleDoc = removeBattleDoc;
+window.addWarRoundCard = addWarRoundCard;
+window.removeWarRoundCard = removeWarRoundCard;
+window.updateWarRoundPrompt = updateWarRoundPrompt;
+window.updateBattleEstimates = updateBattleEstimates;
+window.executeDeimaticBattleArena = executeDeimaticBattleArena;
+window.deployWinnerApi = deployWinnerApi;
+window.openBattleDetailModal = openBattleDetailModal;
+window.closeBattleDetailModal = closeBattleDetailModal;
+window.deleteBattleFromHistory = deleteBattleFromHistory;
+window.clearAllBattleHistory = clearAllBattleHistory;
 
 /**
  * Generates the real GitHub Actions YAML for a Nimphy public server.

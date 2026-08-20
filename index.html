@@ -377,51 +377,186 @@
         </div>
       </section>
 
-      <!-- TAB 5: DEIMATIC BATTLES -->
+      <!-- TAB 5: DEIMATIC BATTLES & WARS -->
       <section id="tab-battles" class="tab-content">
-        <div class="tab-header">
+        <div class="tab-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;">
           <div>
             <h2>⚔️ Deimatic Battles & Wars Arena</h2>
-            <p class="text-dim">Enfrenta modelos en tiempo real. Evalúa velocidad, tokens/segundo, precisión y calidad semántica.</p>
+            <p class="text-dim">Banco de pruebas comparativo multimodelo. Enfrenta modelos en tiempo real, audita con Árbitro IA y despliega el ganador en 1 click.</p>
           </div>
-          <button class="btn btn-primary" onclick="runArenaBattle()">⚔️ Lanzar Batalla</button>
+          <div style="display: flex; align-items: center; gap: 0.4rem; background: rgba(0,0,0,0.3); padding: 0.25rem 0.4rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
+            <button type="button" class="btn btn-outline btn-sm battle-view-tab-btn active" id="btn-battle-view-launcher" onclick="switchBattleSubView('launcher')" style="font-size: 0.76rem; padding: 0.3rem 0.65rem;">
+              ⚔️ Lanzador
+            </button>
+            <button type="button" class="btn btn-outline btn-sm battle-view-tab-btn" id="btn-battle-view-history" onclick="switchBattleSubView('history')" style="font-size: 0.76rem; padding: 0.3rem 0.65rem;">
+              📜 Historial & Logs (<span id="battle-history-count-badge">0</span>)
+            </button>
+          </div>
         </div>
 
-        <div class="panel-card mb-4">
-          <div class="grid-3">
-            <div class="form-group">
-              <label>Candidatos (separados por coma):</label>
-              <input type="text" id="battle-candidates" class="input-text" placeholder="Ej: qwen-2.5-coder-3b, llama-3.2-3b-instruct" oninput="updateBattleEstimates()">
-            </div>
-            <div class="form-group">
-              <label>Modo RAG:</label>
-              <select id="battle-rag" class="input-select" onchange="updateBattleEstimates()">
-                <option value="none">Sin RAG</option>
-                <option value="classic">RAG Clásico (Documento)</option>
-                <option value="graph">Arzor Graph RAG (Ecdysis Memory)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Nombre del Enfrentamiento:</label>
-              <input type="text" id="battle-name" class="input-text" placeholder="Ej: Showdown: Algoritmos de Grafos y Concurrencia">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Prompt del Enfrentamiento:</label>
-            <textarea id="battle-prompt" class="input-textarea" rows="2" placeholder="Ej: Explica cómo implementar concurrencia segura sin bloqueos en Rust y compara con Go channels..." oninput="updateBattleEstimates()"></textarea>
-          </div>
+        <!-- 1. BATTLE LAUNCHER VIEW -->
+        <div id="battle-view-launcher-container">
           
-          <!-- Real-Time Context Guard & Time Estimate -->
-          <div id="battle-context-guard" class="text-xs mb-2 text-dim" style="padding: 0.4rem 0.8rem; background: rgba(0,0,0,0.3); border-radius: 6px; display: flex; justify-content: space-between;">
-            <span id="battle-token-info">Tokens estimados: ~0 | Capacidad: 0%</span>
-            <span id="battle-time-info" style="color: var(--emerald-light);">Tiempo estimado de batalla: ~1s</span>
+          <div class="panel-card mb-4" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.1rem 1.25rem;">
+            
+            <!-- Top Controls: Name & Battle/War Mode -->
+            <div class="grid-2 mb-3" style="gap: 0.9rem;">
+              <div class="form-group mb-0">
+                <label>Nombre del Enfrentamiento:</label>
+                <input type="text" id="battle-input-name" class="input-text" placeholder="Ej: Showdown: Concurrencia y Algoritmos de Grafos">
+              </div>
+              
+              <div class="form-group mb-0">
+                <label>Modo de Enfrentamiento:</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
+                  <label style="display: flex; align-items: center; justify-content: center; gap: 0.4rem; cursor: pointer; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.6rem; font-size: 0.76rem; color: #fff; margin: 0;">
+                    <input type="radio" name="battle_mode_select" value="battle" checked onchange="onBattleModeChange('battle')">
+                    <span style="font-weight: 600;">⚔️ Battle (1 Asalto)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; justify-content: center; gap: 0.4rem; cursor: pointer; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.6rem; font-size: 0.76rem; color: #fff; margin: 0;">
+                    <input type="radio" name="battle_mode_select" value="war" onchange="onBattleModeChange('war')">
+                    <span style="font-weight: 600; color: #38bdf8;">🛡️ War (Multi-Asalto)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- UNIVERSAL CANDIDATE MODELS SELECTOR -->
+            <div class="form-group mb-3" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <strong style="color: #fff; font-size: 0.88rem; display: block;">🎯 Modelos Candidatos a Enfrentar (Sin Límite):</strong>
+                  <p class="text-dim text-xs" style="margin: 0;">Selecciona cualquier combinación de Nimphys entrenados, modelos Marketplace, Termes o APIs BYOK.</p>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openAddBattleCandidateModal()" style="font-size: 0.75rem; padding: 0.3rem 0.7rem; font-weight: 600;">
+                  ➕ Añadir Modelo Candidato
+                </button>
+              </div>
+
+              <!-- Candidates Chips / List -->
+              <div id="battle-candidates-selected-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem; min-height: 48px; align-items: center; padding: 0.4rem; background: rgba(0,0,0,0.35); border-radius: 6px; border: 1px dashed rgba(255,255,255,0.08);">
+                <!-- Populated dynamically via JS -->
+              </div>
+            </div>
+
+            <!-- SINGLE BATTLE INPUT CONTAINER -->
+            <div id="battle-single-input-container">
+              <div class="form-group mb-3">
+                <label style="display: flex; justify-content: space-between; align-items: center;">
+                  <span>Prompt de Consulta para la Batalla:</span>
+                  <span class="text-dim text-xs" id="battle-single-prompt-tokens">~0 tokens</span>
+                </label>
+                <textarea id="battle-single-prompt" class="input-textarea" rows="3" placeholder="Ej: Implementa un algoritmo de concurrencia segura sin bloqueos (lock-free queue) en Rust y explica cómo evita condiciones de carrera..." oninput="updateBattleEstimates()"></textarea>
+              </div>
+
+              <!-- Document Dropzone for Battle -->
+              <div class="form-group mb-3" style="background: rgba(0,0,0,0.2); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                  <strong style="color: var(--emerald-light); font-size: 0.80rem;">📄 Documentos / Código Semilla Adjunto (Opcional):</strong>
+                  <span id="battle-docs-count-badge" class="badge badge-mint" style="font-size: 0.68rem;">0 Archivos (~0 tok)</span>
+                </div>
+
+                <div style="border: 1px dashed rgba(16,185,129,0.3); border-radius: 6px; padding: 0.6rem; text-align: center; cursor: pointer; background: #020704; margin-bottom: 0.4rem;" onclick="document.getElementById('battle-doc-file-input').click()">
+                  <input type="file" id="battle-doc-file-input" multiple accept=".txt,.md,.pdf,.json,.sql,.py,.ts,.js,.yaml,.csv" style="display: none;" onchange="handleBattleDocsSelected(this.files)">
+                  <div style="font-size: 0.78rem; font-weight: 600; color: #fff;">📄 Haz clic para adjuntar documentos (.txt, .md, .json, .py, .ts, .sql, etc.)</div>
+                </div>
+
+                <div id="battle-docs-files-list" style="display: flex; flex-direction: column; gap: 0.3rem;"></div>
+              </div>
+            </div>
+
+            <!-- MULTI-ROUND DEIMATIC WAR CONTAINER (Hidden by default) -->
+            <div id="battle-war-rounds-container" class="hidden mb-3">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                <strong style="color: #38bdf8; font-size: 0.88rem;">🛡️ Asaltos de la Guerra (Multi-Round Sequence):</strong>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addWarRoundCard()" style="font-size: 0.74rem; border-color: rgba(56,189,248,0.4); color: #38bdf8;">
+                  ➕ Añadir Asalto a la Guerra
+                </button>
+              </div>
+
+              <div id="war-rounds-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <!-- Populated dynamically via JS -->
+              </div>
+            </div>
+
+            <!-- REAL-TIME CONTEXT GUARD & RUNTIME ESTIMATES -->
+            <div id="battle-context-guard-panel" class="mb-3" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.9rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem; font-size: 0.78rem; margin-bottom: 0.4rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="font-size: 1rem;">🛡️</span>
+                  <strong style="color: #fff;">Context Guard & Capacidad:</strong>
+                  <span id="battle-token-summary" style="font-family: var(--font-mono); color: var(--emerald-light);">0 tokens (~0% del límite más restrictivo)</span>
+                </div>
+                <div id="battle-time-estimation" style="color: var(--text-dim);">
+                  Tiempo estimado: ~0s
+                </div>
+              </div>
+
+              <!-- Context Warning Alert Box -->
+              <div id="battle-context-alert" class="hidden" style="background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); border-radius: 6px; padding: 0.55rem 0.8rem; font-size: 0.76rem; color: #fca5a5; line-height: 1.45;">
+                <!-- Warning injected dynamically -->
+              </div>
+            </div>
+
+            <!-- EXECUTION & ARBITRATION OPTIONS -->
+            <div class="grid-3 mb-4" style="gap: 0.8rem; font-size: 0.78rem;">
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.8rem;">
+                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; color: #fff; font-weight: 600; margin-bottom: 0.2rem;">
+                  <input type="checkbox" id="battle-toggle-autoeval" checked>
+                  <span>🤖 Auto-Evaluate (Árbitro IA)</span>
+                </label>
+                <p class="text-dim text-xs" style="margin: 0;">Un juez IA especializado audita las respuestas, detecta alucinaciones y califica objetivamente.</p>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.8rem;">
+                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; color: #fff; font-weight: 600; margin-bottom: 0.2rem;">
+                  <input type="checkbox" id="battle-toggle-graphrag">
+                  <span>🕸️ Inyección Graph RAG</span>
+                </label>
+                <p class="text-dim text-xs" style="margin: 0;">Enriquece la consulta con el grafo de memoria semántica persistente Ecdysis.</p>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.65rem 0.8rem;">
+                <label style="font-weight: 600; color: #fff; display: block; margin-bottom: 0.2rem;">Modo de Despacho:</label>
+                <select id="battle-dispatch-mode" class="input-select" style="padding: 0.2rem 0.4rem; font-size: 0.74rem;" onchange="updateBattleEstimates()">
+                  <option value="parallel">⚡ Paralelo (Máxima Velocidad)</option>
+                  <option value="sequential">🚶‍♂️ Secuencial (Ahorro de Concurrencia)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Launch Button -->
+            <button type="button" class="btn btn-primary btn-block" id="btn-launch-battle-action" onclick="executeDeimaticBattleArena()" style="font-weight: 700; font-size: 0.92rem; padding: 0.7rem;">
+              ⚔️ Iniciar Deimatic Battle
+            </button>
           </div>
-          <div id="battle-overflow-warning" class="text-xs text-red hidden mb-2"></div>
+
+          <!-- LIVE BATTLE EXECUTION & RESULTS CONTAINER -->
+          <div id="battle-live-results-container" class="hidden">
+            <!-- Results and Podium Injected Here -->
+          </div>
+
         </div>
 
-        <div id="battle-live-results" class="grid-2">
-          <!-- Live Battle Results Injected Here -->
+        <!-- 2. BATTLE HISTORY & LOGS VIEW -->
+        <div id="battle-view-history-container" class="hidden">
+          <div class="panel-card mb-4" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1rem 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin: 0;">📜 Registro Histórico de Deimatic Battles & Wars</h3>
+                <p class="text-dim text-xs" style="margin: 0;">Consulta todas las ejecuciones pasadas, podios, veredictos de árbitro y respuestas completas.</p>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" onclick="clearAllBattleHistory()" style="color: #f87171; border-color: rgba(248,113,113,0.3); font-size: 0.72rem;">
+                🗑️ Limpiar Historial
+              </button>
+            </div>
+
+            <div id="battle-history-list" style="display: flex; flex-direction: column; gap: 0.6rem;">
+              <!-- Populated dynamically via JS -->
+            </div>
+          </div>
         </div>
+
       </section>
 
       <!-- TAB 6: NIMPHYS, FORGE & LAB -->
@@ -656,6 +791,91 @@
       <div style="display: flex; gap: 0.8rem; justify-content: flex-end; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 0.9rem;">
         <button class="btn btn-secondary btn-sm" id="confirm-modal-btn-cancel" onclick="closeCustomConfirm(false)" style="font-size: 0.8rem; padding: 0.4rem 0.9rem;">Cancelar</button>
         <button class="btn btn-primary btn-sm" id="confirm-modal-btn-ok" onclick="closeCustomConfirm(true)" style="background: #ef4444; border-color: #dc2626; color: #fff; font-size: 0.8rem; padding: 0.4rem 1rem;">Eliminar</button>
+      </div>
+  <!-- CUSTOM BATTLE ADD CANDIDATE MODAL -->
+  <div id="battle-add-candidate-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 760px; max-height: 88vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.3rem;">🎯</span>
+          <div>
+            <h3 style="margin: 0; color: #fff;">Añadir Modelo Candidato a la Batalla</h3>
+            <p class="text-dim text-xs" style="margin: 0;">Selecciona cualquier modelo disponible en tu catálogo o crea uno personalizado.</p>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeAddBattleCandidateModal()">✕</button>
+      </div>
+
+      <!-- Candidate Selector Tabs -->
+      <div style="display: flex; gap: 0.4rem; margin-bottom: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.5rem; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline btn-sm candidate-source-tab-btn active" id="btn-cand-tab-marketplace" onclick="switchCandidateSourceTab('marketplace')" style="font-size: 0.76rem; padding: 0.25rem 0.6rem;">
+          🛒 Marketplace Open-Weights
+        </button>
+        <button type="button" class="btn btn-outline btn-sm candidate-source-tab-btn" id="btn-cand-tab-nimphys" onclick="switchCandidateSourceTab('nimphys')" style="font-size: 0.76rem; padding: 0.25rem 0.6rem;">
+          🧬 Mis Nimphys Entrenados
+        </button>
+        <button type="button" class="btn btn-outline btn-sm candidate-source-tab-btn" id="btn-cand-tab-termes" onclick="switchCandidateSourceTab('termes')" style="font-size: 0.76rem; padding: 0.25rem 0.6rem;">
+          🌐 Termes Symbiont Web
+        </button>
+        <button type="button" class="btn btn-outline btn-sm candidate-source-tab-btn" id="btn-cand-tab-byok" onclick="switchCandidateSourceTab('byok')" style="font-size: 0.76rem; padding: 0.25rem 0.6rem;">
+          🔑 BYOK / AKG Pools
+        </button>
+      </div>
+
+      <!-- Tab Content: Marketplace -->
+      <div id="cand-source-marketplace-container" class="cand-source-panel">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.6rem;">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Tab Content: Nimphys -->
+      <div id="cand-source-nimphys-container" class="cand-source-panel hidden">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.6rem;">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Tab Content: Termes -->
+      <div id="cand-source-termes-container" class="cand-source-panel hidden">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.6rem;">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Tab Content: BYOK -->
+      <div id="cand-source-byok-container" class="cand-source-panel hidden">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.6rem;">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddBattleCandidateModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM BATTLE RESULT DETAIL MODAL -->
+  <div id="battle-detail-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 860px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.3rem;">🏆</span>
+          <div>
+            <h3 id="battle-detail-modal-title" style="margin: 0; color: #fff;">Detalle del Enfrentamiento</h3>
+            <p id="battle-detail-modal-subtitle" class="text-dim text-xs" style="margin: 0;">Consulta las respuestas, latencias y dictámenes de cada asalto.</p>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeBattleDetailModal()">✕</button>
+      </div>
+
+      <div id="battle-detail-modal-body" style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Injected dynamically via JS -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.8rem;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="closeBattleDetailModal()">Cerrar</button>
       </div>
     </div>
   </div>
