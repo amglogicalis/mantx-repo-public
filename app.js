@@ -1685,20 +1685,26 @@ function addTermesCandidateToBattle() {
   closeAddBattleCandidateModal();
 }
 
-// ─── BYOK STRICT DYNAMIC KEY DETECTION CANDIDATE HELPERS ────
-function autoDetectBattleByokProvider() {
-  const key = document.getElementById('battle-byok-key-input')?.value?.trim() || '';
+// ─── BYOK STRICT REAL-API LIVE VERIFICATION CANDIDATE HELPERS ───
+let battleByokDebounceTimer = null;
+function onBattleByokKeyInput() {
+  clearTimeout(battleByokDebounceTimer);
   const nameEl = document.getElementById('battle-byok-detected-name');
   const badgeEl = document.getElementById('battle-byok-detected-badge');
   const selectEl = document.getElementById('battle-byok-model-select');
   const addBtn = document.getElementById('btn-add-byok-to-battle');
+
+  const key = document.getElementById('battle-byok-key-input')?.value?.trim() || '';
 
   if (!key) {
     if (nameEl) {
       nameEl.textContent = 'Pega una clave para auto-detectar';
       nameEl.style.color = 'var(--text-dim)';
     }
-    if (badgeEl) badgeEl.textContent = 'Auto-Detect';
+    if (badgeEl) {
+      badgeEl.textContent = 'Esperando Clave...';
+      badgeEl.className = 'badge badge-emerald';
+    }
     if (selectEl) {
       selectEl.innerHTML = '<option value="" disabled selected>Introduce tu API Key primero...</option>';
       selectEl.disabled = true;
@@ -1707,86 +1713,95 @@ function autoDetectBattleByokProvider() {
     return;
   }
 
-  let provider = 'groq';
-  let providerName = 'Groq Cloud';
-  let badgeText = 'LPU Ultra-Fast';
-
-  if (key.startsWith('AIza')) {
-    provider = 'gemini';
-    providerName = 'Google Gemini (AI Studio)';
-    badgeText = '1M Context';
-  } else if (key.startsWith('sk-ant-')) {
-    provider = 'anthropic';
-    providerName = 'Anthropic Claude';
-    badgeText = 'SOTA Coding';
-  } else if (key.startsWith('dsk-') || key.startsWith('sk-d')) {
-    provider = 'deepseek';
-    providerName = 'DeepSeek API';
-    badgeText = 'CoT Reasoning';
-  } else if (key.startsWith('sk-')) {
-    provider = 'openai';
-    providerName = 'OpenAI';
-    badgeText = 'REST API';
-  } else if (key.startsWith('gsk_')) {
-    provider = 'groq';
-    providerName = 'Groq Cloud';
-    badgeText = 'LPU Hardware';
-  } else if (key.startsWith('hf_')) {
-    provider = 'huggingface';
-    providerName = 'HuggingFace Serverless';
-    badgeText = 'ZeroGPU';
-  } else {
-    provider = 'openrouter';
-    providerName = 'OpenRouter / Genérico';
-    badgeText = 'Multi-Model';
-  }
-
   if (nameEl) {
-    nameEl.textContent = providerName;
-    nameEl.style.color = 'var(--emerald-light)';
+    nameEl.textContent = '⏳ Consultando API y verificando modelos en vivo...';
+    nameEl.style.color = '#93c5fd';
   }
-  if (badgeEl) badgeEl.textContent = badgeText;
+  if (badgeEl) {
+    badgeEl.textContent = 'Verificando...';
+    badgeEl.className = 'badge badge-mint';
+  }
+  if (selectEl) {
+    selectEl.innerHTML = '<option value="" disabled selected>Consultando catálogo en vivo...</option>';
+    selectEl.disabled = true;
+  }
+  if (addBtn) addBtn.disabled = true;
 
-  if (selectEl && typeof BYOK_DEFAULT_MODELS !== 'undefined') {
-    const models = BYOK_DEFAULT_MODELS[provider] || BYOK_DEFAULT_MODELS['groq'] || [];
-    if (models.length > 0) {
-      selectEl.innerHTML = models.map(m => `<option value="${provider}/${m.id}">${m.name}</option>`).join('');
-      selectEl.disabled = false;
-      if (addBtn) addBtn.disabled = false;
-    } else {
-      selectEl.innerHTML = '<option value="" disabled selected>No hay modelos configurados para este proveedor</option>';
-      selectEl.disabled = true;
-      if (addBtn) addBtn.disabled = true;
+  battleByokDebounceTimer = setTimeout(async () => {
+    await detectBattleByokProviderAndModels();
+  }, 450);
+}
+
+async function detectBattleByokProviderAndModels() {
+  const key = document.getElementById('battle-byok-key-input')?.value?.trim() || '';
+  const nameEl = document.getElementById('battle-byok-detected-name');
+  const badgeEl = document.getElementById('battle-byok-detected-badge');
+  const selectEl = document.getElementById('battle-byok-model-select');
+  const addBtn = document.getElementById('btn-add-byok-to-battle');
+
+  if (!key) return;
+
+  const result = await fetchRealModelsFromApiKey(key);
+
+  if (result.success && Array.isArray(result.models) && result.models.length > 0) {
+    if (nameEl) {
+      nameEl.textContent = `✔ ${result.title}`;
+      nameEl.style.color = result.color || 'var(--emerald-light)';
     }
+    if (badgeEl) {
+      badgeEl.textContent = `${result.models.length} Modelos Vivos`;
+      badgeEl.className = 'badge badge-emerald';
+      badgeEl.style.color = 'var(--emerald-light)';
+    }
+    if (selectEl) {
+      selectEl.innerHTML = result.models.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+      selectEl.disabled = false;
+    }
+    if (addBtn) addBtn.disabled = false;
+  } else {
+    if (nameEl) {
+      nameEl.textContent = '❌ Proveedor No Compatible o API Key Inválida';
+      nameEl.style.color = '#f87171';
+    }
+    if (badgeEl) {
+      badgeEl.textContent = 'Error API';
+      badgeEl.className = 'badge badge-outline';
+      badgeEl.style.color = '#f87171';
+    }
+    if (selectEl) {
+      selectEl.innerHTML = '<option value="" disabled selected>Clave rechazada o sin modelos disponibles</option>';
+      selectEl.disabled = true;
+    }
+    if (addBtn) addBtn.disabled = true;
   }
 }
 
 function addByokCandidateToBattle() {
   const key = document.getElementById('battle-byok-key-input')?.value?.trim();
   const selectEl = document.getElementById('battle-byok-model-select');
-  const selectVal = selectEl?.value;
+  const modelId = selectEl?.value;
+  const providerTitle = document.getElementById('battle-byok-detected-name')?.textContent?.replace(/^✔\s*/, '') || 'BYOK';
 
-  if (!key || !selectVal) {
-    showCustomModal('⚠️ Datos Incompletos', 'Por favor introduce tu API Key y selecciona un modelo válido.');
+  if (!key || !modelId) {
+    showCustomModal('⚠️ Datos Incompletos', 'Por favor introduce tu API Key válida y selecciona un modelo detectado.');
     return;
   }
 
-  const [provider, modelId] = selectVal.includes('/') ? selectVal.split('/') : ['byok', selectVal];
   const modelText = selectEl.options[selectEl.selectedIndex]?.text || modelId;
 
   let ctx = 128000;
-  if (modelId.includes('flash') || modelId.includes('pro')) ctx = 1048576;
+  if (modelId.includes('flash') || modelId.includes('pro') || modelId.includes('gemini')) ctx = 1048576;
   else if (modelId.includes('200k') || modelId.includes('claude')) ctx = 200000;
   else if (modelId.includes('deepseek')) ctx = 64000;
 
   const candObj = {
     candidateId: `cand_byok_${Date.now()}`,
-    name: `${provider.toUpperCase()}: ${modelText}`,
+    name: `${modelText}`,
     modelId: modelId,
     apiKey: key,
     type: 'byok',
     contextWindow: ctx,
-    provider: provider.toUpperCase(),
+    provider: providerTitle,
     badge: `🔑 BYOK`,
     cost: 'Direct Cloud'
   };
@@ -5229,9 +5244,9 @@ window.setBattleTermesPreset = setBattleTermesPreset;
 window.onBattleTermesEndpointInput = onBattleTermesEndpointInput;
 window.detectBattleTermesModels = detectBattleTermesModels;
 window.addTermesCandidateToBattle = addTermesCandidateToBattle;
-window.autoDetectBattleByokProvider = autoDetectBattleByokProvider;
+window.onBattleByokKeyInput = onBattleByokKeyInput;
+window.detectBattleByokProviderAndModels = detectBattleByokProviderAndModels;
 window.addByokCandidateToBattle = addByokCandidateToBattle;
-window.addAkgPoolCandidateToBattle = addAkgPoolCandidateToBattle;
 window.handleBattleDocsSelected = handleBattleDocsSelected;
 window.removeBattleDoc = removeBattleDoc;
 window.addWarRoundCard = addWarRoundCard;
