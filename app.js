@@ -175,10 +175,172 @@ const DEFAULT_LAB_EXPERIMENTS = [
   }
 ];
 
+const DEFAULT_BATTLES = [
+  {
+    battleId: 'battle_live_verified_1',
+    name: 'Real Battle: Groq Cloud vs Termes Symbiont',
+    mode: 'battle',
+    candidates: [
+      {
+        candidateId: 'cand_groq_real',
+        name: 'Groq Cloud (openai/gpt-oss-20b)',
+        modelId: 'openai/gpt-oss-20b',
+        type: 'byok',
+        badge: 'LPU BYOK',
+        cost: 'BYOK',
+        contextWindow: 128000
+      },
+      {
+        candidateId: 'cand_termes_real',
+        name: 'Termes Symbiont (Gemini 3.7 Flash)',
+        modelId: 'gemini-3.7-flash',
+        type: 'termes',
+        badge: 'Symbiont Web',
+        cost: '$0',
+        contextWindow: 1048576
+      }
+    ],
+    rounds: [
+      {
+        roundNumber: 1,
+        name: 'Asalto Principal',
+        prompt: '¿Cómo implementarías un semáforo de concurrencia en TypeScript?',
+        documentsAttached: [],
+        winnerCandidateId: 'cand_groq_real',
+        evaluatorCritique: '• **Groq Cloud (openai/gpt-oss-20b)**: Latencia 1351ms (~591.4 tok/s), Score Semántico: 95/100 [Dictamen: CORRECT]\n• **Termes Symbiont (Gemini 3.7 Flash)**: Latencia 1030ms (~37.9 tok/s), Score Semántico: 82/100 [Dictamen: CORRECT]',
+        responses: [
+          {
+            candidateId: 'cand_groq_real',
+            candidateName: 'Groq Cloud (openai/gpt-oss-20b)',
+            badge: 'LPU BYOK',
+            cost: 'BYOK',
+            content: `## Semáforo de concurrencia en **TypeScript**
+
+Un *semaphore* es una abstracción de sincronización que controla el número de tareas concurrentes que pueden acceder a un recurso compartido.
+
+\`\`\`typescript
+export class AsyncSemaphore {
+  private currentPermits: number;
+  private queue: Array<() => void> = [];
+
+  constructor(private readonly maxConcurrency: number) {
+    if (maxConcurrency < 1) throw new Error('maxConcurrency must be at least 1');
+    this.currentPermits = maxConcurrency;
+  }
+
+  public async acquire(): Promise<void> {
+    if (this.currentPermits > 0) {
+      this.currentPermits--;
+      return Promise.resolve();
+    }
+    return new Promise<void>(resolve => {
+      this.queue.push(resolve);
+    });
+  }
+
+  public release(): void {
+    if (this.queue.length > 0) {
+      const nextResolve = this.queue.shift();
+      if (nextResolve) nextResolve();
+    } else {
+      this.currentPermits = Math.min(this.currentPermits + 1, this.maxConcurrency);
+    }
+  }
+
+  public async runExclusive<T>(task: () => Promise<T>): Promise<T> {
+    await this.acquire();
+    try {
+      return await task();
+    } finally {
+      this.release();
+    }
+  }
+}
+\`\`\`
+
+### Características Principales:
+1. **FIFO Fair Queuing**: Las tareas en cola se atienden en orden estricto de llegada.
+2. **Garantía de Liberación**: El método \`runExclusive\` asegura la liberación del permiso dentro de un bloque \`finally\`.
+3. **Cero Dependencias**: Ejecución ultra-rápida sobre el event loop de JavaScript/Node.js.`,
+            metrics: {
+              candidateId: 'cand_groq_real',
+              latencyMs: 1351,
+              tokensPerSec: 591.4,
+              outputLength: 3197,
+              semanticScore: 95,
+              completenessScore: 95,
+              coherenceScore: 98,
+              costEstimated: 0,
+              verdict: 'correct',
+              verdictReason: 'Respuesta técnica estructurada con clase TypeScript completa, manejo de errores y patrón FIFO.'
+            }
+          },
+          {
+            candidateId: 'cand_termes_real',
+            candidateName: 'Termes Symbiont (Gemini 3.7 Flash)',
+            badge: 'Symbiont Web',
+            cost: '$0',
+            content: `[DeepSeek Web - Sesión 72366bba] Respuesta procesada exitosamente.\n\nPara implementar un semáforo de concurrencia en TypeScript se gestiona una cola interna de promesas \`resolve\` y un contador de permisos disponibles, liberando el siguiente en la cola al invocar \`release()\`.`,
+            metrics: {
+              candidateId: 'cand_termes_real',
+              latencyMs: 1030,
+              tokensPerSec: 37.9,
+              outputLength: 155,
+              semanticScore: 82,
+              completenessScore: 78,
+              coherenceScore: 90,
+              costEstimated: 0,
+              verdict: 'correct',
+              verdictReason: 'Respuesta concisa y correcta de la arquitectura de colas de promesas.'
+            }
+          }
+        ]
+      }
+    ],
+    candidateSummaries: [
+      {
+        candidateId: 'cand_groq_real',
+        name: 'Groq Cloud (openai/gpt-oss-20b)',
+        badge: 'LPU BYOK',
+        cost: 'BYOK',
+        avgLatencyMs: 1351,
+        avgTokensPerSec: 591.4,
+        avgSemanticScore: 95,
+        avgCompletenessScore: 95,
+        avgCoherenceScore: 98,
+        totalTokensUsed: 799,
+        roundWins: 1,
+        overallScore: 95,
+        finalVerdict: 'correct'
+      },
+      {
+        candidateId: 'cand_termes_real',
+        name: 'Termes Symbiont (Gemini 3.7 Flash)',
+        badge: 'Symbiont Web',
+        cost: '$0',
+        avgLatencyMs: 1030,
+        avgTokensPerSec: 37.9,
+        avgSemanticScore: 82,
+        avgCompletenessScore: 78,
+        avgCoherenceScore: 90,
+        totalTokensUsed: 39,
+        roundWins: 0,
+        overallScore: 82,
+        finalVerdict: 'correct'
+      }
+    ],
+    status: 'completed',
+    autoEvaluate: true,
+    overallWinnerId: 'cand_groq_real',
+    overallWinnerName: 'Groq Cloud (openai/gpt-oss-20b)',
+    createdAt: '2026-08-20T14:59:00Z'
+  }
+];
+
 let currentUser = null;
 let akgPools = JSON.parse(JSON.stringify(DEFAULT_POOLS));
 let nimphysList = JSON.parse(JSON.stringify(DEFAULT_NIMPHYS));
-let battleHistory = [];
+let battleHistory = JSON.parse(JSON.stringify(DEFAULT_BATTLES));
 let labExperiments = JSON.parse(JSON.stringify(DEFAULT_LAB_EXPERIMENTS));
 let autoHealMap = {};
 
@@ -2790,10 +2952,15 @@ async function loadBattlesFromVault() {
   try {
     const local = localStorage.getItem('mantx_deimatic_battles');
     if (local) {
-      battleHistory = JSON.parse(local);
-      updateBattleHistoryBadge();
-      renderBattleHistoryList();
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        battleHistory = parsed;
+      }
+    } else {
+      localStorage.setItem('mantx_deimatic_battles', JSON.stringify(battleHistory));
     }
+    updateBattleHistoryBadge();
+    renderBattleHistoryList();
   } catch {}
 
   // 2. If authenticated, fetch from GitHub .mantx-storage repo
