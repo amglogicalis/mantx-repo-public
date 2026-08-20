@@ -6361,7 +6361,7 @@ async function runDataForge() {
   const engineMode = document.getElementById('forge-engine-mode')?.value || 'local_runner';
   const localModel = document.getElementById('forge-local-model')?.value || 'qwen-2.5-coder-3b';
   const akgPoolId = document.getElementById('forge-akg-pool-select')?.value;
-  const termesEndpoint = document.getElementById('forge-termes-endpoint')?.value || 'http://127.0.0.1:7420/v1';
+  const termesEndpoint = document.getElementById('forge-termes-endpoint')?.value?.trim() || '';
   const out = document.getElementById('forge-result');
   if (!out) return;
 
@@ -6371,7 +6371,7 @@ async function runDataForge() {
     ? `🖥️ Actions Runner ($0 Compute, ${localModel})`
     : engineMode === 'akg'
     ? `🔑 AKG Gateway (Pool: ${akgPoolId || 'default'})`
-    : `🌐 Termes Symbiont (${termesEndpoint})`;
+    : `🌐 Termes Symbiont (${termesEndpoint || 'Endpoint Específico'})`;
 
   const filesText = uploadedForgeFiles.map(f => `--- Documento: ${f.name} ---\n${f.content}`).join('\n\n');
   const combinedContext = [filesText, docsText].filter(Boolean).join('\n\n');
