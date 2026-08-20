@@ -141,191 +141,270 @@
 
       <!-- TAB 2: ONBOARDING -->
       <section id="tab-onboarding" class="tab-content">
-        <div class="tab-header">
+        <div class="tab-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;">
           <div>
-            <h2>📖 Onboarding & Guía de Arquitectura MANTX</h2>
-            <p class="text-dim">Todo lo que necesitas saber para exprimir el ecosistema MLOps & LLMOps a coste $0.</p>
+            <h2>📖 Onboarding & Manual Integral MANTX</h2>
+            <p class="text-dim">Guía completa de arquitectura $0, buenas prácticas, manual por módulos y resolución de dudas y errores comunes.</p>
+          </div>
+          <div class="user-badge" style="background: rgba(16,185,129,0.1); border-color: var(--emerald-main); color: var(--emerald-light);">
+            ⚡ MLOps & LLMOps Serverless
           </div>
         </div>
 
-        <div class="grid-2 mb-4">
+        <!-- FAST ACCESS MENU -->
+        <div class="panel-card mb-4" style="background: #020704; border: 1px solid var(--emerald-main); padding: 0.8rem 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem;">
+            <span style="font-size: 1.1rem;">🧭</span>
+            <strong style="color: #fff; font-size: 0.88rem;">Menú de Acceso Rápido (Fast Access Navigator):</strong>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+            <a href="#onb-intro" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">🚀 Inicio & Requisitos</a>
+            <a href="#onb-lifecycle" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">🔄 Ciclo de Vida $0</a>
+            <a href="#onb-akg" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">🔑 AKG Gateway (429 HA)</a>
+            <a href="#onb-ecdysis" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">🧠 Ecdysis Memory & RAG</a>
+            <a href="#onb-forge" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">🧬 Synthetic Data Forge</a>
+            <a href="#onb-nimphys" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">🏋️ Nimphys & Métodos</a>
+            <a href="#onb-labs" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">🧪 Laboratory Matrix</a>
+            <a href="#onb-battles" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">⚔️ Battles & Wars Arena</a>
+            <a href="#onb-autoheal" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">🛡️ Auto-Heal & Drift</a>
+            <a href="#onb-practices" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem; color: #34d399; border-color: rgba(52,211,153,0.3);">💡 Buenas y Malas Prácticas</a>
+            <a href="#onb-faq" class="btn btn-outline btn-sm" style="font-size: 0.74rem; padding: 0.25rem 0.55rem; color: #38bdf8; border-color: rgba(56,189,248,0.3);">❓ FAQ & Errores Comunes</a>
+          </div>
+        </div>
+
+        <!-- SECTION 1: INICIO & REQUISITOS -->
+        <div id="onb-intro" class="grid-2 mb-4">
           <div class="panel-card">
-            <h3 style="color: var(--emerald-light); margin-bottom: 0.6rem;">💡 ¿Qué es MANTX?</h3>
-            <p class="text-dim text-sm" style="line-height: 1.6; margin-bottom: 1rem;">
-              MANTX es un motor autónomo de entrenamiento, evaluación comparativa y despliegue de modelos de Inteligencia Artificial que opera con <strong>coste $0 absoluto</strong> aprovechando los recursos gratuitos del ecosistema de desarrollo moderno (GitHub Actions, GitHub Releases y HuggingFace).
+            <h3 style="color: var(--emerald-light); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+              <span>💡</span> ¿Qué es MANTX?
+            </h3>
+            <p class="text-dim text-sm" style="line-height: 1.6; margin-bottom: 0.8rem;">
+              MANTX es una factoría de Inteligencia Artificial que opera con <strong>coste $0 absoluto</strong>. Utiliza los servidores en la nube de GitHub Actions (6 horas de cómputo por runner), GitHub Releases (almacenamiento binario de hasta 2GB por tag) y HuggingFace ZeroGPU para entrenar, auditar y desplegar modelos sin servidores de pago dedicados.
             </p>
-            <h4 style="font-size: 0.9rem; margin-bottom: 0.4rem;">🔑 Requisitos y Credenciales:</h4>
-            <ul class="text-sm text-dim" style="padding-left: 1.2rem; line-height: 1.5;">
-              <li><strong>GitHub PAT (Personal Access Token):</strong> Imprescindible para orquestar workflows de 6h en Actions y versionar adaptadores de pesos (hasta 2GB por release).</li>
-              <li><strong>Modelos Locales Sub-4B:</strong> Corren sin coste alguno en CPU dentro de GitHub Actions (Llama 3.2, Qwen 2.5 Coder, SmolLM2, Phi 3.5).</li>
-              <li><strong>HuggingFace Token (Opcional):</strong> Si dispones de token HF, puedes desplegar en Spaces ZeroGPU o solicitar el grant gratuito para GPUs sin coste.</li>
-              <li><strong>BYOK (Bring Your Own Keys):</strong> Puedes agregar claves de Groq, Gemini, DeepSeek o OpenAI al gateway AKG para mitigar errores 429.</li>
+            <h4 style="font-size: 0.86rem; margin-bottom: 0.4rem; color: #fff;">🔑 Credenciales y Entornos Soportados:</h4>
+            <ul class="text-xs text-dim" style="padding-left: 1.2rem; line-height: 1.6;">
+              <li><strong>GitHub Personal Access Token (PAT):</strong> Necesario con permisos <code>repo</code> y <code>workflow</code> para sincronizar el Vault y disparar los pipelines.</li>
+              <li><strong>Modelos Open-Source Locales ($0):</strong> Corren en CPU en Actions con <code>llama.cpp</code> (Qwen 2.5 Coder, Llama 3.2, DeepSeek Coder, Phi 3.5).</li>
+              <li><strong>HuggingFace Token (Opcional):</strong> Detecta automáticamente si tienes cuenta PRO o te guía para solicitar el <em>ZeroGPU Grant</em> gratuito.</li>
+              <li><strong>BYOK (Bring Your Own Keys):</strong> Añade claves de Groq, Gemini, DeepSeek o OpenAI al gateway AKG para rotación ante límites 429.</li>
             </ul>
           </div>
 
-          <div class="panel-card">
-            <h3 style="color: var(--emerald-light); margin-bottom: 0.6rem;">🔄 Ciclo de Vida Completo (Closed-Loop)</h3>
-            <div style="font-size: 0.82rem; line-height: 1.5; color: var(--text-dim);">
-              <div style="margin-bottom: 0.6rem;">
-                <strong style="color: #fff;">1. Model Selection:</strong> Explora el Marketplace y planifica el hardware target (CPU, ZeroGPU o Cloud).
+          <div id="onb-lifecycle" class="panel-card">
+            <h3 style="color: var(--emerald-light); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+              <span>🔄</span> Ciclo de Vida Autónomo (Closed-Loop)
+            </h3>
+            <div style="font-size: 0.80rem; line-height: 1.6; color: var(--text-dim);">
+              <div style="margin-bottom: 0.4rem;">
+                <strong style="color: #fff;">1. Marketplace & Selección:</strong> Elige tu arquitectura base según el hardware target (Actions CPU, ZeroGPU o Cloud BYOK).
               </div>
-              <div style="margin-bottom: 0.6rem;">
-                <strong style="color: #fff;">2. Synthetic Data Forge:</strong> Sintetiza datasets de alta calidad con Constitutional AI o genera semillas con ayuda de IAs externas.
+              <div style="margin-bottom: 0.4rem;">
+                <strong style="color: #fff;">2. Synthetic Data Forge:</strong> Sintetiza datasets de alta calidad con IA Constitucional (Evol-Instruct + Crítico).
               </div>
-              <div style="margin-bottom: 0.6rem;">
-                <strong style="color: #fff;">3. Nimphys Laboratory:</strong> Lanza matrices comparativas entre métodos (QLoRA, LoRA, RAFT) para hallar la mejor convergencia.
+              <div style="margin-bottom: 0.4rem;">
+                <strong style="color: #fff;">3. Nimphys Laboratory:</strong> Compara en paralelo la convergencia y loss de múltiples métodos (QLoRA, LoRA, RAFT, AFT).
               </div>
-              <div style="margin-bottom: 0.6rem;">
-                <strong style="color: #fff;">4. Deimatic Battles:</strong> Enfrenta candidatos con o sin Graph RAG para evaluar precisión y coherencia en tiempo real.
-              </div>
-              <div style="margin-bottom: 0.6rem;">
-                <strong style="color: #fff;">5. Production Intelligence (Auto-Heal):</strong> Al activarlo, el sistema detecta caídas de calidad (drift) y reentrena automáticamente el modelo desplegado.
+              <div style="margin-bottom: 0.4rem;">
+                <strong style="color: #fff;">4. Deimatic Battles & Wars:</strong> Enfrenta modelos en asaltos individuales o guerras multi-ronda con Árbitro IA objetivo.
               </div>
               <div>
-                <strong style="color: #fff;">6. Mantx Code CLI:</strong> Agente autónomo en terminal que utiliza tus propios Nimphys entrenados como cerebro de desarrollo.
+                <strong style="color: #fff;">5. Production Intelligence (Auto-Heal):</strong> Si el modelo activo en producción sufre drift (&ge;12%), Forge genera datos de refuerzo, reentrena en la nube y solo auto-despliega si vence la batalla de validación.
               </div>
             </div>
           </div>
         </div>
 
-        <div class="panel-card mb-4">
-          <div class="panel-title">🚀 Flujo Rápido Recomendado para Principiantes</div>
-          <div class="grid-3" style="font-size: 0.82rem; color: var(--text-dim);">
-            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px;">
-              <strong style="color: #fff;">Paso 1: Genera Datos</strong><br>
-              Ve a la pestaña <strong>Nimphys, Forge & Lab</strong> y pulsa "Generar Dataset Sintético" para crear tu primer archivo de entrenamiento en formato Alpaca.
-            </div>
-            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px;">
-              <strong style="color: #fff;">Paso 2: Evalúa en el Laboratorio</strong><br>
-              Lanza un test de convergencia en el <strong>Nimphys Laboratory</strong> para ver qué método obtiene menor loss y mejor benchmark.
-            </div>
-            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px;">
-              <strong style="color: #fff;">Paso 3: Enfrenta Modelos</strong><br>
-              En <strong>Deimatic Battles</strong>, lanza un enfrentamiento entre tu modelo favorito y un rival para verificar la calidad antes del despliegue.
-            </div>
-          </div>
-        </div>
-
-        <!-- GUÍA DE ENTRENAMIENTO & BUENAS PRÁCTICAS -->
+        <!-- SECTION 2: GUÍA ESPECÍFICA POR MÓDULOS -->
         <div class="panel-card mb-4" style="border-left: 4px solid var(--emerald-main);">
           <div class="panel-title" style="font-size: 1.15rem; color: #fff; margin-bottom: 0.4rem;">
-            📚 Guía de Entrenamiento: Archivos, Requisitos y Buenas Prácticas
+            🛠️ Guía Específica Módulo a Módulo
           </div>
           <p class="text-dim text-sm mb-4">
-            Cada método de entrenamiento persigue un objetivo distinto. Conoce qué archivos necesitas como mínimo, cuál es la combinación óptima para lograr la máxima precisión y qué errores comunes debes evitar.
+            Aprende el funcionamiento técnico exacto y el propósito de cada módulo dentro de la consola:
           </p>
 
-          <!-- 1. REQUISITOS POR MÉTODO -->
-          <h4 style="color: var(--emerald-light); font-size: 0.92rem; margin-bottom: 0.8rem;">📦 Requisitos de Entrada por Tipo de Entrenamiento:</h4>
           <div class="grid-2 mb-4" style="gap: 0.8rem;">
             
-            <!-- LoRA / QLoRA -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <strong style="color: #fff; font-size: 0.9rem;">1. QLoRA / LoRA (PEFT Clásico)</strong>
-                <span class="badge badge-emerald" style="font-size: 0.65rem;">Instrucciones / SFT</span>
-              </div>
-              <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
-                • <strong style="color: #fff;">Mínimo Requerido:</strong> Un <strong>Dataset estructurado</strong> (.json) con pares de <code>instruction</code> / <code>output</code> (formato Alpaca o ShareGPT).<br>
-                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Entre 500 y 3.000 ejemplos de alta diversidad con razonamiento paso a paso (Chain of Thought). Si subes documentos, se procesarán como adaptación de dominio continua, pero la capacidad dialógica la aportará el dataset.
-              </div>
+            <!-- AKG GATEWAY -->
+            <div id="onb-akg" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #38bdf8; font-size: 0.92rem; display: block; margin-bottom: 0.3rem;">🔑 1. AKG Gateway (API Key Gateway)</strong>
+              <p style="font-size: 0.78rem; line-height: 1.5; color: var(--text-dim); margin-bottom: 0.5rem;">
+                Crea una clave maestra virtual (<code>akg-mantx-live-...</code>) que agrupa múltiples claves de uno o varios proveedores (Groq, Gemini, DeepSeek, OpenAI).
+              </p>
+              <ul style="font-size: 0.76rem; color: var(--text-dim); padding-left: 1rem; line-height: 1.5;">
+                <li><strong>Auto-Detección:</strong> Identifica el proveedor por el prefijo de la clave (<code>gsk_</code>, <code>AIza...</code>, <code>sk-ant-</code>).</li>
+                <li><strong>Estrategias:</strong> <code>priority_fallback</code> (usa la clave con mayor prioridad) o <code>round_robin</code> (balanceo equilibrado).</li>
+                <li><strong>Mitigación 429:</strong> Si una clave recibe un error de tasa límite (Rate Limit 429), entra en enfriamiento por 60 segundos y la petición se redirige de inmediato a otra clave del pool.</li>
+              </ul>
             </div>
 
-            <!-- RAFT -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <strong style="color: #fff; font-size: 0.9rem;">2. RAFT (Retrieval-Augmented Fine-Tuning)</strong>
-                <span class="badge" style="font-size: 0.65rem; background: rgba(6,182,212,0.15); color: #38bdf8;">Lectura de Documentos</span>
-              </div>
-              <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
-                • <strong style="color: #fff;">Mínimo Requerido:</strong> <strong>Dataset (.json) + Documentos (.md, .txt, .pdf, .sql)</strong>. Ambos son indispensables.<br>
-                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Documentos técnicos bien estructurados por secciones, acompañados de preguntas del dataset que requieran consultar y citar fragmentos de esos documentos para responder correctamente.
-              </div>
+            <!-- ECDYSIS MEMORY -->
+            <div id="onb-ecdysis" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #c084fc; font-size: 0.92rem; display: block; margin-bottom: 0.3rem;">🧠 2. Ecdysis Semantic Memory & Graph RAG</strong>
+              <p style="font-size: 0.78rem; line-height: 1.5; color: var(--text-dim); margin-bottom: 0.5rem;">
+                Capa de memoria persistente que envuelve modelos stateless (como APIs de Gemini o Groq) sustituyendo al fine-tuning que las APIs cerradas no permiten.
+              </p>
+              <ul style="font-size: 0.76rem; color: var(--text-dim); padding-left: 1rem; line-height: 1.5;">
+                <li><strong>Vector Store (128d) + Grafo:</strong> Vectoriza conceptos e indexa relaciones relacionales en disco local.</li>
+                <li><strong>Inyección Dinámica:</strong> Antes de enviar el prompt al LLM, recupera recuerdos relevantes y los inyecta en <code>&lt;ecdysis_persistent_memory&gt;</code>.</li>
+                <li><strong>Aislamiento por Proyecto:</strong> Cada proyecto tiene su propia memoria aislada y privada.</li>
+              </ul>
             </div>
 
-            <!-- Graph RAG / Ecdysis Memory -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <strong style="color: #fff; font-size: 0.9rem;">3. Graph RAG (Arzor) & Memoria Ecdysis</strong>
-                <span class="badge" style="font-size: 0.65rem; background: rgba(168,85,247,0.15); color: #c084fc;">Cero Alucinaciones</span>
-              </div>
-              <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
-                • <strong style="color: #fff;">Mínimo Requerido:</strong> <strong>Documentos crudos, especificaciones, código o manuales</strong>. No requiere dataset de QA.<br>
-                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Archivos ricos en entidades técnicas, tablas, esquemas y relaciones lógicas. El motor extrae el grafo semántico y genera embeddings para consulta viva en inferencia.
-              </div>
+            <!-- SYNTHETIC DATA FORGE -->
+            <div id="onb-forge" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: var(--emerald-light); font-size: 0.92rem; display: block; margin-bottom: 0.3rem;">🧬 3. Synthetic Data Forge</strong>
+              <p style="font-size: 0.78rem; line-height: 1.5; color: var(--text-dim); margin-bottom: 0.5rem;">
+                Sintetizador de datos de entrenamiento con 3 motores explícitos y formateo automático:
+              </p>
+              <ul style="font-size: 0.76rem; color: var(--text-dim); padding-left: 1rem; line-height: 1.5;">
+                <li><strong>Motor 1: Modelo Local en Actions ($0):</strong> Compila el workflow `.github/workflows/forge-data-[id].yml` para generar datasets en la nube con `llama.cpp` y modelos sub-4B.</li>
+                <li><strong>Motor 2: AKG Gateway:</strong> Síntesis multi-key con balanceo y rotación en tiempo real.</li>
+                <li><strong>Motor 3: Termes Symbiont:</strong> Puente web gratuito a modelos avanzados.</li>
+                <li><strong>Formatos:</strong> Alpaca (SFT), ChatML, ShareGPT, RAFT (Docs + distractores), AFT 5-Capas y Few-Shot.</li>
+              </ul>
             </div>
 
-            <!-- AFT -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <strong style="color: #fff; font-size: 0.9rem;">4. AFT (Adaptive Fractal Tuning)</strong>
-                <span class="badge" style="font-size: 0.65rem; background: rgba(234,179,8,0.15); color: #fde047;">Especialización Fractal $0</span>
-              </div>
-              <div style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim);">
-                • <strong style="color: #fff;">Mínimo Requerido:</strong> Un <strong>Perfil Canónico AFT (.json o .yaml)</strong> diseñado y exportado desde el <em>AFT Visual Studio</em>.<br>
-                • <strong style="color: #a7f3d0;">Para un Buen Entrenamiento:</strong> Las 5 capas fractales completas: <em>system_instructions</em> (&ge;300 caracteres de arquitecto sénior), entre 10 y 15 ejemplos <em>few-shot</em> con razonamiento interno (<em>reasoning</em>), reglas de estilo estrictas, límites de dominio y palabras clave RAG. No modifica pesos: especializa operativamente con coste $0.
-              </div>
+            <!-- NIMPHYS & LABORATORIO -->
+            <div id="onb-nimphys" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #fde047; font-size: 0.92rem; display: block; margin-bottom: 0.3rem;">🏋️ 4. Nimphys & Laboratory Matrix Studio</strong>
+              <p style="font-size: 0.78rem; line-height: 1.5; color: var(--text-dim); margin-bottom: 0.5rem;">
+                Producción de modelos especializados y auditoría comparativa de arquitecturas:
+              </p>
+              <ul style="font-size: 0.76rem; color: var(--text-dim); padding-left: 1rem; line-height: 1.5;">
+                <li><strong>Métodos Soportados:</strong> LoRA (16-bit), QLoRA (4-bit), RAFT (documentos + CoT), AFT (Fractal) y PEFT.</li>
+                <li><strong>Versionado Automático:</strong> Versionado incremental (v1.0.0, v1.1.0...) tagueado en GitHub Releases.</li>
+                <li><strong>Matriz de Laboratorio:</strong> Despliega pipelines paralelos con la directiva <code>matrix</code> de GitHub Actions para comparar loss y velocidad a $0.</li>
+              </ul>
+            </div>
+
+            <!-- DEIMATIC BATTLES -->
+            <div id="onb-battles" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #f87171; font-size: 0.92rem; display: block; margin-bottom: 0.3rem;">⚔️ 5. Deimatic Battles & Wars Arena</strong>
+              <p style="font-size: 0.78rem; line-height: 1.5; color: var(--text-dim); margin-bottom: 0.5rem;">
+                Banco de pruebas y arbitraje objetivo de respuestas entre modelos contendientes:
+              </p>
+              <ul style="font-size: 0.76rem; color: var(--text-dim); padding-left: 1rem; line-height: 1.5;">
+                <li><strong>Modo Batalla vs Guerra:</strong> 1 asalto puntual o guerras secuenciales multi-asalto con prompts progresivos.</li>
+                <li><strong>Árbitro IA Objetivo:</strong> Audita corrección lógica, ausencia de alucinaciones y coherencia semántica.</li>
+                <li><strong>Métricas Reales:</strong> Cronometraje de latencia exacta (ms), velocidad de generación (~tok/s) y puntuación sobre 100.</li>
+              </ul>
+            </div>
+
+            <!-- AUTO-HEAL -->
+            <div id="onb-autoheal" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #6ee7b7; font-size: 0.92rem; display: block; margin-bottom: 0.3rem;">🛡️ 6. Production Intelligence & Auto-Heal</strong>
+              <p style="font-size: 0.78rem; line-height: 1.5; color: var(--text-dim); margin-bottom: 0.5rem;">
+                Monitorización continua y autoreparación en bucle cerrado:
+              </p>
+              <ul style="font-size: 0.76rem; color: var(--text-dim); padding-left: 1rem; line-height: 1.5;">
+                <li><strong>Línea Base:</strong> Se definen <code>testPrompts</code> y <code>expectedResponses</code> al crear el modelo.</li>
+                <li><strong>Detección de Drift:</strong> Calcula la desviación porcentual respecto a la línea base.</li>
+                <li><strong>Garantía de No-Regresión:</strong> La nueva versión generada por Forge solo se auto-despliega si vence al modelo activo en una Deimatic Battle de validación.</li>
+              </ul>
             </div>
 
           </div>
+        </div>
 
-          <!-- 2. BUENAS Y MALAS PRÁCTICAS -->
+        <!-- SECTION 3: BUENAS Y MALAS PRÁCTICAS -->
+        <div id="onb-practices" class="panel-card mb-4" style="border-left: 4px solid #34d399;">
+          <div class="panel-title" style="font-size: 1.15rem; color: #fff; margin-bottom: 0.4rem;">
+            💡 Buenas y Malas Prácticas en MANTX
+          </div>
+          <p class="text-dim text-sm mb-4">
+            Recomendaciones operativas para maximizar la calidad de los modelos y evitar desperdicio de cómputo:
+          </p>
+
           <div class="grid-2" style="gap: 1rem;">
             
             <!-- BUENAS PRÁCTICAS -->
             <div style="background: rgba(16,185,129,0.04); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 1rem;">
-              <h4 style="color: var(--emerald-light); font-size: 0.88rem; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+              <h4 style="color: var(--emerald-light); font-size: 0.90rem; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
                 <span>✔</span> Buenas Prácticas Recomendadas
               </h4>
               <ul style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); padding-left: 1.1rem; margin-bottom: 0;">
-                <li><strong style="color: #fff;">Calidad sobre Cantidad:</strong> 500 ejemplos limpios con explicaciones detalladas superan a 20.000 ejemplos breves, ruidosos o repetitivos.</li>
-                <li><strong style="color: #fff;">Estructura de Salida Homogénea:</strong> Si entrenas un modelo para programar, asegúrate de que todos los outputs del dataset sigan el mismo formato de markdown y comentarios.</li>
-                <li><strong style="color: #fff;">Habilitar Graph RAG para Datos Exactos:</strong> Si tu modelo debe manejar esquemas SQL, números de versión o sintaxis estricta, activa siempre Graph RAG para evitar alucinaciones.</li>
-                <li><strong style="color: #fff;">Validar en el Laboratorio:</strong> Antes de desplegar, pasa tu configuración por <em>Nimphys Laboratory Matrix</em> para certificar que el Loss converge por debajo de 0.50 y el score supera 90/100.</li>
+                <li><strong style="color: #fff;">Calidad sobre Cantidad:</strong> 500 ejemplos estructurados con razonamiento paso a paso (CoT) superan a 30.000 ejemplos repetitivos o ruidosos.</li>
+                <li><strong style="color: #fff;">Activar Graph RAG para Datos Exactos:</strong> Si el modelo debe respetar esquemas de BD, constantes o sintaxis estricta, acompaña el entrenamiento de Graph RAG.</li>
+                <li><strong style="color: #fff;">Configurar Pools con Múltiples Claves:</strong> En el AKG Gateway, añade al menos 2 o 3 claves por proveedor para que el failover por error 429 sea transparente.</li>
+                <li><strong style="color: #fff;">Líneas Base Precisas en Auto-Heal:</strong> Define entre 3 y 5 casos de prueba representativos en la línea base para que la detección de drift sea matemáticamente fiel.</li>
+                <li><strong style="color: #fff;">Usar AFT para Especialización Rápida:</strong> Si no quieres esperar 40 minutos de backpropagation, usa AFT Studio para compilar perfiles fractales de 5 capas en segundos.</li>
               </ul>
             </div>
 
             <!-- MALAS PRÁCTICAS -->
             <div style="background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 1rem;">
-              <h4 style="color: #f87171; font-size: 0.88rem; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+              <h4 style="color: #f87171; font-size: 0.90rem; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
                 <span>✘</span> Malas Prácticas a Evitar
               </h4>
               <ul style="font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); padding-left: 1.1rem; margin-bottom: 0;">
-                <li><strong style="color: #fff;">Entrenar LoRA solo con Documentos Crudos:</strong> Pasar PDFs o texto plano sin dataset de preguntas/respuestas creará un modelo que memoriza frases pero no sabe responder preguntas ni seguir instrucciones.</li>
-                <li><strong style="color: #fff;">Respuestas Telegráficas o Vacías:</strong> Evita datasets con respuestas como "OK", "Sí" o código sin contexto, ya que dañan la coherencia del modelo.</li>
-                <li><strong style="color: #fff;">Sobreajuste (Overfitting):</strong> Entrenar demasiados pasos sobre datasets muy pequeños provocará que el modelo solo memorice de memoria y falle ante preguntas nuevas.</li>
-                <li><strong style="color: #fff;">Confiar en PEFT Puro para Datos Numéricos Críticos:</strong> La memoria paramétrica es difusa; para constantes, endpoints o documentación cambiante, usa siempre RAG o Memoria Ecdysis.</li>
+                <li><strong style="color: #fff;">Subir Solo Texto Crudo a LoRA:</strong> Entrenar LoRA pasando documentos sin dataset de preguntas/respuestas creará un modelo que memoriza texto pero no sabe interactuar.</li>
+                <li><strong style="color: #fff;">Mezclar Proveedores en un Mismo Endpoint Termes:</strong> Termes Symbiont debe ser estrictamente <em>Mono-Provider y Mono-Modelo</em> para evitar discrepancias de tokens.</li>
+                <li><strong style="color: #fff;">Sobreajuste (Overfitting):</strong> No entrenes más de 3 a 5 épocas sobre datasets pequeños (<100 muestras), o el modelo perderá capacidad de generalización.</li>
+                <li><strong style="color: #fff;">Confiar en Parámetros para Datos Cambiantes:</strong> Para documentación que cambia semanalmente, no reentrenes pesos: usa Ecdysis Memory o RAFT.</li>
+                <li><strong style="color: #fff;">Dejar Auto-Heal con Umbrales Extremadamente Bajos:</strong> Un umbral de drift menor al 5% provocará reentrenamientos innecesarios por varianza estadística normal.</li>
               </ul>
             </div>
 
           </div>
         </div>
 
-        <!-- REGLA TERMES ENDPOINTS: MONO-PROVIDER & MONO-MODELO -->
-        <div class="panel-card mb-4" style="background: rgba(6,182,212,0.04); border: 1px solid rgba(6,182,212,0.3); border-left: 4px solid #06b6d4;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span style="font-size: 1.2rem;">🌐</span>
-              <strong style="font-size: 1.05rem; color: #fff;">Integración con Termes Symbiont: Regla Estricta Mono-Provider & Mono-Modelo</strong>
-            </div>
-            <span class="badge" style="background: rgba(6,182,212,0.15); color: #38bdf8; font-size: 0.70rem;">⚠️ Arquitectura Sin Conflictos</span>
+        <!-- SECTION 4: FAQ & RESOLUCIÓN DE ERRORES COMUNES -->
+        <div id="onb-faq" class="panel-card mb-4" style="border-left: 4px solid #38bdf8;">
+          <div class="panel-title" style="font-size: 1.15rem; color: #fff; margin-bottom: 0.4rem;">
+            ❓ Preguntas Frecuentes (FAQ) & Resolución de Errores Comunes
           </div>
-          <p class="text-dim text-sm" style="line-height: 1.6; margin-bottom: 0.8rem;">
-            Al conectar un endpoint de <strong>Termes Symbiont</strong> (sea mediante URL local <code>http://127.0.0.1:7420/v1</code> o archivo de endpoint dedicado <code>.json</code> / <code>ep_pub_*</code>), es <strong>fundamental e imprescindible que el endpoint esté configurado como Mono-Provider y Mono-Modelo</strong>.
+          <p class="text-dim text-sm mb-4">
+            Respuestas a las dudas más habituales sobre límites, almacenamiento, tiempos y configuración:
           </p>
-          <div class="grid-2" style="gap: 0.8rem; font-size: 0.78rem;">
-            <div style="background: rgba(0,0,0,0.35); padding: 0.75rem 0.9rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
-              <strong style="color: #f87171; display: block; margin-bottom: 0.3rem;">⚠️ ¿Por qué se producen conflictos si no es mono-modelo?</strong>
-              <div style="color: var(--text-dim); line-height: 1.5;">
-                Si un endpoint expone múltiples proveedores heterogéneos o mezcla modelos distintos en la misma ruta, se originan colisiones en el formateo de tokens, discrepancias en el schema de mensajes, desbordamientos de context window y fallos impredecibles en el entrenamiento o inferencia.
-              </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #38bdf8; font-size: 0.86rem; display: block; margin-bottom: 0.25rem;">
+                Q: ¿Por qué el entrenamiento en GitHub Actions tarda entre 20 y 60 minutos?
+              </strong>
+              <p style="font-size: 0.78rem; color: var(--text-dim); margin: 0; line-height: 1.5;">
+                <strong>R:</strong> Porque el runner de GitHub Actions ejecuta el cálculo real de tensores (Backpropagation con Unsloth / PyTorch / BitsAndBytes) sobre miles de parámetros a coste $0. Puedes dejar la tarea corriendo en segundo plano y revisar el progreso en los logs del workflow.
+              </p>
             </div>
-            <div style="background: rgba(0,0,0,0.35); padding: 0.75rem 0.9rem; border-radius: 6px; border: 1px solid var(--border-subtle);">
-              <strong style="color: #34d399; display: block; margin-bottom: 0.3rem;">✔ Configuración Óptima Recomendada:</strong>
-              <div style="color: var(--text-dim); line-height: 1.5;">
-                Vincula cada endpoint a un <strong>único modelo base y un único proveedor específico</strong> (ej: <code>gemini-3.7-flash</code> con <code>Google Gemini Web</code>). MANTX detectará automáticamente el archivo de endpoint mono-modelo y lo aislará para garantizar 100% de estabilidad y reproducibilidad.
-              </div>
+
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #38bdf8; font-size: 0.86rem; display: block; margin-bottom: 0.25rem;">
+                Q: ¿Cómo se solucionan los errores HTTP 429 (Too Many Requests) de proveedores gratuitos como Groq o Gemini?
+              </strong>
+              <p style="font-size: 0.78rem; color: var(--text-dim); margin: 0; line-height: 1.5;">
+                <strong>R:</strong> Utilizando el <strong>AKG Gateway</strong>. Crea un Pool con 2 o más claves (incluso de cuentas gratuitas distintas). Cuando una clave agote su cuota por minuto, AKG la pondrá en pausa por 60s y continuará con la siguiente de forma totalmente transparente.
+              </p>
             </div>
+
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #38bdf8; font-size: 0.86rem; display: block; margin-bottom: 0.25rem;">
+                Q: ¿Dónde se guardan los modelos entrenados (.gguf de hasta 2GB) sin pagar almacenamiento en la nube?
+              </strong>
+              <p style="font-size: 0.78rem; color: var(--text-dim); margin: 0; line-height: 1.5;">
+                <strong>R:</strong> En los <strong>GitHub Releases</strong> de tu repositorio privado <code>.mantx-storage</code>. GitHub permite subir archivos binarios grandes a los Releases sin límite de transferencia para uso del repositorio, permitiendo almacenar versiones completas a coste $0.
+              </p>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #38bdf8; font-size: 0.86rem; display: block; margin-bottom: 0.25rem;">
+                Q: ¿Qué diferencia hay entre usar LoRA y usar Ecdysis Semantic Memory?
+              </strong>
+              <p style="font-size: 0.78rem; color: var(--text-dim); margin: 0; line-height: 1.5;">
+                <strong>R:</strong> <em>LoRA</em> modifica físicamente los pesos de la red neuronal mediante fine-tuning (ideal para cambiar el estilo de código o razonamiento profundo). <em>Ecdysis Memory</em> es una memoria semántica externa que inyecta contexto dinámico en cada petición (ideal para APIs propietarias como Gemini/Groq que no permiten fine-tuning directo).
+              </p>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.9rem;">
+              <strong style="color: #38bdf8; font-size: 0.86rem; display: block; margin-bottom: 0.25rem;">
+                Q: ¿Cómo garantiza Auto-Heal que un modelo reentrenado no empeore al modelo activo en producción?
+              </strong>
+              <p style="font-size: 0.78rem; color: var(--text-dim); margin: 0; line-height: 1.5;">
+                <strong>R:</strong> Mediante la directiva de <strong>Garantía de No-Regresión</strong>: tras reentrenar la nueva versión incremental, Mantx lanza automáticamente una <em>Deimatic Battle</em> auditada por el Árbitro IA enfrentando al modelo actual con el candidato sanado. Si el candidato sanado no gana la batalla, el auto-despliegue se bloquea y se emite un reporte.
+              </p>
+            </div>
+
           </div>
         </div>
       </section>
