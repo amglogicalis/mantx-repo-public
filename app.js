@@ -1379,22 +1379,44 @@ function switchCandidateSourceTab(tab) {
 }
 
 function renderCandidateSourceModal() {
-  // 1. Marketplace
+  // 1. Marketplace Open-Weights (Full 19 models from DEFAULT_MODELS)
   const marketContainer = document.querySelector('#cand-source-marketplace-container > div');
   if (marketContainer) {
-    marketContainer.innerHTML = MARKETPLACE_BATTLE_MODELS.map(m => {
-      const isSelected = battleSelectedCandidates.some(c => c.modelId === m.modelId);
+    const modelsList = (typeof DEFAULT_MODELS !== 'undefined' && Array.isArray(DEFAULT_MODELS)) ? DEFAULT_MODELS : [];
+    marketContainer.innerHTML = modelsList.map(m => {
+      let ctxNum = 8192;
+      if (m.context.includes('1M')) ctxNum = 1048576;
+      else if (m.context.includes('200K')) ctxNum = 200000;
+      else if (m.context.includes('128K')) ctxNum = 128000;
+      else if (m.context.includes('64K')) ctxNum = 64000;
+      else if (m.context.includes('32K')) ctxNum = 32768;
+      else if (m.context.includes('16K')) ctxNum = 16384;
+      else if (m.context.includes('8K')) ctxNum = 8192;
+      else if (m.context.includes('4K')) ctxNum = 4096;
+      else if (m.context.includes('2K')) ctxNum = 2048;
+
+      const candObj = {
+        candidateId: `cand_market_${m.id}`,
+        name: m.name,
+        modelId: m.id,
+        type: m.runtimeEnv === 'gh_actions' ? 'local_gguf' : m.runtimeEnv === 'cloud_byok' ? 'byok' : 'hf_gpu',
+        contextWindow: ctxNum,
+        provider: (m.family || 'Open-Weights').toUpperCase(),
+        badge: m.params || 'GGUF',
+        cost: m.runtimeEnv === 'gh_actions' ? '$0 CPU' : m.runtimeEnv === 'cloud_byok' ? 'BYOK' : 'ZeroGPU'
+      };
+      const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId || c.modelId === candObj.modelId);
       return `
         <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-              <span class="badge badge-emerald" style="font-size: 0.66rem;">${m.badge}</span>
-              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(m.contextWindow / 1024)}k ctx</span>
+              <span class="badge badge-emerald" style="font-size: 0.66rem;">${candObj.badge}</span>
+              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(candObj.contextWindow / 1024)}k ctx</span>
             </div>
-            <strong style="font-size: 0.82rem; color: #fff; display: block;">${m.name}</strong>
-            <span style="font-size: 0.72rem; color: var(--text-dim);">${m.provider} • ${m.cost}</span>
+            <strong style="font-size: 0.82rem; color: #fff; display: block;">${candObj.name}</strong>
+            <span style="font-size: 0.72rem; color: var(--text-dim);">${candObj.provider} • ${candObj.cost}</span>
           </div>
-          <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(m).replace(/"/g, '&quot;')})">
+          <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(candObj).replace(/"/g, '&quot;')})">
             ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
           </button>
         </div>
@@ -1402,38 +1424,39 @@ function renderCandidateSourceModal() {
     }).join('');
   }
 
-  // 2. Nimphys
+  // 2. Mis Nimphys Entrenados (Using real nimphysList state)
   const nimphysContainer = document.querySelector('#cand-source-nimphys-container > div');
   if (nimphysContainer) {
-    if (nimphys.length === 0) {
+    const list = (typeof nimphysList !== 'undefined' && Array.isArray(nimphysList)) ? nimphysList : [];
+    if (list.length === 0) {
       nimphysContainer.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 1.5rem; color: var(--text-dim); font-size: 0.78rem;">
           No tienes Nimphys entrenados aún. Entrena uno en la pestaña <strong>Nimphys</strong> o selecciona modelos de Marketplace.
         </div>
       `;
     } else {
-      nimphysContainer.innerHTML = nimphys.map(n => {
+      nimphysContainer.innerHTML = list.map(n => {
         const candObj = {
-          candidateId: `cand_nimphy_${n.id}`,
-          name: `${n.name} (${n.version || 'v1.0'})`,
+          candidateId: `cand_nimphy_${n.nimphyId}`,
+          name: `${n.name} (${n.currentVersion || 'v1.0.0'})`,
           modelId: n.baseModel || 'qwen-2.5-coder-3b',
-          nimphyId: n.id,
+          nimphyId: n.nimphyId,
           type: 'nimphy',
           contextWindow: 8192,
           provider: 'MANTX Nimphy',
-          badge: '🧬 NIMPHY',
+          badge: `🧬 ${n.method?.toUpperCase() || 'RAFT'}`,
           cost: '$0 Local'
         };
-        const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId);
+        const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId || c.modelId === candObj.modelId);
         return `
           <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                <span class="badge badge-mint" style="font-size: 0.66rem;">🧬 NIMPHY</span>
+                <span class="badge badge-mint" style="font-size: 0.66rem;">${candObj.badge}</span>
                 <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">8k ctx</span>
               </div>
               <strong style="font-size: 0.82rem; color: #fff; display: block;">${n.name}</strong>
-              <span style="font-size: 0.72rem; color: var(--text-dim);">${n.category || 'Fine-Tuned'} • ${n.version || 'v1.0.0'}</span>
+              <span style="font-size: 0.72rem; color: var(--text-dim);">${n.baseModel} • ${n.currentVersion || 'v1.0.0'}</span>
             </div>
             <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(candObj).replace(/"/g, '&quot;')})">
               ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
@@ -1444,22 +1467,38 @@ function renderCandidateSourceModal() {
     }
   }
 
-  // 3. Termes
+  // 3. Termes Symbiont Web (Full list from TERMES_DEFAULT_MODELS)
   const termesContainer = document.querySelector('#cand-source-termes-container > div');
   if (termesContainer) {
-    termesContainer.innerHTML = TERMES_BATTLE_MODELS.map(m => {
-      const isSelected = battleSelectedCandidates.some(c => c.modelId === m.modelId);
+    const tModels = (typeof TERMES_DEFAULT_MODELS !== 'undefined' && Array.isArray(TERMES_DEFAULT_MODELS)) ? TERMES_DEFAULT_MODELS : [];
+    termesContainer.innerHTML = tModels.map(m => {
+      let ctxNum = 32768;
+      if (m.id.includes('flash') || m.id.includes('pro')) ctxNum = 1048576;
+      else if (m.id.includes('claude')) ctxNum = 200000;
+      else if (m.id.includes('deepseek')) ctxNum = 64000;
+
+      const candObj = {
+        candidateId: `cand_termes_${m.id}`,
+        name: m.name,
+        modelId: m.id,
+        type: 'termes',
+        contextWindow: ctxNum,
+        provider: 'Termes Web',
+        badge: '🌐 SYMBIONT',
+        cost: '$0 Web'
+      };
+      const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId || c.modelId === candObj.modelId);
       return `
         <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-              <span class="badge badge-mint" style="font-size: 0.66rem;">${m.badge}</span>
-              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(m.contextWindow / 1024)}k ctx</span>
+              <span class="badge badge-mint" style="font-size: 0.66rem;">🌐 SYMBIONT</span>
+              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(candObj.contextWindow / 1024)}k ctx</span>
             </div>
             <strong style="font-size: 0.82rem; color: #fff; display: block;">${m.name}</strong>
-            <span style="font-size: 0.72rem; color: var(--text-dim);">${m.provider} • ${m.cost}</span>
+            <span style="font-size: 0.72rem; color: var(--text-dim);">${m.id} • $0 Web</span>
           </div>
-          <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(m).replace(/"/g, '&quot;')})">
+          <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(candObj).replace(/"/g, '&quot;')})">
             ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
           </button>
         </div>
@@ -1467,37 +1506,61 @@ function renderCandidateSourceModal() {
     }).join('');
   }
 
-  // 4. BYOK / AKG Pools
+  // 4. BYOK / AKG Pools (Pools + All Provider BYOK Models)
   const byokContainer = document.querySelector('#cand-source-byok-container > div');
   if (byokContainer) {
-    if (akgPools.length === 0) {
+    const allByokItems = [];
+
+    // 4.1 Configured Pools
+    (akgPools || []).forEach(p => {
+      allByokItems.push({
+        candidateId: `cand_akg_${p.poolId}`,
+        name: `Pool: ${p.name}`,
+        modelId: p.poolId,
+        type: 'byok',
+        contextWindow: 128000,
+        provider: 'AKG Gateway Pool',
+        badge: '🔑 AKG POOL',
+        cost: `${p.keys?.length || 0} claves • ${p.strategy}`
+      });
+    });
+
+    // 4.2 Standard BYOK Provider Models
+    if (typeof BYOK_DEFAULT_MODELS !== 'undefined') {
+      Object.entries(BYOK_DEFAULT_MODELS).forEach(([provider, models]) => {
+        models.forEach(m => {
+          allByokItems.push({
+            candidateId: `cand_byok_${provider}_${m.id}`,
+            name: m.name,
+            modelId: m.id,
+            type: 'byok',
+            contextWindow: m.id.includes('flash') || m.id.includes('pro') ? 1048576 : 128000,
+            provider: provider.toUpperCase(),
+            badge: `🔑 ${provider.toUpperCase()}`,
+            cost: 'Direct Cloud'
+          });
+        });
+      });
+    }
+
+    if (allByokItems.length === 0) {
       byokContainer.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 1.5rem; color: var(--text-dim); font-size: 0.78rem;">
-          No tienes Pools AKG configurados. Crea uno en la pestaña <strong>AKG Gateway</strong> para añadir modelos cloud con claves propias.
+          No hay modelos BYOK disponibles. Configura un pool en la pestaña <strong>AKG Gateway</strong>.
         </div>
       `;
     } else {
-      byokContainer.innerHTML = akgPools.map(p => {
-        const candObj = {
-          candidateId: `cand_akg_${p.poolId}`,
-          name: `AKG: ${p.name}`,
-          modelId: p.poolId,
-          type: 'byok',
-          contextWindow: 128000,
-          provider: 'AKG Gateway Pool',
-          badge: '🔑 AKG POOL',
-          cost: 'BYOK Cloud'
-        };
-        const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId);
+      byokContainer.innerHTML = allByokItems.map(candObj => {
+        const isSelected = battleSelectedCandidates.some(c => c.candidateId === candObj.candidateId || c.modelId === candObj.modelId);
         return `
           <div style="background: rgba(0,0,0,0.4); border: 1px solid ${isSelected ? 'var(--emerald-main)' : 'var(--border-subtle)'}; border-radius: 8px; padding: 0.65rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-                <span class="badge badge-emerald" style="font-size: 0.66rem;">🔑 AKG POOL</span>
-                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">128k ctx</span>
+                <span class="badge badge-emerald" style="font-size: 0.66rem;">${candObj.badge}</span>
+                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light);">${Math.round(candObj.contextWindow / 1024)}k ctx</span>
               </div>
-              <strong style="font-size: 0.82rem; color: #fff; display: block;">${p.name}</strong>
-              <span style="font-size: 0.72rem; color: var(--text-dim);">${p.keys?.length || 0} claves • ${p.strategy}</span>
+              <strong style="font-size: 0.82rem; color: #fff; display: block;">${candObj.name}</strong>
+              <span style="font-size: 0.72rem; color: var(--text-dim);">${candObj.provider} • ${candObj.cost}</span>
             </div>
             <button type="button" class="btn ${isSelected ? 'btn-outline' : 'btn-primary'} btn-sm" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; width: 100%;" onclick="toggleCandidateSelection(${JSON.stringify(candObj).replace(/"/g, '&quot;')})">
               ${isSelected ? '✔ Seleccionado' : '➕ Añadir a Batalla'}
@@ -1591,6 +1654,15 @@ function updateWarRoundName(index, val) {
 function updateWarRoundPrompt(index, val) {
   if (warRounds[index]) {
     warRounds[index].prompt = val;
+    const promptTok = Math.ceil((val || '').length / 3.8);
+    const docTok = (warRounds[index].docs || []).reduce((a, d) => a + d.tokens, 0);
+
+    const promptSpan = document.getElementById(`war-round-tok-prompt-${index}`);
+    if (promptSpan) promptSpan.textContent = `~${promptTok} tokens`;
+
+    const totalSpan = document.getElementById(`war-round-tok-total-${index}`);
+    if (totalSpan) totalSpan.textContent = `~${promptTok + docTok} tokens totales`;
+
     updateBattleEstimates();
   }
 }
@@ -1626,19 +1698,33 @@ function renderWarRoundsList() {
 
   container.innerHTML = warRounds.map((r, idx) => {
     const roundDocs = r.docs || [];
+    const promptTokens = Math.ceil((r.prompt || '').length / 3.8);
     const docTokens = roundDocs.reduce((a, d) => a + d.tokens, 0);
+    const totalTokens = promptTokens + docTokens;
 
     return `
       <div style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem; border-left: 3px solid #38bdf8;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
             <strong style="color: #38bdf8; font-size: 0.82rem;">🥊 Asalto #${r.roundNumber}:</strong>
-            <input type="text" class="input-text" value="${r.name || `Asalto #${r.roundNumber}`}" placeholder="Nombre / Objetivo del Asalto" onchange="updateWarRoundName(${idx}, this.value)" style="height: 26px; padding: 0.15rem 0.45rem; font-size: 0.76rem; width: 220px; background: rgba(0,0,0,0.5);">
+            <input type="text" class="input-text" value="${r.name || `Asalto #${r.roundNumber}`}" placeholder="Nombre / Objetivo del Asalto" onchange="updateWarRoundName(${idx}, this.value)" style="height: 26px; padding: 0.15rem 0.45rem; font-size: 0.76rem; width: 200px; background: rgba(0,0,0,0.5);">
           </div>
-          ${warRounds.length > 1 ? `<button type="button" class="btn btn-outline btn-sm" style="color: #f87171; font-size: 0.68rem; padding: 0.15rem 0.45rem;" onclick="removeWarRoundCard(${idx})">🗑️ Eliminar Asalto</button>` : ''}
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <span id="war-round-tok-total-${idx}" style="font-family: var(--font-mono); font-size: 0.70rem; color: #38bdf8; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 4px; padding: 0.15rem 0.4rem;">
+              ~${totalTokens} tokens totales
+            </span>
+            ${warRounds.length > 1 ? `<button type="button" class="btn btn-outline btn-sm" style="color: #f87171; font-size: 0.68rem; padding: 0.15rem 0.45rem;" onclick="removeWarRoundCard(${idx})">🗑️</button>` : ''}
+          </div>
         </div>
 
-        <textarea class="input-textarea mb-2" rows="2" placeholder="Escribe aquí la consulta o instrucción para el Asalto #${r.roundNumber}..." oninput="updateWarRoundPrompt(${idx}, this.value)">${r.prompt || ''}</textarea>
+        <div style="position: relative; margin-bottom: 0.5rem;">
+          <textarea class="input-textarea" rows="2" placeholder="Escribe aquí la consulta o instrucción para el Asalto #${r.roundNumber}..." oninput="updateWarRoundPrompt(${idx}, this.value)" style="padding-bottom: 1.4rem;">${r.prompt || ''}</textarea>
+          <div style="position: absolute; bottom: 6px; right: 10px; pointer-events: none;">
+            <span id="war-round-tok-prompt-${idx}" style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--emerald-light); background: rgba(0,0,0,0.6); padding: 0.1rem 0.35rem; border-radius: 3px; border: 1px solid rgba(16,185,129,0.2);">
+              ~${promptTokens} tokens
+            </span>
+          </div>
+        </div>
 
         <!-- Round Dedicated Document Uploader -->
         <div style="background: rgba(0,0,0,0.25); border: 1px dashed rgba(56,189,248,0.25); border-radius: 6px; padding: 0.5rem 0.7rem;">
