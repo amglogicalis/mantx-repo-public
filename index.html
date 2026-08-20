@@ -639,8 +639,39 @@
                 <!-- Uploaded file items injected via JS -->
               </div>
 
-              <label style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.2rem;">O pega contexto / notas adicionales en texto:</label>
-              <textarea id="forge-docs-input" class="input-textarea" rows="2" placeholder="Pega aquí snippets de código, documentación complementaria o instrucciones adicionales..." oninput="updateForgeTokenEstimate()"></textarea>
+            <!-- Motor de Síntesis Selector -->
+            <div class="form-group mb-2">
+              <label>Motor de Síntesis / Generación:</label>
+              <select id="forge-engine-mode" class="input-select" onchange="onForgeEngineChange()">
+                <option value="local_runner">🖥️ Modelo Local en GitHub Actions ($0 Compute)</option>
+                <option value="akg">🔑 AKG Gateway (Pool de Claves con Auto-Rotación 429)</option>
+                <option value="termes">🌐 Termes Symbiont (Gemini 3.7 Flash $0 Web Bridge)</option>
+              </select>
+            </div>
+
+            <!-- AKG Pool Selection (Visible when akg selected) -->
+            <div id="forge-akg-pool-container" class="form-group mb-2 hidden">
+              <label>Seleccionar Pool de Claves AKG:</label>
+              <select id="forge-akg-pool-select" class="input-select">
+                <option value="default_pool">Pool Primario Multi-Key</option>
+              </select>
+            </div>
+
+            <!-- Termes Endpoint Input (Visible when termes selected) -->
+            <div id="forge-termes-container" class="form-group mb-2 hidden">
+              <label>Endpoint Termes Symbiont:</label>
+              <input type="text" id="forge-termes-endpoint" class="input-text" value="http://127.0.0.1:7420/v1" placeholder="http://127.0.0.1:7420/v1">
+            </div>
+
+            <!-- Local Model Selection (Visible when local_runner selected) -->
+            <div id="forge-local-model-container" class="form-group mb-2">
+              <label>Modelo Base Open-Source en Actions ($0):</label>
+              <select id="forge-local-model" class="input-select">
+                <option value="qwen-2.5-coder-3b">Qwen 2.5 Coder 3B Instruct (GGUF Q4)</option>
+                <option value="llama-3.2-3b">Llama 3.2 3B Instruct (GGUF Q4)</option>
+                <option value="deepseek-coder-6.7b">DeepSeek Coder 6.7B Instruct</option>
+                <option value="phi-3.5-mini-3.8b">Phi-3.5 Mini 3.8B Instruct</option>
+              </select>
             </div>
 
             <div class="grid-3 mb-3">

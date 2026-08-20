@@ -6084,6 +6084,28 @@ function setForgeMode(mode) {
   }
 }
 
+function onForgeEngineChange() {
+  const mode = document.getElementById('forge-engine-mode')?.value || 'local_runner';
+  const akgCont = document.getElementById('forge-akg-pool-container');
+  const termesCont = document.getElementById('forge-termes-container');
+  const localCont = document.getElementById('forge-local-model-container');
+
+  if (akgCont) akgCont.classList.toggle('hidden', mode !== 'akg');
+  if (termesCont) termesCont.classList.toggle('hidden', mode !== 'termes');
+  if (localCont) localCont.classList.toggle('hidden', mode !== 'local_runner');
+
+  // Populate AKG pools if akg selected
+  if (mode === 'akg') {
+    const select = document.getElementById('forge-akg-pool-select');
+    if (select) {
+      const pools = Array.isArray(akgPools) && akgPools.length > 0 ? akgPools : DEFAULT_POOLS;
+      select.innerHTML = pools.map(p => `
+        <option value="${p.poolId}">🔑 ${p.name} (${p.keys.length} claves | ${p.strategy})</option>
+      `).join('');
+    }
+  }
+}
+
 function onForgeFormatChange() {
   const fmt = document.getElementById('forge-fmt')?.value || 'alpaca';
   const stratSelect = document.getElementById('forge-strat');
@@ -6335,11 +6357,20 @@ async function runDataForge() {
   const fmt = document.getElementById('forge-fmt')?.value || 'alpaca';
   const count = document.getElementById('forge-count')?.value || '10';
   const docsText = document.getElementById('forge-docs-input')?.value?.trim() || '';
+  const engineMode = document.getElementById('forge-engine-mode')?.value || 'local_runner';
+  const localModel = document.getElementById('forge-local-model')?.value || 'qwen-2.5-coder-3b';
+  const akgPoolId = document.getElementById('forge-akg-pool-select')?.value;
+  const termesEndpoint = document.getElementById('forge-termes-endpoint')?.value || 'http://127.0.0.1:7420/v1';
   const out = document.getElementById('forge-result');
   if (!out) return;
 
   const domain = rawObj || rawName || 'Optimización de Rendimiento y Arquitectura';
   const name = rawName || `${domain.slice(0, 25)} QA Dataset`;
+  const engineLabel = engineMode === 'local_runner'
+    ? `🖥️ Actions Runner ($0 Compute, ${localModel})`
+    : engineMode === 'akg'
+    ? `🔑 AKG Gateway (Pool: ${akgPoolId || 'default'})`
+    : `🌐 Termes Symbiont (${termesEndpoint})`;
 
   const filesText = uploadedForgeFiles.map(f => `--- Documento: ${f.name} ---\n${f.content}`).join('\n\n');
   const combinedContext = [filesText, docsText].filter(Boolean).join('\n\n');
@@ -6348,7 +6379,7 @@ async function runDataForge() {
   out.innerHTML = `
     <div style="display: flex; align-items: center; gap: 0.6rem;">
       <div class="pulse-dot"></div>
-      <span>Sintetizando dataset (${fmt.toUpperCase()}) para "${domain}" ${uploadedForgeFiles.length > 0 ? `(usando ${uploadedForgeFiles.length} archivos semilla)` : ''}...</span>
+      <span>Sintetizando dataset (${fmt.toUpperCase()}) para "${domain}" vía ${engineLabel}...</span>
     </div>
   `;
 
@@ -6364,6 +6395,8 @@ async function runDataForge() {
       domain,
       format: fmt,
       strategy: strat,
+      engineMode,
+      engineLabel,
       data: dataset,
       count: sampleCount,
       filesCount: uploadedForgeFiles.length,
@@ -6374,7 +6407,7 @@ async function runDataForge() {
       <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.8rem;">
         <div>
           <strong style="color: var(--emerald-light); font-size: 0.88rem;">✔ Artefacto Sintetizado: ${sampleCount} ${fmt === 'aft' ? 'Trazas AFT' : fmt === 'few_shot' ? 'Ejemplos Few-Shot' : 'Muestras'} (100% Calidad Aprobada)</strong>
-          <div class="text-dim text-xs" style="margin-top: 0.2rem;">Dominio: ${domain} | Formato: ${fmt.toUpperCase()} | Estrategia: ${strat.toUpperCase()} ${uploadedForgeFiles.length > 0 ? `| ${uploadedForgeFiles.length} Archivos Semilla` : ''}</div>
+          <div class="text-dim text-xs" style="margin-top: 0.2rem;">Motor: <strong style="color: #6ee7b7;">${engineLabel}</strong> | Dominio: ${domain} | Formato: ${fmt.toUpperCase()} | Estrategia: ${strat.toUpperCase()} ${uploadedForgeFiles.length > 0 ? `| ${uploadedForgeFiles.length} Archivos Semilla` : ''}</div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
           <button class="btn btn-outline btn-sm" onclick="downloadForgeDataset()">📥 Descargar ${fmt === 'aft' ? '.aft.json' : '.json'}</button>
