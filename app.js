@@ -1260,6 +1260,7 @@ function switchTab(tabId) {
   } else if (tabId === 'nimphys') {
     renderNimphysCatalog();
     renderLabMatrix();
+    onForgeEngineChange();
   } else if (tabId === 'akg') {
     renderAkgPools();
   } else if (tabId === 'marketplace') {
