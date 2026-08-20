@@ -1258,13 +1258,17 @@ function switchTab(tabId) {
     renderAutoHealOptions();
     renderIntelligenceHistory();
   } else if (tabId === 'nimphys') {
-    renderNimphys();
+    renderNimphysCatalog();
     renderLabMatrix();
   } else if (tabId === 'akg') {
     renderAkgPools();
   } else if (tabId === 'marketplace') {
     renderMarketplace();
   }
+}
+
+function renderNimphys() {
+  renderNimphysCatalog();
 }
 
 document.querySelectorAll('.nav-tab').forEach(btn => {
