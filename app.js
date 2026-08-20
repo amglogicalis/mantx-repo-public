@@ -426,6 +426,7 @@ function disconnectPat() {
   }
   updateBattleHistoryBadge();
   labExperiments = JSON.parse(JSON.stringify(DEFAULT_LAB_EXPERIMENTS));
+  renderDashboardStats();
 
   const gate = document.getElementById('login-gate');
   const consoleEl = document.getElementById('main-console');
@@ -2650,12 +2651,6 @@ function renderBattleExecutionResults(battleRecord) {
             ${battleRecord.autoEvaluate ? 'Arbitrado por Árbitro IA Objetivo.' : 'Evaluación directa de usuario.'}
           </p>
         </div>
-
-        <div style="display: flex; gap: 0.6rem; align-items: center;">
-          <button type="button" class="btn btn-primary btn-sm" onclick="deployWinnerApi('${winner.candidateId}')" style="font-weight: 700; font-size: 0.8rem; padding: 0.45rem 0.9rem; box-shadow: 0 0 15px rgba(16,185,129,0.3);">
-            ⚡ Desplegar Servidor API del Ganador
-          </button>
-        </div>
       </div>
     </div>
 
@@ -2675,7 +2670,6 @@ function renderBattleExecutionResults(battleRecord) {
                 <th style="padding: 0.5rem 0.6rem;">Media Tok/s</th>
                 <th style="padding: 0.5rem 0.6rem;">Puntuación Media</th>
                 <th style="padding: 0.5rem 0.6rem;">Asaltos Ganados</th>
-                <th style="padding: 0.5rem 0.6rem; text-align: right;">Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -2692,9 +2686,6 @@ function renderBattleExecutionResults(battleRecord) {
                     <td style="padding: 0.6rem; font-family: var(--font-mono); color: #38bdf8;">~${s.avgTokensPerSec} tok/s</td>
                     <td style="padding: 0.6rem; font-weight: 700; color: ${s.overallScore >= 90 ? 'var(--emerald-light)' : '#f59e0b'};">${s.overallScore} / 100</td>
                     <td style="padding: 0.6rem; font-weight: 700; color: #fff;">${s.roundWins} / ${battleRecord.rounds.length}</td>
-                    <td style="padding: 0.6rem; text-align: right;">
-                      <button type="button" class="btn btn-outline btn-sm" onclick="deployWinnerApi('${s.candidateId}')" style="font-size: 0.70rem; padding: 0.2rem 0.5rem;">⚡ Desplegar API</button>
-                    </td>
                   </tr>
                 `;
               }).join('')}
@@ -2871,9 +2862,6 @@ function openBattleDetailModal(battleId) {
           <strong style="color: #fff; font-size: 0.95rem;">Ganador Proclamado: ${battle.overallWinnerName}</strong>
           <p class="text-dim text-xs" style="margin: 0.1rem 0 0;">Modo: ${battle.mode.toUpperCase()} • Fecha: ${new Date(battle.createdAt).toLocaleString()}</p>
         </div>
-        <button type="button" class="btn btn-primary btn-sm" onclick="deployWinnerApi('${battle.overallWinnerId}'); closeBattleDetailModal();" style="font-size: 0.74rem;">
-          ⚡ Desplegar API
-        </button>
       </div>
 
       ${battle.rounds.map(r => `
@@ -8757,5 +8745,6 @@ function handleAftFileImport(files) {
 
 // ─── STARTUP ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  renderDashboardStats();
   checkAuthOnStartup();
 });
