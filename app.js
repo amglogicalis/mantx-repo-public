@@ -257,7 +257,12 @@ function disconnectPat() {
   currentUser = null;
   akgPools = JSON.parse(JSON.stringify(DEFAULT_POOLS));
   nimphysList = JSON.parse(JSON.stringify(DEFAULT_NIMPHYS));
-  battleHistory = [];
+  try {
+    battleHistory = JSON.parse(localStorage.getItem('mantx_deimatic_battles') || '[]');
+  } catch {
+    battleHistory = [];
+  }
+  updateBattleHistoryBadge();
   labExperiments = JSON.parse(JSON.stringify(DEFAULT_LAB_EXPERIMENTS));
 
   const gate = document.getElementById('login-gate');
@@ -2328,10 +2333,33 @@ async function executeDeimaticBattleArena() {
       }
     }
 
-    // Sort round responses by composite score
+function calculateConsoleCompositeScore(m) {
+  const rawQuality = (m.semanticScore * 0.45) + (m.completenessScore * 0.30) + (m.coherenceScore * 0.25);
+  
+  // Strict verdict multiplier
+  let verdictMultiplier = 1.0;
+  if (m.verdict === 'partially_correct') verdictMultiplier = 0.70; // 30% penalty
+  else if (m.verdict === 'hallucinated') verdictMultiplier = 0.30; // 70% penalty
+  else if (m.verdict === 'incorrect') verdictMultiplier = 0.15; // 85% penalty
+
+  // Speed bonus
+  let speedBonus = 0;
+  if (m.tokensPerSec > 250) speedBonus = 5;
+  else if (m.tokensPerSec > 100) speedBonus = 3;
+  else if (m.tokensPerSec > 40) speedBonus = 1;
+
+  // Latency penalty
+  let latencyPenalty = 0;
+  if (m.latencyMs > 2500) latencyPenalty = 10;
+  else if (m.latencyMs > 1500) latencyPenalty = 4;
+  else if (m.latencyMs > 1000) latencyPenalty = 1;
+
+  return Math.max(0, Math.min(100, Math.round((rawQuality * verdictMultiplier) + speedBonus - latencyPenalty)));
+}
+
     responses.sort((a, b) => {
-      const scoreA = (a.metrics.semanticScore * 0.4) + (a.metrics.completenessScore * 0.3) + (a.metrics.coherenceScore * 0.3);
-      const scoreB = (b.metrics.semanticScore * 0.4) + (b.metrics.completenessScore * 0.3) + (b.metrics.coherenceScore * 0.3);
+      const scoreA = calculateConsoleCompositeScore(a.metrics);
+      const scoreB = calculateConsoleCompositeScore(b.metrics);
       return scoreB - scoreA;
     });
 
@@ -2357,6 +2385,8 @@ async function executeDeimaticBattleArena() {
     let sumCoherence = 0;
     let totalToks = 0;
     let roundWins = 0;
+    let hasIncorrect = false;
+    let hasPartially = false;
 
     evaluatedRounds.forEach(r => {
       if (r.winnerCandidateId === cand.candidateId) roundWins++;
@@ -2368,6 +2398,9 @@ async function executeDeimaticBattleArena() {
         sumCompleteness += resp.metrics.completenessScore;
         sumCoherence += resp.metrics.coherenceScore;
         totalToks += Math.round(resp.content.length / 4);
+
+        if (resp.metrics.verdict === 'incorrect') hasIncorrect = true;
+        if (resp.metrics.verdict === 'partially_correct' || resp.metrics.verdict === 'hallucinated') hasPartially = true;
       }
     });
 
@@ -2376,7 +2409,16 @@ async function executeDeimaticBattleArena() {
     const avgSemanticScore = Math.round(sumSemantic / numRounds);
     const avgCompletenessScore = Math.round(sumCompleteness / numRounds);
     const avgCoherenceScore = Math.round(sumCoherence / numRounds);
-    const overallScore = Math.round((avgSemanticScore * 0.4) + (avgCompletenessScore * 0.3) + (avgCoherenceScore * 0.3));
+    const finalVerdict = hasIncorrect ? 'incorrect' : (hasPartially ? 'partially_correct' : 'correct');
+
+    const overallScore = calculateConsoleCompositeScore({
+      semanticScore: avgSemanticScore,
+      completenessScore: avgCompletenessScore,
+      coherenceScore: avgCoherenceScore,
+      latencyMs: avgLatencyMs,
+      tokensPerSec: avgTokensPerSec,
+      verdict: finalVerdict
+    });
 
     return {
       candidateId: cand.candidateId,
@@ -2391,7 +2433,7 @@ async function executeDeimaticBattleArena() {
       totalTokensUsed: totalToks,
       roundWins,
       overallScore,
-      finalVerdict: 'correct'
+      finalVerdict
     };
   });
 
@@ -2744,33 +2786,57 @@ async function clearAllBattleHistory() {
 }
 
 async function loadBattlesFromVault() {
-  if (!currentUser) return;
+  // 1. Always load from localStorage first
+  try {
+    const local = localStorage.getItem('mantx_deimatic_battles');
+    if (local) {
+      battleHistory = JSON.parse(local);
+      updateBattleHistoryBadge();
+      renderBattleHistoryList();
+    }
+  } catch {}
+
+  // 2. If authenticated, fetch from GitHub .mantx-storage repo
   const token = getStoredToken();
-  if (!token) return;
+  const owner = getStoredOwner() || currentUser?.login;
+  if (!token || !owner) return;
 
   try {
-    const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/deimatic-battles.json`, {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${STORAGE_REPO}/contents/deimatic-battles.json?_t=${Date.now()}`, {
       headers: { 'Authorization': `token ${token}` }
     });
     if (res.ok) {
       const data = await res.json();
       const content = decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
-      battleHistory = JSON.parse(content);
-      updateBattleHistoryBadge();
-      renderBattleHistoryList();
+      const remoteBattles = JSON.parse(content);
+      if (Array.isArray(remoteBattles) && remoteBattles.length > 0) {
+        const existingIds = new Set(battleHistory.map(b => b.battleId));
+        remoteBattles.forEach(rb => {
+          if (!existingIds.has(rb.battleId)) battleHistory.push(rb);
+        });
+        battleHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        localStorage.setItem('mantx_deimatic_battles', JSON.stringify(battleHistory));
+        updateBattleHistoryBadge();
+        renderBattleHistoryList();
+      }
     }
   } catch {}
 }
 
 async function saveBattlesToVault() {
-  if (!currentUser) return;
+  // Save to localStorage immediately
+  try {
+    localStorage.setItem('mantx_deimatic_battles', JSON.stringify(battleHistory));
+  } catch {}
+
   const token = getStoredToken();
-  if (!token) return;
+  const owner = getStoredOwner() || currentUser?.login;
+  if (!token || !owner) return;
 
   try {
     let sha = null;
     try {
-      const res = await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/deimatic-battles.json`, {
+      const res = await fetch(`https://api.github.com/repos/${owner}/${STORAGE_REPO}/contents/deimatic-battles.json`, {
         headers: { 'Authorization': `token ${token}` }
       });
       if (res.ok) {
@@ -2779,7 +2845,7 @@ async function saveBattlesToVault() {
       }
     } catch {}
 
-    await fetch(`https://api.github.com/repos/${currentUser.login}/${STORAGE_REPO}/contents/deimatic-battles.json`, {
+    await fetch(`https://api.github.com/repos/${owner}/${STORAGE_REPO}/contents/deimatic-battles.json`, {
       method: 'PUT',
       headers: {
         'Authorization': `token ${token}`,
